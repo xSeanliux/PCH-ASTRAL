@@ -1,0 +1,64 @@
+% FULL PATH OF DATA FILE INCLUDE .NEX EXTENSION
+Data_file_name = {{ nexus_file_name }}
+% ONE OF THE FOLLOWING THREE OPTIONS MUST BE ONE, THE OTHERS 0
+Start_from_rand_tree = 1
+Start_from_tree_in_output = 0
+Start_from_true_tree = 0
+% VALUE OF THETA IGNORED UNLESS Start_from_rand_tree == 1
+Theta = 0.001000
+% NEXT TWO FIELDS IGNORED UNLESS Start_from_tree_in_output == 1
+% FULL PATH OF OLD OUTPUT FILE INCLUDE .NEX EXTENSION
+Tree_file_name =
+Use_tree = 0
+Omit_taxa = 0
+% LIST IS IGNORED UNLESS Omit_taxa == 1 CAN USE MATLAB VECTOR NOTATION
+Omit_taxa_list =
+Omit_traits = 0
+% LIST IS IGNORED UNLESS Omit_traits == 1 CAN USE MATLAB VECTOR NOTATION
+Omit_trait_list =
+% ONE OF THE FOLLOWING TWO OPTIONS MUST BE 1, THE OTHER 0
+Yule_prior_on_tree = 0
+Flat_prior_on_tree = 1
+% ONE OF THE FOLLOWING TWO OPTIONS MUST BE 1, THE OTHER 0
+Uniform_prior_on_tree_topologies = 1
+Uniform_prior_on_labelled_histories = 0
+% FOLLOWING IS IGNORED UNLESS Flat_prior_on_tree == 1
+Max_root_age = 16000
+Vary_topology = 1
+Account_rare_traits = 1
+Impose_clades = 1
+% LIST IS IGNORED UNLESS Impose_clades == 1 CAN USE MATLAB VECTOR NOTATION
+Omit_clade_list =
+Omit_clade_ages_list =
+Vary_loss_rate = 1
+% FOLLOWING IS IGNORED WHEN Random_initial_loss_rate == 1
+Initial_loss_rate = 0.637419
+Random_initial_loss_rate = 1
+Account_for_lateral_transfer = 0
+% FOLLOWING IS IGNORED WHEN Account_for_lateral_transfer == 0
+Vary_borrowing_rate = 0
+Random_initial_borrowing_rate = 0
+% NEXT LINE IS IGNORED WHEN Random_initial_borrowing_rate == 1
+Initial_borrowing_rate = 0
+Include_catastrophes = 0
+% NEXT 6 LINES ARE IGNORED WHEN Include_catastrophes = 0
+% FOLLOWING IS IGNORED WHEN Random_initial_cat_death_prob = 1
+Initial_cat_death_prob = 0.322368
+Random_initial_cat_death_prob = 1
+% FOLLOWING IS IGNORED WHEN Random_initial_cat_rate = 1
+Initial_cat_rate = 8.15221e-05
+Random_initial_cat_rate = 1
+Model_missing = 0
+Run_length = 200000
+Sample_interval = 50
+Seed_random_numbers = 0
+% FOLLOWING IS IGNORED UNLESS Seed_random_numbers == 1
+With_seed = 0
+% OUTPUT FILE NAME OMITTING PATH AND ANY EXTENSIONS
+Output_file_name = {{ output_file_name }}
+% FULL PATH FOR DIRECTORY TO OUTPUT FILES
+Output_path_name = {{ output_path_name }}
+% Gaps are treated as missing data. To change this, edit GlobalValues.m.
+Coupled_markov_chains = 0
+% FOLLOWING IS IGNORED WHEN Coupled_markov_chains == 0
+Coupling_lag = 0

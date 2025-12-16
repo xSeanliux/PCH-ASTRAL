@@ -1,0 +1,95 @@
+# Homoplasy and possible lateral transfer.  
+-   desc: Clear cases of homoplasy.  
+    data: 
+        - 14 black  the Latvian word also means ‘dirty’, Baltic cognates mean ‘spot’ and ‘blue spot’, and there is a related Sanskrit word meaning ‘dirt’; parallel semantic shift is likely.  
+        - 42 fall  inherited ‘fly’ has encroached on ‘fall’.  
+        - 45 father  inherited ‘dad’ has encroached on ‘father’.  
+        - 50 fire  the name of the fire god has encroached on ‘fire’.  
+        - 56 fly  inherited ‘float’ has encroached on ‘fly’.  
+        - 70 he  various demonstratives have taken over the functions of the 3rd-person pronoun.  
+        - 72 hear  ‘be sharp-eared’ has taken over ‘hear’ in Greek and Germanic.  
+        - 74 heavy  state 1 probably reflects a parallel innovation, the divergent reflexes derived independently from a verb root.  
+        - 75 here  derivatives of different demonstratives have developed in parallel.  
+        - 76 hit  state 6 is ancestral; state 20 probably reflects parallel development.  
+        - 77 hold  parallel development of the Germanic states is almost demonstrable.  
+        - 81 husband  inherited ‘man’ has encroached on ‘husband’.  
+        - 82 I  inherited ‘me’ has encroached on ‘I’.  
+        - 84 if  relative and interrogative pronouns have encroached on ‘if’.  
+        - 88 know  ‘recognize’ has clearly encroached on inherited ‘know’.  
+        - 94 lie  the eventive verb has encroached on the stative.  
+        - 99 man  ‘person’ and ‘young man, warrior’ have encroached on ‘man’.  
+        - 102 moon  ‘luminary’ has encroached on ‘moon’.  
+        - 111 night  ‘evening’ has encroached on ‘night’.  
+        - 114 old  ‘year-old’ has encroached on ‘old’.  
+        - 115 one  ‘single’ has encroached on ‘one’.  
+        - 117 person  one of the derivatives of ‘earth’ has encroached on ‘person’.  
+        - 123 red  different derivatives of a verb have been chosen by different languages.  
+        -  125 right  a verbal adjective meaning ‘straight(ened)’ has been chosen by Latin and Germanic.  
+        - 144 sit  the eventive verb has encroached on the stative.  
+        - 146 sky  ‘cloud’ has encroached on ‘sky’.  
+        - 147 sleep  the eventive verb has encroached on the stative.  
+        - 153 snow  ‘winter’ has encroached on ‘snow’.  
+        - 158 stand  the specific represented by state 6 has ousted the basic verb.  
+        - 162 straight  different derivatives of a verb have been chosen by different languages.  
+        - 166 swim  ‘float’ and ‘bathe’ have both been appropriated to mean ‘swim’.  
+        - 170 they  various demonstratives have taken over the functions of the 3rd-person pronoun.  
+        - 174 this  other demonstratives have encroached on ‘this’.  
+        - 180 tooth  ‘row of teeth’ has encroached on ‘tooth’.  
+        - 188 water  ‘liquid’ has apparently encroached on ‘water’.  
+        - 189 we  ‘us’ has encroached on ‘we’.  
+        - 193 where  different derivatives of ‘what’ have been chosen by different languages.  
+        - 205 ye ‘you’ has encroached on ‘ye’.  
+        - 306 ax  multiple borrowing from unknown sources is generally agreed.  
+        - 308 be  ‘become’ and ‘stay’, at least, have encroached on ‘be’.  
+        - 302 arrow  the distribution of state 6 probably reflects parallel development.  
+        - 314 branch  the distribution of states 7 and 8 argues parallel development.  
+        - 322 cattle  ‘bulls’ and ‘livestock’ have encroached on ‘cattle’.  
+        - 323 collect  it looks as though different languages have chosen between two inherited words.  
+        - 326 cow  ‘bovine’ has encroached on ‘cow’; in addition, state 5 seems to have spread through the Balto-Slavic dialect network.  
+        - 347 grain  ‘crushed (thing)’ has encroached on ‘grain’.  
+        - 352 honey  ‘sweet (thing)’ has encroached on ‘honey’.  
+        - 360 lamb  two inherited words; widespread parallel development.  
+        - 361 lead  not only are there at least two inherited words, ‘drive’ has encroached on them.  
+        - 379 ox  ‘bovine’ and ‘bull’ have been specialized to mean ‘ox’ in various languages.  
+        - 383 put  causatives of ‘sit’ and ‘lie’ have encroached on ‘put’.  
+        - 397 son  two derivatives meaning ‘offspring’ have encroached on ‘son’.  
+        - 401 stay  ‘stay overnight’ has encroached on ‘stay’.  
+        - 404 sweat  the distribution of states 1 and 2 simply makes no sense; parallel development?  
+        - 412 weave  ‘plait’ has encroached on ‘weave’.  
+        - 413 wheel  two words meaning ‘runner’ have encroached on ‘wheel’.  
+        - 416 wolf  an onomatopoeic word based on ‘howl’ seems to have encroached on ‘wolf’.  
+-   desc: Puzzling cases.  
+    data: 
+    - 67 guts  either ‘innards’ or a word that might have meant ‘cord’ could be ancestral.  
+    - 421 tear  the distribution of *d- is an unsolved puzzle.  
+
+-   desc: Probable effects of dialect networks.  
+    data: 
+    - 15 blood  Latvian (and eastern Lithuanian dialects) preserve the PIE word, while standard Lithuanian and Old Prussian exhibit an innovation that should originally have meant ‘gore’. Since the dialect chain was OPrus. – Lith. – Latv., it looks like the innovation might have spread from west to east through dialects in contact.  
+    - 46 fear  a perfect with the reconstructable meaning ‘be upset’ has come to mean ‘fear’ in Celtic and Germanic.  But that might reflect very early dialect contact, and the other Germanic state is clearly an innovation.  
+    - 48 fight  sharing of polymorphic states between Celtic and Germanic, between Germanic and Slavic, and between Slavic and Iranian might reflect very early dialect contact.  
+    - 53 float  probable contact between Baltic and Germanic.  
+    - 54 flow  sharing of polymorphic states between Baltic and Germanic might reflect very early dialect contact.  
+    - 97 long  the state shared by Germanic and Latin might reflect very early dialect contact.  
+    - 100 many  probable early contact in northern Europe.  
+    - 109 neck  the state shared by Germanic and Latin might reflect very early dialect contact.  
+    - 139 seed  an innovative word seems to have spread early through Germanic dialects.  
+    - 163 suck  the distribution of state 16 might reflect very early dialect contact.  
+    - 171 thick  the state shared by Germanic and Celtic might reflect dialect contact.  
+    - 204 worm  the anomalous initial consonant shared by Germanic and Latin might reflect very early dialect contact.  
+    - 206 year  the state shared by Germanic and Latin might reflect very early dialect contact.  
+    - 301 arm  ‘joint’ has clearly encroached on ‘arm’, but the fact that it did so in Germanic and Old Prussian might reflect dialect contact.  
+    - 310 beard  the distribution of state 5 might reflect very early dialect contact.  
+    - 341 free  states 3 and 10 might reflect very early dialect contact.  
+    - 354 house  an innovative word seems to have spread through Baltic dialects (cf. no. 15).  
+    - 366 lip  states 8 and 9 are confined to Europe and might reflect early dialect contact.  
+    - 376 nine  the innovative initial d- seems to have spread between Slavic and East Baltic.  
+    - 392 shoulder  an innovative word seems to have spread through Baltic dialects (cf. no. 15).  
+    - 382 pour  the appearance of the extended root in Latin and Germanic might reflect early dialect contact.  
+    - 417 wood  the appearance of state 5 in Germanic and Celtic might reflect early dialect contact.  
+    - 420 young  the appearance of state 12 in Germanic and Celtic might reflect early dialect contact.  
+# Characters reassigned to 3 (widespread polymorphism, = 4)  
+# 186 warm 
+# 187 wash 
+# 196 wide 
+# 380 pig

@@ -1,0 +1,32 @@
+#NEXUS
+
+begin taxa;
+        dimensions ntax= {{ names|count }};
+        taxlabels
+        {% for name in names %}
+            {{ name }}
+        {%- endfor %}
+        ;
+end;
+ 
+begin characters;
+        dimensions nchar={{ quartets|count }};
+        format missing=? RespectCase symbols="01" transpose;
+        matrix
+        {% for chr in quartets %} 
+            c{{ loop.index0 }}  {{chr}}
+        {%- endfor %} 
+      ;
+end;
+ 
+begin paup;
+        set criterion=parsimony maxtrees=1024 increase=no;
+        {% for w, wlist in weights.items() %}
+            weights {{w}}: {{wlist}};
+        {%- endfor %}
+        hsearch start=stepwise addseq=random nreps=25 swap=tbr;
+        filter best=yes;
+        pscores all/ ci ri rc hi scorefile=paup_out_{{ outfilename }}.scores replace=yes;
+        savetrees file=paup_out_{{ outfilename }}.trees replace=yes format=nexus;
+        quit;
+end;
