@@ -69,109 +69,6 @@ def get_canonical_tuple(tup):
     return (*A, *B)
 
 
-def get_rooted_quartets(tup):
-    # returns all rooted quartets that have the split ab|cd
-    a, b, c, d = tup
-    labels = [a, b, c, d]
-    pA = (a, b)
-    pB = (c, d)
-    return [
-        RootedQuartet("BAL", labels, pA),                   # ((a,b),(c,d))
-        RootedQuartet("LOP", labels, pA),                   # (a,(b,(c,d)))
-        RootedQuartet("LOP", labels, tuple(reversed(pA))),  # (b,(a,(c,d)))
-        RootedQuartet("LOP", labels, pB),                   # (c,(d,(a,b)))
-        RootedQuartet("LOP", labels, tuple(reversed(pB))),  # (d,(c,(a,b)))
-    ]
-
-def get_loss_based_quartets(df, mode):
-    '''
-    mode    desc
-    1       OneMostProb
-    2       Deprecated
-    3       MP4
-    4       Loss-Rooted
-    5       Loss-Unrooted
-    6       Loss-ChrAgg
-    7       Loss-OneMostProb (to be implemented)
-    '''
-    assert(4 <= mode <= 6)
-    quartets = {}
-    names = df.columns.values[3:]
-    values = df.values[:, 3:]
-    row_states_dict = [] # a list of rows, where each row = state name -> list of character names
-    for row in values:
-        row_states_dict.append({
-            n: str(s).split('/') for (n, s) in zip(names, row)
-        })
-
-    
-    if(mode == 6):
-        # aggregate by character
-        for nametup in combinations(names, 4):
-            counts = {} # tree -> how many times they were chosen
-            for states_dict in row_states_dict:
-                best_trees = get_best_quartets_loss({
-                    x : states_dict[x] for x in nametup
-                })
-                if(len(best_trees) >= 15): # when all trees have the same score, no information is supplied.
-                    continue
-                best_trees = list(map(lambda x: x.rooted_quartet(), best_trees))
-                for rep in best_trees: 
-                    addOne(counts, rep)
-            aggr_trees = list(sorted(counts.items(), reverse=True, key=lambda x: x[1])) # get most selected trees
-            res_trees = [t for (t, n) in aggr_trees if n == aggr_trees[0][1]] 
-            for res_tree in res_trees:
-                addOne(quartets, res_tree)
-
-        return (None, quartets)
-
-    for states_dict in row_states_dict: 
-        #print(states_dict)
-        for nametup in combinations(names, 4):
-            best_trees = get_best_quartets_loss({
-                x : states_dict[x] for x in nametup
-            })
-
-            if(len(best_trees) >= 15): # when all trees have the same score, no information is supplied.
-                continue
-            
-            # list of best trees -> get quartets from them -> turn back into a list
-            if(mode == 4):
-                best_trees = list(map(lambda x: x.rooted_quartet(), best_trees))
-            elif(mode == 5):
-                best_trees = list(map(lambda x: x.get_unrooted_tuple(), best_trees))
-
-            for tup in best_trees:
-                addOne(quartets, tup)
-    return (None, quartets) 
-    # return (None, quartets)
-    # where quartets is a dict (a,b,c,d) -> w
-
-def best_rooted_quartets(trees: List[RootedQuartet], leaf_states): 
-    '''
-    @params 
-    trees: a list of RootedQuartets with the same leaves
-    leaf_states: dict of leaf -> list of states they exhibit. 
-
-    All trees must have the same leaves, which are exactly the leaves described by that of leaf_staets
-    '''
-
-    trees = trees.copy() # avoid modifying original trees
-    state_to_leaves = {}
-    for leaf, states in leaf_states.items():
-        for s in states: 
-            if s not in state_to_leaves:
-                state_to_leaves[s] = []
-            state_to_leaves[s].append(leaf)
-
-    for _, leaves in state_to_leaves.items():
-        for tree in trees:
-            tree.add_states(leaves)
-    
-    trees = sorted(trees, key=lambda x : x.loss)
-    best_loss = trees[0].loss
-    return [ t for t in trees if t.loss == best_loss]
-
 
 def get_new_omp_names_ret_values(
     names: List[str],
@@ -265,44 +162,14 @@ def get_quartets(csv_path   : str,
     ):
     '''
     mode    desc
-    1       OneMostProb+k (should be deprecated soon but right now all our results are on this method)
-    2       Deprecated (AllMostProb)
-    3       MP4
-    4       Loss-Rooted
-    5       Loss-Unrooted
-    6       Loss-ChrAgg
-    7       Loss-OneMostProb (to be implemented)
-    8       OneMostProb, but using the `weights` column. Weights have to be integers!
-    9       EVANS-ONE+k
-    10      EVANS-ALL+k 
-    11      EVANS-ALL-k, where the homoplsatic state is treated as any other.
-    12      EVANS-ONE-k
-    13      ONEMOSTPROB-k
+    1~9     DEPRECATED
+    10      PCH-ASTRAL+K 
+    11      PCH-ASTRAL-K
     returns a tuple (metadata, quartets). Most of the times you just want quartets so do
     _, quartets = get_quartets(...).
     '''
-    df = pd.read_csv(csv_path)
-    if mode == 3:
-        df = resolve_polymorphism_using_mp4(df)
-    if 4 <= mode <= 6:
-        return get_loss_based_quartets(df=df, mode=mode)
-    if 9 <= mode <= 12: # This is where EVANS-ALL and EVANS-ONE +-K are!
-        return get_new_omp(csv_path, mode)
-
-    names, ret_values = get_values(csv_path)
-    if mode == 8:
-        weights = get_weights(csv_path)
-    else:
-        weights = None
-
-    return get_quartets_names_ret_values(
-        names = names,
-        ret_values = ret_values,
-        mode = mode,
-        do_filter = do_filter,
-        filter_lim = filter_lim,
-        weights = weights,
-    )
+    assert mode in [10, 11]
+    return get_new_omp(csv_path, mode)
 
 def get_quartets_names_ret_values(
     names, ret_values, mode, do_filter, filter_lim, weights = None
