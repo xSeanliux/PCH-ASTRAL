@@ -1,0 +1,3 @@
+[submodule "ASTRAL"]
+	path = ASTRAL
+	url = https://github.com/smirarab/ASTRAL.git
