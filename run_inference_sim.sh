@@ -18,7 +18,7 @@ DO_SD=false # T(raitLab), the software used to do SD.
 QT_MODE=11
 BP_MODE=5
 
-TARGETTREES=$TALLIS/PCH-ASTRAL/example/all_simulated_data/trees.txt
+TARGETTREES=example/all_simulated_data/trees.txt
 # list of allowed settings
 E_FACTORS=("0.8") # evolution factor
 H_FACTORS=("0.1") # homoplasy factor
@@ -94,9 +94,9 @@ for poly in ${SETTINGS[@]}; do
         for e_factor in ${E_FACTORS[@]}; do
             for c_factor in ${C_FACTORS[@]}; do
                 SETTING_NAME=$poly"_"$h_factor"_"$e_factor"_"$c_factor
-                CSVS=$TALLIS/PCH-ASTRAL/example/simulated_data_theorypaper/$SETTING_NAME
-                TREEOUTPUT=$TALLIS/PCH-ASTRAL/sim_outputs_theorypaper/$SETTING_NAME
-/
+                CSVS=example/simulated_data_theorypaper/$SETTING_NAME
+                TREEOUTPUT=sim_outputs_theorypaper/$SETTING_NAME
+
                 ASTRAL_VARIANT=ASTRAL\($QT_MODE,$BP_MODE\)
                 if $DO_ASTRAL4; then 
                     ASTRAL_VARIANT=ASTRAL4\($QT_MODE\)
@@ -129,7 +129,7 @@ for poly in ${SETTINGS[@]}; do
                                     BD_FLAG="--birthdeath"
                                 fi
                                 # generate new config file
-                                bash $TALLIS/PCH-ASTRAL/scripts/sh/runCOV.sh\
+                                bash scripts/sh/runCOV.sh\
                                     --runid $RUNID\
                                     --input $FILE\
                                     --output $TREEOUTPUT\
@@ -137,7 +137,7 @@ for poly in ${SETTINGS[@]}; do
                                 # scoring
                                 touch $COV_SCOREOUTPUT
                                 echo $FILE >> $COV_SCOREOUTPUT
-                                Rscript $TALLIS/PCH-ASTRAL/scripts/R/RFScorer.R\
+                                Rscript scripts/R/RFScorer.R\
                                     -f newick\
                                     -r $CURRENT_TREE\
                                     -m 1 -p 0\
@@ -150,7 +150,7 @@ for poly in ${SETTINGS[@]}; do
                         fi
                         if $DO_GA; then 
                             if ! test -s $TREEOUTPUT/GA/trees1/$id.trees; then 
-                                bash $TALLIS/PCH-ASTRAL/scripts/sh/runGA.sh\
+                                bash scripts/sh/runGA.sh\
                                     --runid $RUNID\
                                     --input $FILE\
                                     --output $TREEOUTPUT\
@@ -158,14 +158,14 @@ for poly in ${SETTINGS[@]}; do
 
                                 touch $GA_SCOREOUTPUT
                                 echo $FILE >> $GA_SCOREOUTPUT
-                                Rscript $TALLIS/PCH-ASTRAL/scripts/R/RFScorer.R -f newick -r $CURRENT_TREE -m 4 -p 0 -i $TREEOUTPUT/GA/trees/$id.tree >> $GA_SCOREOUTPUT
+                                Rscript scripts/R/RFScorer.R -f newick -r $CURRENT_TREE -m 4 -p 0 -i $TREEOUTPUT/GA/trees/$id.tree >> $GA_SCOREOUTPUT
                             else
                                 echo "skipping "$id
                             fi
                         fi
                         if $DO_SD; then 
                             if ! test -s $TREEOUTPUT/SD/trees/$id.tree; then 
-                                time bash $TALLIS/PCH-ASTRAL/scripts/sh/runSD.sh\
+                                time bash scripts/sh/runSD.sh\
                                     --runid $RUNID\
                                     --input $FILE\
                                     --output $TREEOUTPUT\
@@ -173,7 +173,7 @@ for poly in ${SETTINGS[@]}; do
 
                                 touch $SD_SCOREOUTPUT
                                 echo $FILE >> $SD_SCOREOUTPUT
-                                Rscript $TALLIS/PCH-ASTRAL/scripts/R/RFScorer.R -f newick -r $CURRENT_TREE -m 4 -p 0 -i $TREEOUTPUT/SD/trees/$id.tree >> $SD_SCOREOUTPUT
+                                Rscript scripts/R/RFScorer.R -f newick -r $CURRENT_TREE -m 4 -p 0 -i $TREEOUTPUT/SD/trees/$id.tree >> $SD_SCOREOUTPUT
                                 echo "✅ SD tree scoring" 
                             else
                                 echo "skipping "$id
@@ -181,7 +181,7 @@ for poly in ${SETTINGS[@]}; do
                         fi
                         if $DO_MP4; then 
                             if ! test -s $TREEOUTPUT/MP4/trees/$id.trees; then # You can run this multiple times to continue where you left off
-                                bash $TALLIS/PCH-ASTRAL/scripts/sh/runMP4.sh\
+                                bash scripts/sh/runMP4.sh\
                                     --runid $RUNID\
                                     --input $FILE\
                                     --name $id\
@@ -189,7 +189,7 @@ for poly in ${SETTINGS[@]}; do
 
                                 touch $MP4_SCOREOUTPUT
                                 echo $FILE >> $MP4_SCOREOUTPUT
-                                Rscript $TALLIS/PCH-ASTRAL/scripts/R/RFScorer.R -f nexus -r $CURRENT_TREE -m 2 -p 0 -i $TREEOUTPUT/MP4/trees/$id.trees >> $MP4_SCOREOUTPUT
+                                Rscript scripts/R/RFScorer.R -f nexus -r $CURRENT_TREE -m 2 -p 0 -i $TREEOUTPUT/MP4/trees/$id.trees >> $MP4_SCOREOUTPUT
                                 echo "✅ MP4 tree scoring" 
                             else 
                                 echo "Skipping "$id
@@ -197,7 +197,7 @@ for poly in ${SETTINGS[@]}; do
                         fi
                         if $DO_ASTRAL; then # run ASTRAL 
                             if ! test -s $TREEOUTPUT/$ASTRAL_VARIANT/trees/$id.tree; then
-                                $TALLIS/PCH-ASTRAL/scripts/sh/runASTRAL.sh\
+                                scripts/sh/runASTRAL.sh\
                                     -H $RUNID\
                                     -i $FILE\
                                     -o $TREEOUTPUT\
@@ -208,9 +208,9 @@ for poly in ${SETTINGS[@]}; do
                                 touch $ASTRAL_SCOREOUTPUT
                                 echo $FILE >> $ASTRAL_SCOREOUTPUT
                                 if [ $QT_MODE != 4 ]; then 
-                                    Rscript $TALLIS/PCH-ASTRAL/scripts/R/RFScorer.R -f newick -r $CURRENT_TREE -m 1 -p 0 -i $TREEOUTPUT/$ASTRAL_VARIANT/trees/$id.tree >> $ASTRAL_SCOREOUTPUT
+                                    Rscript scripts/R/RFScorer.R -f newick -r $CURRENT_TREE -m 1 -p 0 -i $TREEOUTPUT/$ASTRAL_VARIANT/trees/$id.tree >> $ASTRAL_SCOREOUTPUT
                                 else 
-                                    Rscript $TALLIS/PCH-ASTRAL/scripts/R/RFScorer.R --prune r -f newick -r $CURRENT_TREE -m 1 -p 0 -i $TREEOUTPUT/$ASTRAL_VARIANT/trees/$id.tree >> $ASTRAL_SCOREOUTPUT
+                                    Rscript scripts/R/RFScorer.R --prune r -f newick -r $CURRENT_TREE -m 1 -p 0 -i $TREEOUTPUT/$ASTRAL_VARIANT/trees/$id.tree >> $ASTRAL_SCOREOUTPUT
                                 fi
                                 echo "✅ Heuristic ASTRAL tree scoring" 
                                 echo "Updated score at "$ASTRAL_SCOREOUTPUT
@@ -222,7 +222,7 @@ for poly in ${SETTINGS[@]}; do
                         fi
                         if $DO_ASTRAL4; then 
                             if [ ! -s "$TREEOUTPUT/$ASTRAL_VARIANT/trees/$id.tree" ] || ! grep -q '[^[:space:]]' "$TREEOUTPUT/$ASTRAL_VARIANT/trees/$id.tree"; then
-                                time bash $TALLIS/PCH-ASTRAL/scripts/sh/runASTRAL4.sh\
+                                time bash scripts/sh/runASTRAL4.sh\
                                     --runid $RUNID\
                                     --input $FILE\
                                     --name $id\
@@ -235,7 +235,7 @@ for poly in ${SETTINGS[@]}; do
                                 if [ -s "$TREEOUTPUT/$ASTRAL_VARIANT/trees/$id.tree" ]; then
                                     touch $ASTRAL_SCOREOUTPUT
                                     echo $FILE >> $ASTRAL_SCOREOUTPUT
-                                    Rscript $TALLIS/PCH-ASTRAL/scripts/R/RFScorer.R -f newick -r $CURRENT_TREE -m 1 -p 0 -i $TREEOUTPUT/$ASTRAL_VARIANT/trees/$id.tree >> $ASTRAL_SCOREOUTPUT
+                                    Rscript scripts/R/RFScorer.R -f newick -r $CURRENT_TREE -m 1 -p 0 -i $TREEOUTPUT/$ASTRAL_VARIANT/trees/$id.tree >> $ASTRAL_SCOREOUTPUT
                                     echo "✅ ASTRAL-IV tree scoring" 
                                 fi
                             else 

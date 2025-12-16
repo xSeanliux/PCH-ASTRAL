@@ -62,7 +62,7 @@ Please put your simulation data under `example/all_simulated_data`. Each replica
 - The homoplasy factor is 0
 - The evolution factor (or tree height) is scaled by 1
 - The character factor is 3, so there are 3 * 320 = 960 characters.
-- The dataset was simulated down model tree 16 (i.e., the 16th line of `trees.txt` is the model tree), and was replica 1.
+- The dataset was simulated down model tree 16 (i.e., the 16th line of `example/trees.txt` is the model tree), and was replica 1.
 #### Launching large-scale simulations studies on the Campus Cluster using SLURM
 The files in `scripts/sh` are modular and can be used to run individual inferences using a variety of methods. For the simulation data, use `run_inference_sim.sh`. The file has grown to have many configurations, but its functionality is to take in a set of model conditions and the method, and to perform inference on that model condition using the specified method. It is smart enough to detect if a tree has already been inferred and will skip that tree if it is (useful when you call it multiple times if runs pass the time limit). Its output format is as follows: it will create a folder under `sim_outputs/{MODEL_CONDITION_STRING}/{METHOD}`, where the model condition string is the same as that under `example/all_simulated_data`, and the method is the specified one. In that folder, you will see at least a folder named `trees` (where it stores the outputs) and `allscores.txt`, where it scores the output of the trees w.r.t. to the model tree.
 
