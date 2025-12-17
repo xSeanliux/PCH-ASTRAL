@@ -61,7 +61,7 @@ mv ~/scratch/paup_out_$RUNID.trees $TREEOUTPUT/MP4/trees/$NAME.trees # If we run
 mv ~/scratch/paup_out_$RUNID.scores $TREEOUTPUT/MP4/scores/$NAME.scores
 
 # maj consensus
-Rscript $TALLIS/OneMostProb/scripts/R/consensusTree.R\
+Rscript scripts/R/consensusTree.R\
     -i $TREEOUTPUT/MP4/trees/$NAME.trees\
     -m 2\
     -p 1\

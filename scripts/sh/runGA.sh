@@ -1,7 +1,17 @@
 #!/bin/bash
 
 # Initialize variables
-MB_EXEC=$TALLIS/bin/bin/mb # CHANGE ME to where your MrBayes is!!!!
+MB_EXEC=bin/bin/mb # CHANGE ME to where your MrBayes is!!!!
+if [[ -z "$MB_EXEC" ]]; then
+  echo "Error: MB_EXEC is not set" >&2
+  exit 1
+fi
+
+if [[ ! -x "$MB_EXEC" ]]; then
+  echo "Error: MB_EXEC='$MB_EXEC' does not exist or is not executable" >&2
+  exit 1
+fi
+
 RUNID=""
 INPUT=""
 NAME=""
@@ -50,7 +60,7 @@ echo "✅ GA sampling"
 mv Bayes_out_$RUNID.t $TREEOUTPUT/GA/trees1/$NAME.trees 
 
 # MCC consensus, discard first 50%
-Rscript $TALLIS/OneMostProb/scripts/R/consensusTree.R\
+Rscript scripts/R/consensusTree.R\
     -i $TREEOUTPUT/GA/trees1/$NAME.trees\
     -m 4\
     -p 1\
