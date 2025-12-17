@@ -20,18 +20,10 @@ run_parallel_sim.sh | Useful for launching a run on a single dataset.
 **NOTE:** As ASTRAL requires MP and GA trees to be present (to augment the constraint space), make sure that MP and GA have ran first before running ASTRAL. 
 
 ### The `example` folder 
-Contains all the data used for inference. Please click into the folder and read the `README` for more information. All the simulation data should be placed under `example/simulated_data` (create the folder first). 
+Contains all the data used for inference. Please click into the folder and read the `README` for more information.
 
 ### The `scripts` folder 
-This folder contains code and is organised by language / function. Roughly, 
-- `beastling/`: contains [BEASTLing](https://beastling.readthedocs.io/en/latest/tutorial.html) configuration files.
-- `bin/`: binaries such as PAUP*.
--  `jinja/`: [Jinja](https://jinja.palletsprojects.com/en/stable/) templates for quartet parsimony (deprecated) and Stochastic Dollo. 
-- `lib/`: Python functions that are called elsewhere. Importantly, ASTRAL quartet generation is in `lib/getQuartets.py`. 
-- `py/`: Python command-line wrappers that call functions from `lib/` so that they can be ran with `python3 py/[SOME_FILE]`. For example, see `printQuartets.py`. 
-- `pynb/`: Python notebooks used to validate data / visualise results / generate statistics. 
-- `R/`: R code mostly written by Marc Canby. `R/commandLineNex.R` and `R/inferenceUtils.R` are used to generate NEXUS configuration files for MP4 and GA, `R/RFScorer.R` is used to score inference outputs, and `R/consensusTree.R` is used to generate consensus trees (as the name implies).
-- `sh/`: shell scripts. The files `sh/run[METHOD].sh` runs the method of choice. The file `sh/rescore_sim.sh` is used to rescore all inference results given model condition + method for the simulated data and is called by `run_parallal_consandscore.sh`. 
+This folder contains code and is organised by language / function. Please read the `README` in the folder for more information.
 
 ## How to Run 
 ### Requirements 
