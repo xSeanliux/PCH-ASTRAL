@@ -17,7 +17,7 @@ run_inference_sim.sh | Receives the model conditions and inference method as com
 run_parallel_sim.sh | Launches SLURM jobs in parallel, each of which is a call to `run_inference_sim.sh`. Useful when running large-scale experiments across many conditions and methods.
 
 ### The `example` folder 
-Contains all the data used for inference. Please click into the folder and read the `README` for more information. All the simulation data should be placed under `example/all_simulated_data` (create the folder first). 
+Contains all the data used for inference. Please click into the folder and read the `README` for more information. All the simulation data should be placed under `example/simulated_data` (create the folder first). 
 
 ### The `scripts` folder 
 This folder contains code and is organised by language / function. Roughly, 
@@ -45,26 +45,22 @@ cd ASTER; make; cd ..
 (assuming you've already ran `git submodule init` and `git submodule update` from the last step)
 - [Java](https://www.java.com/en/). You will need to have an installation of Java to run ASTRAL. This project was developed with OpenJDK version `1.8.0_412` and runtime `1.8.0_412-b08`. 
 - [PAUP*](https://paup.phylosolutions.com/), should be already under `scripts/bin/paup`. If that version for whatever reason does not work, install it and change `$PAUP_PATH` in [runMP4.sh](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/sh/runMP4.sh#L32-L35).
-- [MrBayes](https://nbisweden.github.io/MrBayes/), version 3.2.7. Optionally, install [BEAGLE](https://github.com/beagle-dev/beagle-lib) to speed up inference. Then please update `MB_EXEC` in [runGA.sh](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/sh/runGA.sh) to point to the `mb` executable file.
+- [MrBayes](https://nbisweden.github.io/MrBayes/), version 3.2.7. Optionally, install [BEAGLE](https://github.com/beagle-dev/beagle-lib) to speed up inference. Then please update `MB_EXEC` in [runGA.sh](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/sh/runGA.sh#L4) to point to the `mb` executable file.
 - Python & [conda](https://anaconda.org/). Please install the requirements in `requirements.txt`. 
 - R. Please install [R](https://www.r-project.org/). This is needed to run MP4 and transform/score the outputs of the data.
 
 For further environment information, please refer to the [Illinois Campus Cluster Documentation](https://campuscluster.illinois.edu/resources/docs/).
-### Overall Workflow 
-The workflow has been optimised primarily for working in the [Illinois Campus Cluster Documentation](https://campuscluster.illinois.edu/resources/docs/). If you are working in the [CPHL Lab](DUMMY), please clone this repository under the `/projects/illinois/eng/cs/warnow/[NETID]` folder. In addition, set the environment variable `TALLIS` to `/projects/illinois/eng/cs/warnow/[NETID]` with 
-```bash
-echo "TALLIS=/projects/illinois/eng/cs/warnow/[NETID]" >> ~/.bashrc; source ~/.bashrc 
-```
-Otherwise, please set `TALLIS` to the folder containing `PCH-ASTRAL`. 
+
 ### Simulation Data
-Please put your simulation data under `example/all_simulated_data`. Each replica is then under a folder with the format `{poly}_{homoplasy-factor}_{evolution-factor}_{character-factor}`. Model trees should be placed under `example/all_simulated_data/trees.txt`, and should have one tree in newick format per line, in order. For example, one replica could have the path `example/all_simulated_data/high_0_1_3/sim_tree16_1.csv`.  This means that 
+Please put your simulation data under `example/simulated_data`. Each replica is then under a folder with the format `{poly}_{homoplasy-factor}_{evolution-factor}_{character-factor}`. Model trees should be placed under `example/simulated_data/trees.txt`, and should have one tree in newick format per line, in order. For example, one replica could have the path `example/simulated_data/high_0.1_0.8_0.5/sim_tree16_1.csv`.  This means that 
 - The polymorphism is high
-- The homoplasy factor is 0
-- The evolution factor (or tree height) is scaled by 1
-- The character factor is 3, so there are 3 * 320 = 960 characters.
+- The homoplasy factor is 0.1
+- The evolution factor (or tree height) is scaled by 0.8
+- The character factor is 3, so there are 0.5 * 320 = 160 characters.
 - The dataset was simulated down model tree 16 (i.e., the 16th line of `example/trees.txt` is the model tree), and was replica 1.
+
 #### Launching large-scale simulations studies on the Campus Cluster using SLURM
-The files in `scripts/sh` are modular and can be used to run individual inferences using a variety of methods. For the simulation data, use `run_inference_sim.sh`. The file has grown to have many configurations, but its functionality is to take in a set of model conditions and the method, and to perform inference on that model condition using the specified method. It is smart enough to detect if a tree has already been inferred and will skip that tree if it is (useful when you call it multiple times if runs pass the time limit). Its output format is as follows: it will create a folder under `sim_outputs/{MODEL_CONDITION_STRING}/{METHOD}`, where the model condition string is the same as that under `example/all_simulated_data`, and the method is the specified one. In that folder, you will see at least a folder named `trees` (where it stores the outputs) and `allscores.txt`, where it scores the output of the trees w.r.t. to the model tree.
+The files in `scripts/sh` are modular and can be used to run individual inferences using a variety of methods. For the simulation data, use `run_inference_sim.sh`. The file has grown to have many configurations, but its functionality is to take in a set of model conditions and the method, and to perform inference on that model condition using the specified method. It is smart enough to detect if a tree has already been inferred and will skip that tree if it is (useful when you call it multiple times if runs pass the time limit). Its output format is as follows: it will create a folder under `sim_outputs/{MODEL_CONDITION_STRING}/{METHOD}`, where the model condition string is the same as that under `example/simulated_data`, and the method is the specified one. In that folder, you will see at least a folder named `trees` (where it stores the outputs) and `allscores.txt`, where it scores the output of the trees w.r.t. to the model tree.
 
 To automate running large-scale simulation studies, use `run_parallel_sim.sh` to submit SLURM jobs to the campus cluster queue. Simply modify the first few lines (before the for loop) and the bash script will launch these jobs for you, taking the cartesian product of all variables specified. The `TIMES` variable is for when multiple jobs are required to complete one model condition (for example, `TIMES=4` means that it will let the model condition run for a maximum of 16 hours). 
 
@@ -77,9 +73,7 @@ IMPORTANT:
 Flag | Method 
 --- | ---
 -a | ASTRAL. Specify the quartet method and/or bipartition set with -q and -b, respectively. -x will set ASTRAL to run in exact mode.
--A | ASTRAL-IV. 
--c | Covarion. Specify birth-death (currently not working) with -D. 
--p | (p)arsimony, does MP4.
+-p | (p)arsimony, does MP.
 -g | (g)ray & atkinson, self explanatory. 
 -q | Specify quartet mode. Only used if `-a` is specified. Relevant values should be 9~12, check [here](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/lib/getQuartets.py#L266-L269) for a description. 
 -b | Specify bipartition set. Deprecated and will always use MP4 and GA bipartition sets. MAKE SURE YOU RUN GA AND MP4 FIRST BEFORE ASTRAL!
@@ -93,7 +87,7 @@ The simulation outputs will be in the folder
 ```
 sim_outputs/[MODEL_CONDITION]/[METHOD]
 ```
-where `[MODEL_CONDITION]` corresponds to the folder name in `example/all_simulated_data/[MODEL_CONDITION]` and `[METHOD]` is the method name (e.g. `ASTRAL(11,5)`, `MP4`, or `GA`). Inside the folder will be at least the `trees` folder containing point estimates, and `allscores.txt`, with FN and FP scores.
+where `[MODEL_CONDITION]` corresponds to the folder name in `example/simulated_data/[MODEL_CONDITION]` and `[METHOD]` is the method name (e.g. `ASTRAL(11,5)`, `MP4`, or `GA`). Inside the folder will be at least the `trees` folder containing point estimates, and `allscores.txt`, with FN and FP scores.
 
 The `allscores.txt` file is a simple `txt` file that has the original CSV path of the data on one line, and then the FN and FP errors on the second line, for each replicate. In other words, it is of the format 
 ```
