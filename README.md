@@ -15,6 +15,9 @@ File | Description
 --- | --- 
 run_inference_sim.sh | Receives the model conditions and inference method as command line arguments, and performs inference of simulated data under the specified conditions and inference method. 
 run_parallel_sim.sh | Launches SLURM jobs in parallel, each of which is a call to `run_inference_sim.sh`. Useful when running large-scale experiments across many conditions and methods.
+run_parallel_sim.sh | Useful for launching a run on a single dataset.
+
+**NOTE:** As ASTRAL requires MP and GA trees to be present (to augment the constraint space), make sure that MP and GA have ran first before running ASTRAL. 
 
 ### The `example` folder 
 Contains all the data used for inference. Please click into the folder and read the `README` for more information. All the simulation data should be placed under `example/simulated_data` (create the folder first). 
@@ -106,7 +109,3 @@ Flag | Meaning
 --- | --- 
 -i | Path to input csv file (e.g., `example/rt_2025_poly/rt_2025_poly.csv`)
 -o | Folder that outputs will be put under. Defaults to the current directory `.`. The results will be put in `[OUTPUT_FOLDER]/[METHOD]` where `[OUTPUT_FOLDER]` is the argument to this option and `[METHOD]` is the inference method.
-## Known Issues / Tips 
-- ASTRAL-IV sometimes returns a Illegal instruction (core dumped) error. I don't know why this happens. 
-- On rarer occasions I have observed MrBayes do this too. 
-- ASTRAL-IV benefits from multithreading, so when launching ASTRAL-IV through `run_parallel_sim`, feel free to increase `--cpus-per-task=4` to a larger number. MP4 and ASTRAL do not seem to be able to take advantage of multithreading, though GA and SD both may be able to. 
