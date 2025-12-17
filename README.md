@@ -2,7 +2,9 @@
 
 ## Introduction 
 
-This is the GitHub repository for the upcoming paper (under preparation). This work is a collaborative effort by the [Computational Phylogenies in Historical Linguistics](https://tandy.cs.illinois.edu/histling.html) (CPHL) group.
+This is the GitHub repository for the upcoming paper (under preparation). This work is a collaborative effort by the [Computational Phylogenetics in Historical Linguistics](https://tandy.cs.illinois.edu/histling.html) (CPHL) group.
+
+This repository contains the code, data, and visualization tools that were used to generate the results and figures in the paper *Estimating Language Phylogenies from Polymorphic Characters* (under preparation). 
 
 This work focuses on linguistic datasets, and this method is provably statistically consistent under a recently proposed polymorphic model by Canby et al. [[1]](https://tandy.cs.illinois.edu/Canby-Transactions2024.pdf). 
 
@@ -13,8 +15,6 @@ File | Description
 --- | --- 
 run_inference_sim.sh | Receives the model conditions and inference method as command line arguments, and performs inference of simulated data under the specified conditions and inference method. 
 run_parallel_sim.sh | Launches SLURM jobs in parallel, each of which is a call to `run_inference_sim.sh`. Useful when running large-scale experiments across many conditions and methods.
-run_specific_dataset.sh | Runs a specific dataset, for example, R\&T2024-poly. 
-run_parallel_score.sh | A contingency file in case scoring goes wrong and you want to score a set of model conditions / inference method trees. While inference may be computationally heavy, performing consensus + scoring is not and so this file might save you from having to redo analyses.
 
 ### The `example` folder 
 Contains all the data used for inference. Please click into the folder and read the `README` for more information. All the simulation data should be placed under `example/all_simulated_data` (create the folder first). 

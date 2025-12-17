@@ -10,8 +10,6 @@ library(testit)
 library(phangorn)
 library(castor)
 print(getwd())
-# ROOT <- Sys.getenv("TALLIS")
-# setwd(paste(ROOT,'LingPhyloR', sep=""))
 
 source('inferenceUtils.R')
 
