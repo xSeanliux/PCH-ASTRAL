@@ -1,3 +1,17 @@
+c<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+
+- [PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)](#pch-astral-polymorphic-characters-with-astral)
+   * [Introduction ](#introduction)
+   * [Repository organization](#repository-organization)
+      + [The `example` folder ](#the-example-folder)
+      + [The `scripts` folder ](#the-scripts-folder)
+   * [Reproduction](#reproduction)
+   * [Running on your own data](#running-on-your-own-data)
+      + [Data format](#data-format)
+   * [References ](#references)
+
+<!-- TOC end -->
+
 # PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)
 
 ## Introduction 
@@ -26,7 +40,7 @@ Contains all the data used for inference. Please click into the folder and read 
 This folder contains code and is organised by language / function. Please read the `README` in the folder for more information.
 
 ## Reproduction
-For a full reproduction tutorial, please see `REPRODUCIBILITY.md`. 
+For a full reproduction tutorial, please see [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md). 
 
 ## Running on your own data
 ### Data format

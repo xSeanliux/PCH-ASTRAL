@@ -1,3 +1,18 @@
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+
+- [Reproduction](#reproduction)
+   * [Requirements ](#requirements)
+   * [Simulation Data](#simulation-data)
+   * [Launching large-scale simulations studies using SLURM](#launching-large-scale-simulations-studies-using-slurm)
+      + [Inference_sim arguments](#inference_sim-arguments)
+      + [Output format ](#output-format)
+   * [Commands Used ](#commands-used)
+      + [Commands used to run ASTRAL](#commands-used-to-run-astral)
+      + [Commands used to run GA](#commands-used-to-run-ga)
+      + [Commands used to run MP](#commands-used-to-run-mp)
+
+<!-- TOC end -->
+
 # Reproduction
 ## Requirements 
 This program requires: 
@@ -14,7 +29,6 @@ to install ASTRAL. Your ASTRAL executable should be under `ASTRAL/Astral/astral.
 
 For further environment information, please refer to the [Illinois Campus Cluster Documentation](https://campuscluster.illinois.edu/resources/docs/).
 
-<!-- TOC --><a name="simulation-data"></a>
 ## Simulation Data
 Please see `example/README.md` for information on what the naming conventions are for the folders and data under `examples/simulated_data`.
 
@@ -23,7 +37,6 @@ The files in `scripts/sh` are modular and can be used to run individual inferenc
 
 For larger datasets like the one we used, one can take advantage of the independence of datasets themselves to run these simulation studies in parallel. In our studies we submitted multiple jobs to SLURM, parameterizing runs using command line arguments using `run_parallel_sim.sh`. Simply modify the first few lines (before the for loop) and the bash script will launch these jobs for you, taking the cartesian product of all variables specified. The `TIMES` variable is for when multiple jobs are required to complete one model condition (for example, `TIMES=4` means that it will let the model condition run for a maximum of 16 hours). 
 
-<!-- TOC --><a name="inference_sim-arguments"></a>
 ### Inference_sim arguments
 The file `run_inference_sim.sh` has a lot of arguments. Here is a short explanation of what each argument/flag does. **Important note**: when you add a new model condition (esp. e/h/c factors), make sure to update it in `run_inference_sim` as it checks for if it is in a predefined list [here](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/run_inference_sim.sh#L36-L60). `run_inference_sim.sh` does both inference *and* scoring. 
 
@@ -42,7 +55,6 @@ Flag | Method
 -s | Specify polymorphism level. Must be a value within the `SETTINGS` array. It can take on one of three values: `no`, `low`, `high`. 
 -h | Specify homoplasy factor. Must be a value within the `H_FACTORS` array. This is $h$ and $h_{root}$ in Warnow et al.'s 2006 model [[2]](https://www.stat.berkeley.edu/users/evans/673.pdf).
 -C | Specify character factor. Must be a value within the `C_FACTORS` array. This controls how many characters to simulate down; the actual number of characters is this factor multiplied by 320.
-<!-- TOC --><a name="output-format"></a>
 ### Output format 
 The simulation outputs will be in the folder 
 ```
@@ -59,7 +71,6 @@ The `allscores.txt` file is a simple `txt` file that has the original CSV path o
 ...
 ```
 **WARNING**: if the SLURM jobs fails (e.g., due to software errors or hardware errors such as out-of-memory), it is possible the list will be incomplete, or the format be missing. The plotting Python Notebook file `scripts/pynb/validation_and_plot.ipynb` tries to validate as well as it can that the required files exist and the score format is correct, but current sanity checks may not be enough. Therefore please always go into the files to check for errors if something seems off!
-<!-- TOC --><a name="i-have-my-own-data"></a>
 
 ## Commands Used 
 
