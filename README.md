@@ -1,6 +1,9 @@
-c<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+# PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)
+## Table of Contents 
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)](#pch-astral-polymorphic-characters-with-astral)
+   * [Table of Contents](#table-of-contents)
    * [Introduction ](#introduction)
    * [Repository organization](#repository-organization)
       + [The `example` folder ](#the-example-folder)
@@ -12,7 +15,6 @@ c<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 <!-- TOC end -->
 
-# PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)
 
 ## Introduction 
 

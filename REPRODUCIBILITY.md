@@ -1,6 +1,9 @@
+# Reproducibility
+## Table of Contents
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [Reproduction](#reproduction)
+   * [Table of Contents](#table-of-contents)
    * [Requirements ](#requirements)
    * [Simulation Data](#simulation-data)
    * [Launching large-scale simulations studies using SLURM](#launching-large-scale-simulations-studies-using-slurm)
@@ -13,7 +16,6 @@
 
 <!-- TOC end -->
 
-# Reproduction
 ## Requirements 
 This program requires: 
 - [ASTRAL](https://github.com/smirarab/ASTRAL). Simply do 
