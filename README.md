@@ -22,6 +22,8 @@ This repository contains the code, data, and visualization tools that were used 
 
 This work focuses on linguistic datasets, and this method is provably statistically consistent under a recently proposed polymorphic model by Canby et al. [[1]](https://tandy.cs.illinois.edu/Canby-Transactions2024.pdf). 
 
+For detailed information on how to reproduce the results we obtained in the paper, please see [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md).
+
 ## Repository organization
 The top folder contains the folder `example` (under which data is put), and `scripts` (under which code is put). It also contains a `requirements.txt` for conda environment access, and multiple bash scripts to launch simulated experiments / custom data. 
 
