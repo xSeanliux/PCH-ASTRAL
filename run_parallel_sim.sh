@@ -6,9 +6,10 @@ C_FACTORS=("3") # character factor
 METHODS=(a)
 BDFLAG=""
 SETTINGS=(low)
-QUARTETS=(10) # EVANS-ONE +- k
-# 11 - EVANS-ALL-K
-TIMES=3
+QUARTETS=(10) 
+# 10 - PCH-ASTRAL + K
+# 11 - PCH-ASTRAL - K 
+TIMES=3 # controls how many times a specific job is submitted.
 
 for m in "${METHODS[@]}"; do
     for QT in "${QUARTETS[@]}"; do
@@ -34,7 +35,7 @@ for m in "${METHODS[@]}"; do
 source ~/.bashrc 
 conda deactivate
 source activate phylo
-time bash run_inference_sim_theorypaper.sh -$m $BDFLAG -s $poly -f $e_factor  -h $h_factor -C $c_factor  -q $QT" > $FILENAME
+time bash run_inference_sim.sh -$m $BDFLAG -s $poly -f $e_factor  -h $h_factor -C $c_factor  -q $QT" > $FILENAME
                                 LASTJOB=`sbatch $FILENAME | cut -f 4 -d " "`
                                 echo $FILENAME
                                 echo "submitting m=$m poly=$poly f=$e_factor hf=$h_factor cf=$c_factor QT=$QT lastjob = $LASTJOB"

@@ -1,11 +1,14 @@
+<!-- TOC --><a name="pch-astral-polymorphic-characters-with-astral"></a>
+# PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)
+
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)](#pch-astral-polymorphic-characters-with-astral)
    * [Introduction ](#introduction)
-   * [Repository organisation](#repository-organisation)
+   * [Repository organization](#repository-organization)
       + [The `example` folder ](#the-example-folder)
       + [The `scripts` folder ](#the-scripts-folder)
-   * [How to Run ](#how-to-run)
+   * [Reproduction ](#reproduction)
       + [Requirements ](#requirements)
       + [Simulation Data](#simulation-data)
          - [Launching large-scale simulations studies on the Campus Cluster using SLURM](#launching-large-scale-simulations-studies-on-the-campus-cluster-using-slurm)
@@ -16,9 +19,6 @@
 
 <!-- TOC end -->
 
-<!-- TOC --><a name="pch-astral-polymorphic-characters-with-astral"></a>
-# PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)
-
 <!-- TOC --><a name="introduction"></a>
 ## Introduction 
 
@@ -28,8 +28,8 @@ This repository contains the code, data, and visualization tools that were used 
 
 This work focuses on linguistic datasets, and this method is provably statistically consistent under a recently proposed polymorphic model by Canby et al. [[1]](https://tandy.cs.illinois.edu/Canby-Transactions2024.pdf). 
 
-<!-- TOC --><a name="repository-organisation"></a>
-## Repository organisation
+<!-- TOC --><a name="repository-organization"></a>
+## Repository organization
 The top folder contains the folder `example` (under which data is put), and `scripts` (under which code is put). It also contains a `requirements.txt` for conda environment access, and multiple bash scripts to launch simulated experiments / custom data. 
 
 File | Description 
@@ -48,8 +48,8 @@ Contains all the data used for inference. Please click into the folder and read 
 ### The `scripts` folder 
 This folder contains code and is organised by language / function. Please read the `README` in the folder for more information.
 
-<!-- TOC --><a name="how-to-run"></a>
-## How to Run 
+<!-- TOC --><a name="reproduction"></a>
+## Reproduction
 <!-- TOC --><a name="requirements"></a>
 ### Requirements 
 This program requires: 
@@ -81,8 +81,8 @@ Please put your simulation data under `example/simulated_data`. Each replica is 
 - The dataset was simulated down model tree 16 (i.e., the 16th line of `example/trees.txt` is the model tree), and was replica 1.
 
 <!-- TOC --><a name="launching-large-scale-simulations-studies-on-the-campus-cluster-using-slurm"></a>
-#### Launching large-scale simulations studies on the Campus Cluster using SLURM
-The files in `scripts/sh` are modular and can be used to run individual inferences using a variety of methods. For the simulation data, use `run_inference_sim.sh`. The file has grown to have many configurations, but its functionality is to take in a set of model conditions and the method, and to perform inference on that model condition using the specified method. It is smart enough to detect if a tree has already been inferred and will skip that tree if it is (useful when you call it multiple times if runs pass the time limit). Its output format is as follows: it will create a folder under `sim_outputs/{MODEL_CONDITION_STRING}/{METHOD}`, where the model condition string is the same as that under `example/simulated_data`, and the method is the specified one. In that folder, you will see at least a folder named `trees` (where it stores the outputs) and `allscores.txt`, where it scores the output of the trees w.r.t. to the model tree.
+#### Launching large-scale simulations studies using SLURM
+The files in `scripts/sh` are modular and can be used to run individual inferences using a variety of methods. For the simulation data, use `run_inference_sim.sh`. The file has grown to accept many configurations, but its functionality is to take in a set of model conditions and the method, and to perform inference on that model condition using the specified method. It is smart enough to detect if a tree has already been inferred and will skip that tree if it is (useful when you call it multiple times if runs pass the time limit). Its output format is as follows: it will create a folder under `sim_outputs/{MODEL_CONDITION_STRING}/{METHOD}`, where the model condition string is the same as that under `example/simulated_data`, and the method is the specified one. In that folder, you will see at least a folder named `trees` (where it stores the outputs) and `allscores.txt`, where it scores the output of the trees w.r.t. to the model tree.
 
 To automate running large-scale simulation studies, use `run_parallel_sim.sh` to submit SLURM jobs to the campus cluster queue. Simply modify the first few lines (before the for loop) and the bash script will launch these jobs for you, taking the cartesian product of all variables specified. The `TIMES` variable is for when multiple jobs are required to complete one model condition (for example, `TIMES=4` means that it will let the model condition run for a maximum of 16 hours). 
 
@@ -98,8 +98,8 @@ Flag | Method
 -a | ASTRAL. Specify the quartet method and/or bipartition set with -q and -b, respectively. -x will set ASTRAL to run in exact mode.
 -p | (p)arsimony, does MP.
 -g | (g)ray & atkinson, self explanatory. 
--q | Specify quartet mode. Only used if `-a` is specified. Relevant values should be 9~12, check [here](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/lib/getQuartets.py#L266-L269) for a description. 
--b | Specify bipartition set. Deprecated and will always use MP4 and GA bipartition sets. MAKE SURE YOU RUN GA AND MP4 FIRST BEFORE ASTRAL!
+-q | Specify quartet mode. Only used if `-a` is specified. Relevant values should be 9~12, check [here](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/lib/getQuartets.py#L164-L168) for a description. 
+-b | Specify bipartition set. Deprecated and will always use MP4 and GA bipartition sets. **MAKE SURE YOU RUN GA AND MP4 FIRST BEFORE ASTRAL!**
 -x | Make ASTRAL run in exact mode instead of heuristic mode.
 -f | Specify evolution factor. Must be a value within the `E_FACTORS` array. 
 -s | Specify polymorphism level. Must be a value within the `SETTINGS` array. 
