@@ -1,5 +1,25 @@
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+
+- [PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)](#pch-astral-polymorphic-characters-with-astral)
+   * [Introduction ](#introduction)
+   * [Repository organisation](#repository-organisation)
+      + [The `example` folder ](#the-example-folder)
+      + [The `scripts` folder ](#the-scripts-folder)
+   * [How to Run ](#how-to-run)
+      + [Requirements ](#requirements)
+      + [Simulation Data](#simulation-data)
+         - [Launching large-scale simulations studies on the Campus Cluster using SLURM](#launching-large-scale-simulations-studies-on-the-campus-cluster-using-slurm)
+         - [Inference_sim arguments](#inference_sim-arguments)
+         - [Output format ](#output-format)
+      + [I have my own data!](#i-have-my-own-data)
+         - [Data format](#data-format)
+
+<!-- TOC end -->
+
+<!-- TOC --><a name="pch-astral-polymorphic-characters-with-astral"></a>
 # PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)
 
+<!-- TOC --><a name="introduction"></a>
 ## Introduction 
 
 This is the GitHub repository for the upcoming paper (under preparation). This work is a collaborative effort by the [Computational Phylogenetics in Historical Linguistics](https://tandy.cs.illinois.edu/histling.html) (CPHL) group.
@@ -8,6 +28,7 @@ This repository contains the code, data, and visualization tools that were used 
 
 This work focuses on linguistic datasets, and this method is provably statistically consistent under a recently proposed polymorphic model by Canby et al. [[1]](https://tandy.cs.illinois.edu/Canby-Transactions2024.pdf). 
 
+<!-- TOC --><a name="repository-organisation"></a>
 ## Repository organisation
 The top folder contains the folder `example` (under which data is put), and `scripts` (under which code is put). It also contains a `requirements.txt` for conda environment access, and multiple bash scripts to launch simulated experiments / custom data. 
 
@@ -19,13 +40,17 @@ run_parallel_sim.sh | Useful for launching a run on a single dataset.
 
 **NOTE:** As ASTRAL requires MP and GA trees to be present (to augment the constraint space), make sure that MP and GA have ran first before running ASTRAL. 
 
+<!-- TOC --><a name="the-example-folder"></a>
 ### The `example` folder 
 Contains all the data used for inference. Please click into the folder and read the `README` for more information.
 
+<!-- TOC --><a name="the-scripts-folder"></a>
 ### The `scripts` folder 
 This folder contains code and is organised by language / function. Please read the `README` in the folder for more information.
 
+<!-- TOC --><a name="how-to-run"></a>
 ## How to Run 
+<!-- TOC --><a name="requirements"></a>
 ### Requirements 
 This program requires: 
 - [ASTRAL](https://github.com/smirarab/ASTRAL). Simply do 
@@ -46,6 +71,7 @@ cd ASTER; make; cd ..
 
 For further environment information, please refer to the [Illinois Campus Cluster Documentation](https://campuscluster.illinois.edu/resources/docs/).
 
+<!-- TOC --><a name="simulation-data"></a>
 ### Simulation Data
 Please put your simulation data under `example/simulated_data`. Each replica is then under a folder with the format `{poly}_{homoplasy-factor}_{evolution-factor}_{character-factor}`. Model trees should be placed under `example/simulated_data/trees.txt`, and should have one tree in newick format per line, in order. For example, one replica could have the path `example/simulated_data/high_0.1_0.8_0.5/sim_tree16_1.csv`.  This means that 
 - The polymorphism is high
@@ -54,11 +80,13 @@ Please put your simulation data under `example/simulated_data`. Each replica is 
 - The character factor is 3, so there are 0.5 * 320 = 160 characters.
 - The dataset was simulated down model tree 16 (i.e., the 16th line of `example/trees.txt` is the model tree), and was replica 1.
 
+<!-- TOC --><a name="launching-large-scale-simulations-studies-on-the-campus-cluster-using-slurm"></a>
 #### Launching large-scale simulations studies on the Campus Cluster using SLURM
 The files in `scripts/sh` are modular and can be used to run individual inferences using a variety of methods. For the simulation data, use `run_inference_sim.sh`. The file has grown to have many configurations, but its functionality is to take in a set of model conditions and the method, and to perform inference on that model condition using the specified method. It is smart enough to detect if a tree has already been inferred and will skip that tree if it is (useful when you call it multiple times if runs pass the time limit). Its output format is as follows: it will create a folder under `sim_outputs/{MODEL_CONDITION_STRING}/{METHOD}`, where the model condition string is the same as that under `example/simulated_data`, and the method is the specified one. In that folder, you will see at least a folder named `trees` (where it stores the outputs) and `allscores.txt`, where it scores the output of the trees w.r.t. to the model tree.
 
 To automate running large-scale simulation studies, use `run_parallel_sim.sh` to submit SLURM jobs to the campus cluster queue. Simply modify the first few lines (before the for loop) and the bash script will launch these jobs for you, taking the cartesian product of all variables specified. The `TIMES` variable is for when multiple jobs are required to complete one model condition (for example, `TIMES=4` means that it will let the model condition run for a maximum of 16 hours). 
 
+<!-- TOC --><a name="inference_sim-arguments"></a>
 #### Inference_sim arguments
 The file `run_inference_sim.sh` has a lot of arguments. Here is a short explanation of what each argument/flag does. **Important note**: when you add a new model condition (esp. e/h/c factors), make sure to update it in `run_inference_sim` as it checks for if it is in a predefined list [here](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/run_inference_sim.sh#L36-L60). `run_inference_sim.sh` does both inference *and* scoring. 
 
@@ -77,6 +105,7 @@ Flag | Method
 -s | Specify polymorphism level. Must be a value within the `SETTINGS` array. 
 -h | Specify homoplasy factor. Must be a value within the `H_FACTORS` array. 
 -C | Specify character factor. Must be a value within the `C_FACTORS` array. 
+<!-- TOC --><a name="output-format"></a>
 #### Output format 
 The simulation outputs will be in the folder 
 ```
@@ -93,7 +122,9 @@ The `allscores.txt` file is a simple `txt` file that has the original CSV path o
 ...
 ```
 **WARNING**: if the SLURM jobs fails (e.g., due to software errors or hardware errors such as out-of-memory), it is possible the list will be incomplete, or the format be missing. The plotting Python Notebook file `scripts/pynb/validation_and_plot.ipynb` tries to validate as well as it can that the required files exist and the score format is correct, but current sanity checks may not be enough. Therefore please always go into the files to check for errors if something seems off!
+<!-- TOC --><a name="i-have-my-own-data"></a>
 ### I have my own data!
+<!-- TOC --><a name="data-format"></a>
 #### Data format
 Make sure your data looks like [our data](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/example/rt_2025_poly/rt_2025_poly.csv). Then use the `run_specific_dataset.sh` file, which has the same method arguments, but instead of the flags `-fshC` to indicate model conditions, there are two extra inputs: 
 
