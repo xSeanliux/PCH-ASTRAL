@@ -5,7 +5,7 @@ DO_ASTRAL=false  # a(stral)
 DO_MP4=false     # p(arsimony)
 DO_GA=false      # g(ray & atkinson)
 
-# ASTRAL default modes
+# PCH-ASTRAL default modes
 QT_MODE=11
 BP_MODE=5
 ASTRAL_EXACT_FLAG=""

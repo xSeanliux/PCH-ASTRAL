@@ -55,6 +55,15 @@ Flag | Meaning
 -i | Path to input csv file (e.g., `example/rt_2025_poly/rt_2025_poly.csv`)
 -o | Folder that outputs will be put under. Defaults to the current directory `.`. The results will be put in `[OUTPUT_FOLDER]/[METHOD]` where `[OUTPUT_FOLDER]` is the argument to this option and `[METHOD]` is the inference method.
 
+See [here](REPRODUCIBILITY.md#inference_sim-arguments) for a comprehensive summary of the arguments to `run_specific_dataset.sh`. For example, one could run 
+```bash
+$ bash run_specific_dataset.sh -i $YOUR_DATA_FILE -pg
+```
+to perform inference on `$YOUR_DATA_FILE` using MP (`p`) and GA (`g`). Then they could do 
+```bash
+$ bash run_specific_dataset.sh -i $YOUR_DATA_FILE -a
+```
+to perform inference using PCH-ASTRAL-K.
 ## References 
 1. Canby, Marc E., et al. "Addressing polymorphism in linguistic phylogenetics." Transactions of the Philological Society 122.2 (2024): 191-222.
 2. Warnow, Tandy, et al. "A stochastic model of language evolution that incorporates homoplasy and borrowing." Phylogenetic methods and the prehistory of languages (2006): 75-90.
