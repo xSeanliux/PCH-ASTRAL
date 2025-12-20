@@ -7,6 +7,8 @@ The simulation data is composed of three parts:
 - The model trees (one per line in `trees.txt`), and
 - The simulated character data themselves (in `simulated_data`).
 
+The character data was simulated using [LingPhyloSimulator](https://github.com/marccanby/LingPhyloSimulator/). The seed used for each 
+
 Each replica is under a folder with format `{poly}_{homoplasy-factor}_{evolution-factor}_{character-factor}`. Model trees should be placed under `example/simulated_data/trees.txt`, and should have one tree in newick format per line, in order. For example, one replica could have the path `example/simulated_data/high_0.1_0.8_0.5/sim_tree16_1.csv`.  This means that 
 - The polymorphism is high
 - The homoplasy factor is 0.1
