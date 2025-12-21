@@ -25,7 +25,7 @@ This work focuses on linguistic datasets, and this method is provably statistica
 For detailed information on how to reproduce the results we obtained in the paper, please see [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md).
 
 ## Repository organization
-The top folder contains the folder `example` (under which data is put), and `scripts` (under which code is put). It also contains a `requirements.txt` for conda environment access, and multiple bash scripts to launch simulated experiments / custom data. 
+The top folder contains the folder `data/` (under which data is put), and `scripts` (under which code is put). It also contains a `requirements.txt` for conda environment access, and multiple bash scripts to launch simulated experiments / custom data. 
 
 File | Description 
 --- | --- 
@@ -35,22 +35,22 @@ File | Description
 
 **NOTE:** As ASTRAL requires MP and GA trees to be present (to augment the constraint space), make sure that MP and GA have ran first before running ASTRAL. 
 
-### The `example` folder 
-Contains all the data used for inference. Please click into the folder and read the `README` for more information.
+### The `data/` folder 
+Contains both the simulation and IE data used in our paper. Please click into the folder and read the `README` for more information.
 
 ### The `scripts` folder 
 This folder contains code and is organised by language / function. Please read the `README` in the folder for more information.
 
-## Reproduction
-For a full reproduction tutorial, please see [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md). 
+## Reproducibility
+For a full reproducibility tutorial, please see [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md). 
 
 ## Running on your own data
 ### Data format
-Make sure your data looks like [our data](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/example/rt_2025_poly/rt_2025_poly.csv). Then use the `run_specific_dataset.sh` file, which has the same method arguments, but instead of the flags `-fshC` to indicate model conditions, there are two extra inputs: 
+Make sure your data looks like [our data](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/data/rt_2025_poly/rt_2025_poly.csv). Then use the `run_specific_dataset.sh` file, which has the same method arguments, but instead of the flags `-fshC` to indicate model conditions, there are two extra inputs: 
 
 Flag | Meaning
 --- | --- 
--i | Path to input csv file (e.g., `example/rt_2025_poly/rt_2025_poly.csv`)
+-i | Path to input csv file (e.g., `datart_2025_poly/rt_2025_poly.csv`)
 -o | Folder that outputs will be put under. Defaults to the current directory `.`. The results will be put in `[OUTPUT_FOLDER]/[METHOD]` where `[OUTPUT_FOLDER]` is the argument to this option and `[METHOD]` is the inference method.
 
 See [here](REPRODUCIBILITY.md#inference_sim-arguments) for a comprehensive summary of the arguments to `run_specific_dataset.sh`. For example, one could run 

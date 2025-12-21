@@ -174,129 +174,20 @@ def get_quartets(csv_path   : str,
 def get_quartets_names_ret_values(
     names, ret_values, mode, do_filter, filter_lim, weights = None
 ):
-    if 9 <= mode <= 12:
-        return get_new_omp_names_ret_values(
-            names=names,
-            values=ret_values,
-            mode=mode,
-        )
-    all_quartets = {} # string to weight
-    double_split_count = 0
-
-    # for all characters
-    for i, row in enumerate(ret_values):
-        # weight = 1.0 if not use_original_weighting else float(row[1].iloc[2]) # morphological characters weighted > lexical & phonological characters
-        name_to_states = {
-            n: s for (n, s) in zip (names, row)
-        }
-        # row is a dictionary of language -> exhibit
-        exhibits_state = dict()
-        # exhibits_gene is state -> which languages have this state 
-        for taxon, states in name_to_states.items():
-            for c in states:
-                if (mode != 13 and c == '0') or c == '?': # only consider known non-homoplastic states 
-                    continue
-                if c not in exhibits_state:
-                    exhibits_state[c] = []
-
-                exhibits_state[c].append(taxon)
-        # keys: all non-homoplastic states with more than 2 languages exhibiting it 
-        keys = [
-            k 
-            for (k, v) in exhibits_state.items() 
-            if len(v) > 1
-        ]
-        quartets = {} # quartet (canonical string) -> dict (tuple) -> count
-        for k1, k2 in combinations(keys, 2):
-            # l: the lists of the languages exhibiting states i and j
-            l1 = exhibits_state[k1]
-            l2 = exhibits_state[k2]
-            l1_set = set(l1) # this will be used to query to see if there is a REAL split
-            l2_set = set(l2)
-            l1p = list(combinations(l1, 2))
-            l2p = list(combinations(l2, 2)) 
-            all_q = [ # all possible quartets supported by this character
-                (a, b, c, d) for (a, b) in l1p for (c, d) in l2p 
-                if (a != c and a != d and b != c and b != d) # the conditional is so that you can't have things like AB|AC
-                and (a not in l2_set) and (b not in l2_set)  # this is so that if a = 1, b = 1/2, c = 2, d = 2,
-                and (c not in l1_set) and (d not in l1_set)  # ab|cd is not counted as a valid split.
-            ]
-            for q in all_q: 
-                assert len(set(q)) == 4, f"""
-                Bad quartet: character is {ret_values}, q = {q}, {k1=}, {k2=}, {l1=}, {l2=}
-                {exhibits_state=}
-                """
-                sorted_form = get_sorted_tuple(q) # this is the canonical form of the quartet, depending only on what leaves it has
-                canonical_form = get_canonical_tuple(q)
-                if sorted_form not in quartets:
-                    quartets[sorted_form] = {}
-                addOne(quartets[sorted_form], canonical_form)
-
-        # get most likely quartet for each four languages
-        # pdb.set_trace() 
-        for _, four_quartets in quartets.items():
-            list_form = sorted([
-                (frq, q) for (q, frq) in four_quartets.items()
-            ], reverse=True) # a list of (frequency of the quartet, quartet) trees sorted in decreasing order of frequency
-            # pdb.set_trace()
-            most_common_cnt = list_form[0][0]
-            most_common_quartets = list(filter(lambda x: x[0] == most_common_cnt, list_form)) # get just the most common quartets
-            if(mode == 1 or mode == 3 or mode == 13):
-                if len(most_common_quartets) > 1:
-                    if(len(most_common_quartets) == 2):
-                        double_split_count += 1
-                        # print(f"Two: {most_common_quartets}, {name_to_states}")
-                    continue
-                returned_quartet = most_common_quartets[0][1]
-                addOne(all_quartets, returned_quartet)
-            elif(mode == 2): # deprecated but this was implemented already so it stays
-                if len(most_common_quartets) >= 3:
-                    continue
-                for _, q in most_common_quartets:
-                    returned_quartet = q
-                    addOne(all_quartets, returned_quartet)
-            elif(mode == 7):
-                if len(most_common_quartets) > 1:
-                    continue
-                returned_quartet = most_common_quartets[0][1]
-                rooted_quartets = get_rooted_quartets(returned_quartet)
-                best_trees = best_rooted_quartets(rooted_quartets, { s: name_to_states[s] for s in most_common_quartets[0][1] })
-                for tree in best_trees: 
-                    addOne(all_quartets, tree.rooted_quartet())
-            elif(mode == 8):
-                if len(most_common_quartets) > 1:
-                    if(len(most_common_quartets) == 2):
-                        double_split_count += 1
-                        # print(f"Two: {most_common_quartets}, {name_to_states}")
-                    continue
-                returned_quartet = most_common_quartets[0][1]
-                addOne(all_quartets, returned_quartet, weights[i])
-
-
-                
-    # print(f"In {no_quartet_count} instances, two quartets were equally likely for a character & four leaves.")
-    ret_dict = {
-        'double_split_count': double_split_count
-    }
-    if do_filter:
-        all_quartets = {
-            q: w for q, w in all_quartets.items() if w > filter_lim
-        }
-    return (ret_dict, all_quartets)
+    assert mode in [10, 11]
+    return get_new_omp_names_ret_values(
+        names=names,
+        values=ret_values,
+        mode=mode,
+    )
 
 def print_quartets(
         csv_path: str, 
         mode: int, 
-        do_filter: bool = False,
-        filter_lim: int = 0, # NOT USED! Here filtering is based on heavy bipartitions not quartet frequency
     ): 
     _, quartets = get_quartets(csv_path=csv_path, mode=mode)
-    # print("HI!!!")
-    if do_filter: 
-        eprint("Filtering quartets based on R&T Heavy.")
-        compatibility_filter = MonoCharacterCompatibilty(chars_csv_file="/projects/tallis/zxliu2/OneMostProb/example/z_rt_old/ie_dataset_heavy.csv")
     for q, w in quartets.items():
-        if(type(q) == tuple and ((not do_filter) or compatibility_filter.quartet_compatible(*q))):
+        if(type(q) == tuple):
             (a, b, c, d) = q
             print(f'(({a},{b}),({c},{d}));\n' * w, end="") 
         elif(type(q) == str):
@@ -309,16 +200,12 @@ def print_waster_quartets(
         mode: int, 
         quartets_path: Union[Path, str], 
         counts_path: Union[Path, str],
-        do_filter: bool = False,
     ):
     _, quartets = get_quartets(csv_path=csv_path, mode=mode)
-    if do_filter: 
-        eprint("Filtering quartets based on R&T Heavy.")
-        compatibility_filter = MonoCharacterCompatibilty(chars_csv_file="/projects/tallis/zxliu2/OneMostProb/example/z_rt_old/ie_dataset_heavy.csv")
     print(f"Found {len(quartets)} unique quartets.")
     with open(quartets_path, "w") as qf, open(counts_path, "w") as cf: 
         for q, w in quartets.items():
-            if(type(q) == tuple and ((not do_filter) or compatibility_filter.quartet_compatible(*q))):
+            if(type(q) == tuple):
                 (a, b, c, d) = q
                 qf.write(f'(({a},{b}),({c},{d}));\n')
                 cf.write(f'{w}\n')

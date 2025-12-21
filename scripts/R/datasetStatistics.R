@@ -30,7 +30,7 @@ getCharCountsForMp1 <- function(numedge=0, factor='1.0', do_morph=FALSE) {
 
     for (t in 1:numtrees) {
       for (r in 1:numreplicas) {
-        if (numedge == 0) file = paste0('../OneMostProb/example/simulated_data-', factor, SUFFIX, '/', c,'_noborrowing/', morph_dir,'/', 'sim_tree',t,'_',r,'.csv')
+        if (numedge == 0) file = paste0('../OneMostProb/data/simulated_data-', factor, SUFFIX, '/', c,'_noborrowing/', morph_dir,'/', 'sim_tree',t,'_',r,'.csv')
         else {
           assert({FALSE})
         #   if (c %in% 1:5) ch = c+5

@@ -7,7 +7,7 @@ class MonoCharacterCompatibilty:
     Given a csv of monomorphic characters, utilities to check if a given tree is compatible with the character set. 
 
     Notes: 
-    1. Characters must be supplied in the format given in (https://github.com/marccanby/LingPhyloSimulator/blob/main/example/ie_dataset.csv).
+    1. Characters must be supplied in the format given in (https://github.com/marccanby/LingPhyloSimulator/blob/main/data/ie_dataset.csv).
     2. Character set must be monomorphic. Polymorphic compatibility is TODO.
     3. If you are testing for quartet compatibility, use the quartet_compatible function (it is much faster). 
     """

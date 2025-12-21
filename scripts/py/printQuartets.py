@@ -17,20 +17,6 @@ def main():
     # WASTER mode
     parser.add_argument('-w', '--waster', action='store_true', help="Enables WASTER mode. It will instead print unique quartetss to STDOUT and quartet weights to STDERR.")
 
-    parser.add_argument(
-        '-f', '--filter',
-        action='store_true',
-        help="Enable filtering"
-    )
-
-    # Optional limit argument (integer)
-    parser.add_argument(
-        '-l', '--limit',
-        type=int,
-        default=2,
-        help="Limit for filtering (optional), only quartets with weight (aka frequency) strictly larger than this will be kept. Used to keep file sizes down."
-    )
-    
     # Parse arguments
     args = parser.parse_args()
     
@@ -39,7 +25,6 @@ def main():
         _, quartets = get_quartets(
             csv_path = args.i,
             mode = args.q,
-            do_filter=args.filter,
             filter_lim=args.limit,
         )
         for (a, b, c, d), C in quartets.items():
@@ -49,7 +34,6 @@ def main():
         print_quartets(
             csv_path=args.i,
             mode=args.q,
-            do_filter=args.filter,
             filter_lim=args.limit,
         )
 
