@@ -46,11 +46,11 @@ For a full reproducibility tutorial, please see [`REPRODUCIBILITY.md`](REPRODUCI
 
 ## Running on your own data
 ### Data format
-Make sure your data looks like [our data](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/data/rt_2025_poly/rt_2025_poly.csv). Then use the `run_specific_dataset.sh` file, which has the same method arguments, but instead of the flags `-fshC` to indicate model conditions, there are two extra inputs: 
+Make sure your data looks like [our data](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/data/rt_2025_poly_screened_lv_1.csv). Then use the `run_specific_dataset.sh` file, which has the same method arguments, but instead of the flags `-fshC` to indicate model conditions, there are two extra inputs: 
 
 Flag | Meaning
 --- | --- 
--i | Path to input csv file (e.g., `datart_2025_poly/rt_2025_poly.csv`)
+-i | Path to input csv file (e.g., `data/rt_2025_poly_screened_lv_1.csv`)
 -o | Folder that outputs will be put under. Defaults to the current directory `.`. The results will be put in `[OUTPUT_FOLDER]/[METHOD]` where `[OUTPUT_FOLDER]` is the argument to this option and `[METHOD]` is the inference method.
 
 See [here](REPRODUCIBILITY.md#inference_sim-arguments) for a comprehensive summary of the arguments to `run_specific_dataset.sh`. For example, one could run 
