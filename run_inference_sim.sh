@@ -11,7 +11,7 @@ DO_GA=false      # g(ray & atkinson)
 QT_MODE=11
 BP_MODE=5
 
-TARGETTREES=example/trees.txt
+TARGETTREES=data/trees.txt
 # list of allowed settings
 E_FACTORS=("0.8") # evolution factor
 H_FACTORS=("0.1") # homoplasy factor
@@ -74,7 +74,7 @@ for poly in ${SETTINGS[@]}; do
         for e_factor in ${E_FACTORS[@]}; do
             for c_factor in ${C_FACTORS[@]}; do
                 SETTING_NAME=$poly"_"$h_factor"_"$e_factor"_"$c_factor
-                CSVS=example/simulated_data/$SETTING_NAME
+                CSVS=data/simulated_data/$SETTING_NAME
                 TREEOUTPUT=sim_outputs/$SETTING_NAME
 
                 ASTRAL_VARIANT=ASTRAL\($QT_MODE,$BP_MODE\)

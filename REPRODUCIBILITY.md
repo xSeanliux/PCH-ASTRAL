@@ -32,10 +32,10 @@ to install ASTRAL. Your ASTRAL executable should be under `ASTRAL/Astral/astral.
 For further environment information, please refer to the [Illinois Campus Cluster Documentation](https://campuscluster.illinois.edu/resources/docs/).
 
 ## Simulation Data
-Please see `example/README.md` for information on what the naming conventions are for the folders and data under `examples/simulated_data`.
+Please see `data/README.md` for information on what the naming conventions are for the folders and data under `examples/simulated_data`.
 
 ## Launching large-scale simulations studies using SLURM
-The files in `scripts/sh` are modular and can be used to run individual inferences using a variety of methods. To run one setting in the simulation data, use `run_inference_sim.sh`. That file has grown to accept many configurations, but its functionality is to take in a set of model conditions and the method, and to perform inference on that model condition using the specified method. Please check the below section for an explanation on the range of arguments that `rnu_inference_sim.sh` accepts. It is smart enough to detect if a tree has already been inferred and will skip that tree if it is (useful when you call it multiple times if runs pass the time limit). Its output format is as follows: it will create a folder under `sim_outputs/{MODEL_CONDITION_STRING}/{METHOD}`, where the model condition string is the same as that under `example/simulated_data`, and the method is the specified one. In that folder, you will see at least a folder named `trees` (where it stores the outputs) and `allscores.txt`, where it scores the output of the trees w.r.t. to the model tree.
+The files in `scripts/sh` are modular and can be used to run individual inferences using a variety of methods. To run one setting in the simulation data, use `run_inference_sim.sh`. That file has grown to accept many configurations, but its functionality is to take in a set of model conditions and the method, and to perform inference on that model condition using the specified method. Please check the below section for an explanation on the range of arguments that `rnu_inference_sim.sh` accepts. It is smart enough to detect if a tree has already been inferred and will skip that tree if it is (useful when you call it multiple times if runs pass the time limit). Its output format is as follows: it will create a folder under `sim_outputs/{MODEL_CONDITION_STRING}/{METHOD}`, where the model condition string is the same as that under `data/simulated_data`, and the method is the specified one. In that folder, you will see at least a folder named `trees` (where it stores the outputs) and `allscores.txt`, where it scores the output of the trees w.r.t. to the model tree.
 
 For larger datasets like the one we used, one can take advantage of the independence of datasets themselves to run these simulation studies in parallel. In our studies we submitted multiple jobs to SLURM, parameterizing runs using command line arguments using `run_parallel_sim.sh`. Simply modify the first few lines (before the for loop) and the bash script will launch these jobs for you, taking the cartesian product of all variables specified. The `TIMES` variable is for when multiple jobs are required to complete one model condition (for example, `TIMES=4` means that it will let the model condition run for a maximum of 16 hours). 
 
@@ -62,7 +62,7 @@ The simulation outputs will be in the folder
 ```
 sim_outputs/[MODEL_CONDITION]/[METHOD]
 ```
-where `[MODEL_CONDITION]` corresponds to the folder name in `example/simulated_data/[MODEL_CONDITION]` and `[METHOD]` is the method name (e.g. `ASTRAL(11,5)`, `MP4`, or `GA`). Inside the folder will be at least the `trees` folder containing point estimates, and `allscores.txt`, with FN and FP scores.
+where `[MODEL_CONDITION]` corresponds to the folder name in `data/simulated_data/[MODEL_CONDITION]` and `[METHOD]` is the method name (e.g. `ASTRAL(11,5)`, `MP4`, or `GA`). Inside the folder will be at least the `trees` folder containing point estimates, and `allscores.txt`, with FN and FP scores.
 
 The `allscores.txt` file is a simple `txt` file that has the original CSV path of the data on one line, and then the FN and FP errors on the second line, for each replicate. In other words, it is of the format 
 ```
