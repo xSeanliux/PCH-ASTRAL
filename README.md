@@ -6,7 +6,7 @@
    * [Table of Contents](#table-of-contents)
    * [Introduction ](#introduction)
    * [Repository organization](#repository-organization)
-      + [The `example` folder ](#the-example-folder)
+      + [The `data` folder ](#the-example-folder)
       + [The `scripts` folder ](#the-scripts-folder)
    * [Reproduction](#reproduction)
    * [Running on your own data](#running-on-your-own-data)
