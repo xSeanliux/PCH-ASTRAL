@@ -108,8 +108,6 @@ def get_new_omp_names_ret_values(
             all_q = [ # all possible quartets supported by this character
                 get_canonical_tuple((a, b, c, d)) for (a, b) in l1p for (c, d) in l2p 
             ]
-            if(('t19', 't23', 't28', 't9') in all_q):
-                breakpoint()
             votes.update(all_q)
     if mode == 10 or mode == 11:
         return (None, votes)

@@ -32,7 +32,7 @@ to install ASTRAL. Your ASTRAL executable should be under `ASTRAL/Astral/astral.
 For further environment information, please refer to the [Illinois Campus Cluster Documentation](https://campuscluster.illinois.edu/resources/docs/).
 
 ## Simulation Data
-Please see `data/README.md` for information on what the naming conventions are for the folders and data under `examples/simulated_data`.
+Please see `data/README.md` for information on what the naming conventions are for the folders and data under `data/simulated_data`.
 
 ## Launching large-scale simulations studies using SLURM
 The files in `scripts/sh` are modular and can be used to run individual inferences using a variety of methods. To run one setting in the simulation data, use `run_inference_sim.sh`. That file has grown to accept many configurations, but its functionality is to take in a set of model conditions and the method, and to perform inference on that model condition using the specified method. Please check the below section for an explanation on the range of arguments that `rnu_inference_sim.sh` accepts. It is smart enough to detect if a tree has already been inferred and will skip that tree if it is (useful when you call it multiple times if runs pass the time limit). Its output format is as follows: it will create a folder under `sim_outputs/{MODEL_CONDITION_STRING}/{METHOD}`, where the model condition string is the same as that under `data/simulated_data`, and the method is the specified one. In that folder, you will see at least a folder named `trees` (where it stores the outputs) and `allscores.txt`, where it scores the output of the trees w.r.t. to the model tree.
@@ -43,12 +43,12 @@ For larger datasets like the one we used, one can take advantage of the independ
 The file `run_inference_sim.sh` has a lot of arguments. Here is a short explanation of what each argument/flag does. **Important note**: when you add a new model condition (esp. e/h/c factors), make sure to update it in `run_inference_sim` as it checks for if it is in a predefined list [here](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/run_inference_sim.sh#L36-L60). `run_inference_sim.sh` does both inference *and* scoring. 
 
 IMPORTANT:
-- **Always** run MP4 and GA before running ASTRAL, as ASTRAL (in heuristic mode) takes all bipartitions from MP4 and GA trees.
+- **Always** run MP and GA before running ASTRAL, as ASTRAL (in heuristic mode) takes all bipartitions from MP4 and GA trees.
 
 Flag | Method 
 --- | ---
 -a | ASTRAL. Specify the quartet method and/or bipartition set with -q and -b, respectively. -x will set ASTRAL to run in exact mode.
--p | (p)arsimony, does MP.
+-p | (p)arsimony, runs MP4 from Canby et al. This method transforms a polymorphic dataset into a monomorphic one via a heuristic and then runs MP on the result.
 -g | (g)ray & atkinson, self explanatory. 
 -q | Specify quartet mode. Only used if `-a` is specified. Relevant values should be either 10 or 11, check [here](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/lib/getQuartets.py#L164-L168) for a description. 
 -b | Specify bipartition set. Deprecated and will always use MP4 and GA bipartition sets. **MAKE SURE YOU RUN GA AND MP4 FIRST BEFORE ASTRAL!**

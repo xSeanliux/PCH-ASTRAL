@@ -22,6 +22,11 @@ This work is a collaborative effort by the [Computational Phylogenetics in Histo
 
 This work focuses on linguistic datasets, and this method is provably statistically consistent under a recently proposed polymorphic model by Canby et al. [[1]](https://tandy.cs.illinois.edu/Canby-Transactions2024.pdf). 
 
+The method addressed here is the inference of linguistic phylogenies given a set of polymorphic traits (characters). These characters are given in tabular form and assumed to have evolved under the Canby et al. model. The method we present, PCH-ASTRAL, takes a multistep approach:
+1. Perform inference using a variant of maximum parsimony (MP4 in Canby et al.) and a Bayesian method (following Gray & Atkinson, 2003 [[3]](https://scholar.google.com/scholar_url?url=https://www.nature.com/articles/nature02029&hl=en&sa=T&oi=gsb&ct=res&cd=2&d=8425091542861310623&ei=PuJJaezAFrPFieoPper8uAM&scisig=ALhkC2RkqXHmcQzi4dDJyKXKhUy7)). This gives us a set of tree estimates. 
+2. From the data we generate a multiset of quartet trees, that is, unrooted four-leaf binary trees, on the binary tree.
+3. Run ASTRAL on the aforementioned set of quartet trees, using the trees in Step 1 to augment the search space. This finds the unrooted tree that has the highest quartet compatibility score of all trees, subject to drawing its bipartition from the constraint set and its own bipartition generation heuristics.
+
 For detailed information on how to reproduce the results we obtained in the paper, please see [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md).
 
 ## Repository organization
@@ -33,7 +38,7 @@ File | Description
 `run_parallel_sim.sh` | Launches SLURM jobs in parallel, each of which is a call to `run_inference_sim.sh`. Useful when running large-scale experiments across many conditions and methods.
 `run_specific_dataset.sh` | Useful for launching a run on a single dataset.
 
-**NOTE:** As ASTRAL requires MP and GA trees to be present (to augment the constraint space), make sure that MP and GA have ran first before running ASTRAL. 
+**NOTE:** As ASTRAL requires Maximum Parsimony (MP) and Gray & Atkinson (GA) trees to be present (to augment the constraint space), make sure that MP and GA have ran first before running ASTRAL. 
 
 ### The `data/` folder 
 Contains both the simulation and IE data used in our paper. Please click into the folder and read the `README` for more information.
@@ -63,5 +68,6 @@ $ bash run_specific_dataset.sh -i $YOUR_DATA_FILE -a
 ```
 to perform inference using PCH-ASTRAL-K.
 ## References 
-1. Canby, Marc E., et al. "Addressing polymorphism in linguistic phylogenetics." Transactions of the Philological Society 122.2 (2024): 191-222.
-2. Warnow, Tandy, et al. "A stochastic model of language evolution that incorporates homoplasy and borrowing." Phylogenetic methods and the prehistory of languages (2006): 75-90.
+1. [Canby, Marc E., et al. "Addressing polymorphism in linguistic phylogenetics." Transactions of the Philological Society 122.2 (2024): 191-222.](https://tandy.cs.illinois.edu/Canby-Transactions2024.pdf)
+2. [Warnow, Tandy, et al. "A stochastic model of language evolution that incorporates homoplasy and borrowing." Phylogenetic methods and the prehistory of languages (2006): 75-90.](http://www.cs.rice.edu/~nakhleh/Papers/WarnowRevComplete.pdf)
+3. [Gray, Russell D., and Quentin D. Atkinson. "Language-tree divergence times support the Anatolian theory of Indo-European origin." Nature 426.6965 (2003): 435-439.](https://scholar.google.com/scholar_url?url=https://www.nature.com/articles/nature02029&hl=en&sa=T&oi=gsb&ct=res&cd=2&d=8425091542861310623&ei=PuJJaezAFrPFieoPper8uAM&scisig=ALhkC2RkqXHmcQzi4dDJyKXKhUy7)
