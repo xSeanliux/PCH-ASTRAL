@@ -11,6 +11,7 @@
    * [Reproduction](#reproduction)
    * [Running on your own data](#running-on-your-own-data)
       + [Data format](#data-format)
+   * [Glossary ](#glossary)
    * [References ](#references)
 
 <!-- TOC end -->
@@ -38,7 +39,7 @@ File | Description
 `run_parallel_sim.sh` | Launches SLURM jobs in parallel, each of which is a call to `run_inference_sim.sh`. Useful when running large-scale experiments across many conditions and methods.
 `run_specific_dataset.sh` | Useful for launching a run on a single dataset.
 
-**NOTE:** As ASTRAL requires Maximum Parsimony (MP) and Gray & Atkinson (GA) trees to be present (to augment the constraint space), make sure that MP and GA have ran first before running ASTRAL. 
+**NOTE:** As ASTRAL requires Maximum Parsimony (MP) and Gray & Atkinson (GA) trees to be present (to augment the constraint space), make sure that MP and GA have ran first before running ASTRAL. See the [Glossary]( #glossary) for more details on the details of MP/GA.
 
 ### The `data/` folder 
 Contains both the simulation and IE data used in our paper. Please click into the folder and read the `README` for more information.
@@ -67,6 +68,9 @@ to perform inference on `$YOUR_DATA_FILE` using MP (`p`) and GA (`g`). Then they
 $ bash run_specific_dataset.sh -i $YOUR_DATA_FILE -a
 ```
 to perform inference using PCH-ASTRAL-K.
+## Glossary 
+- **MP/MP4** This refers to a variant of maximum parsimony proposed by Canby et al. [[1]](https://tandy.cs.illinois.edu/Canby-Transactions2024.pdf). The input to this method is a polymorphic character matrix and the output is a set of trees. In this work, we further take the majority consensus of all trees to take the point estimate.
+- **GA** This refers to a Bayesian method proposed by Gray & Atkinson [[3]](https://scholar.google.com/scholar_url?url=https://www.nature.com/articles/nature02029&hl=en&sa=T&oi=gsb&ct=res&cd=2&d=8425091542861310623&ei=PuJJaezAFrPFieoPper8uAM&scisig=ALhkC2RkqXHmcQzi4dDJyKXKhUy7). The input to this method is a polymorphic character matrix (which is turned into a binary character encoding) and the output is a set of trees. In this work, we further take MCC tree of the last half of the sampled trees to obtain the point estimate.
 ## References 
 1. [Canby, Marc E., et al. "Addressing polymorphism in linguistic phylogenetics." Transactions of the Philological Society 122.2 (2024): 191-222.](https://tandy.cs.illinois.edu/Canby-Transactions2024.pdf)
 2. [Warnow, Tandy, et al. "A stochastic model of language evolution that incorporates homoplasy and borrowing." Phylogenetic methods and the prehistory of languages (2006): 75-90.](http://www.cs.rice.edu/~nakhleh/Papers/WarnowRevComplete.pdf)

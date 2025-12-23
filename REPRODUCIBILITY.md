@@ -43,13 +43,13 @@ For larger datasets like the one we used, one can take advantage of the independ
 The file `run_inference_sim.sh` has a lot of arguments. Here is a short explanation of what each argument/flag does. **Important note**: when you add a new model condition (esp. e/h/c factors), make sure to update it in `run_inference_sim` as it checks for if it is in a predefined list [here](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/run_inference_sim.sh#L36-L60). `run_inference_sim.sh` does both inference *and* scoring. 
 
 IMPORTANT:
-- **Always** run MP and GA before running ASTRAL, as ASTRAL (in heuristic mode) takes all bipartitions from MP4 and GA trees.
+- **Always** run MP and GA before running ASTRAL, as ASTRAL (in heuristic mode) takes all bipartitions from MP4 and GA trees. See the [Glossary]( #glossary) for more details on the details of MP/GA.
 
 Flag | Method 
 --- | ---
 -a | ASTRAL. Specify the quartet method and/or bipartition set with -q and -b, respectively. -x will set ASTRAL to run in exact mode.
--p | (p)arsimony, runs MP4 from Canby et al. This method transforms a polymorphic dataset into a monomorphic one via a heuristic and then runs MP on the result.
--g | (g)ray & atkinson, self explanatory. 
+-p | (p)arsimony, runs MP4 from Canby et al. This method transforms a polymorphic dataset into a monomorphic one via a heuristic and then runs MP on the result. See the [Glossary ]( README.md#glossary) for more details on MP4.
+-g | (g)ray & atkinson, self explanatory. See the [Glossary ]( README.md#glossary) for more details on GA.
 -q | Specify quartet mode. Only used if `-a` is specified. Relevant values should be either 10 or 11, check [here](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/lib/getQuartets.py#L164-L168) for a description. 
 -b | Specify bipartition set. Deprecated and will always use MP4 and GA bipartition sets. **MAKE SURE YOU RUN GA AND MP4 FIRST BEFORE ASTRAL!**
 -x | Make ASTRAL run in exact mode instead of heuristic mode.
