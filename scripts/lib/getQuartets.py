@@ -139,8 +139,6 @@ def get_new_omp_names_ret_values(
         res
     )
 
-
-# TODO: add this to readme
 def get_new_omp(
     csv_path: str,
     mode: int
