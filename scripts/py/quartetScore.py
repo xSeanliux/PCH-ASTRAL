@@ -22,19 +22,16 @@ def main():
     data_path = Path(args.data)
     # output_path = Path(args.output)
 
-    # Example usage of Bio.Phylo and Path (could be expanded depending on your task)
     try:
-        # Assuming the tree file is a Newick format, you could load the tree like this
+        # Assume the tree file is in Newick format
         tree = Phylo.read(tree_path, 'newick')
         print(f"Tree loaded from: {tree_path}")
-        # Example: Do something with the data file (perhaps parse it or load it)
         print(f"Data file: {data_path}")
         _, quartets = get_quartets(
             csv_path = data_path,
             mode = 11
         )
         # 11 for EVANS-ALL-K
-        # Example: Output file handling
         # print(f"Output will be saved to: {output_path}")
 
         scorer = QuartetScorer(tree)
