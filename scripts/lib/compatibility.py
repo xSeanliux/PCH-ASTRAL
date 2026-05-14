@@ -22,8 +22,8 @@ class MonoCharacterCompatibilty:
             for v in values:
                 for x in v:
                     assert len(x) == 1
-        except:
-            print("Warning: Characters given are not monomorphic.")
+        except Exception as e:
+            print(f"Warning: Characters given are not monomorphic.: {str(e)}")
         self.name_to_id = {n: i for i, n in enumerate(names)}
 
     def quartet_compatible(self, a: str, b: str, c: str, d: str):

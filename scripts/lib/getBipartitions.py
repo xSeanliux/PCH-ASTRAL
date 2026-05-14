@@ -25,6 +25,7 @@ def nexus_to_newick(
 
             trees_resolved = list(map(resolve_tree, newick_trees))
             output.close()
+            print(f"Wrote {written_trees} trees.")
             return trees_resolved
     except Exception:
         print(

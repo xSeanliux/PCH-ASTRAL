@@ -19,3 +19,6 @@ dependencies = [
     "shortuuid>=1.0.13",
     "ty>=0.0.35",
 ]
+
+[tool.ty.rules]
+possibly-missing-submodule = "ignore"

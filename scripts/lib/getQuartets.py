@@ -1,9 +1,11 @@
 import glob
 from pathlib import Path
 from functools import reduce
-from scripts.lib.loss_quartets import *
-from scripts.lib.utils import *
-from scripts.lib.compatibility import *
+
+# from scripts.lib.loss_quartets import *
+from scripts.lib.utils import get_values
+
+# from scripts.lib.compatibility import *
 from itertools import combinations
 from typing import List, Union
 from collections import Counter
@@ -126,7 +128,7 @@ def get_new_omp_names_ret_values(
     return ({"votes": votes, "ties": ties, "unique_best": unique_best}, res)
 
 
-def get_new_omp(csv_path: str, mode: int):
+def get_new_omp(csv_path: str | Path, mode: int):
     assert 9 <= mode <= 12, "mode has to be between 9 and 12"
     names, values = get_values(csv_path)
     return get_new_omp_names_ret_values(
@@ -171,10 +173,10 @@ def print_quartets(
 ):
     _, quartets = get_quartets(csv_path=csv_path, mode=mode)
     for q, w in quartets.items():
-        if type(q) == tuple:
+        if type(q) is tuple:
             (a, b, c, d) = q
             print(f"(({a},{b}),({c},{d}));\n" * w, end="")
-        elif type(q) == str:
+        elif type(q) is str:
             if q[-1] != "\n":
                 q = q + "\n"
             print(q * w, end="")
@@ -190,35 +192,12 @@ def print_waster_quartets(
     print(f"Found {len(quartets)} unique quartets.")
     with open(quartets_path, "w") as qf, open(counts_path, "w") as cf:
         for q, w in quartets.items():
-            if type(q) == tuple:
+            if type(q) is tuple:
                 (a, b, c, d) = q
                 qf.write(f"(({a},{b}),({c},{d}));\n")
                 cf.write(f"{w}\n")
-            elif type(q) == str:
+            elif type(q) is str:
                 if q[-1] != "\n":
                     q = q + "\n"
                 qf.write(q)
                 cf.write(f"{w}\n")
-
-
-def print_quartets_in_nexus(csv_path: str, mode: int):
-    """
-    Takes a csv path and a mode (like all other methods),
-    and will print quartets in NEXUS format. In particular, if ab|cd is a quartet with weight W,
-    then there will be a parsimony character A such that it has weight W and
-    A(a) = A(b) = 0,
-    A(c) = A(d) = 1,
-    A(x) = ? for all other taxa.
-    """
-    names, _ = get_values(csv_path)  # list of all taxa names
-    name_id = {  # assign each name a numerical ID
-        n: i for i, n in enumerate(names)
-    }
-    _, quartets = get_quartets(
-        csv_path=csv_path,
-        mode=mode,
-    )
-    # names: list of taxa names
-    # quartets: list of strings of length |quartet|, one for each quaret, with 0s on one side, 1s on the other, and ?s elsewhere
-    # weights: list of tuples (weight, [indices of quartets with that weight])
-    pass

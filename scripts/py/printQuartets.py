@@ -37,7 +37,6 @@ def main():
         _, quartets = get_quartets(
             csv_path=args.i,
             mode=args.q,
-            filter_lim=args.limit,
         )
         for (a, b, c, d), C in quartets.items():
             print(f"(({a},{b}),({c},{d}));")
@@ -46,7 +45,6 @@ def main():
         print_quartets(
             csv_path=args.i,
             mode=args.q,
-            filter_lim=args.limit,
         )
 
 

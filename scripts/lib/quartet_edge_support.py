@@ -4,7 +4,6 @@ from typing import Tuple
 
 
 def set_tree_ids(tree: Phylo.BaseTree.TreeMixin):
-    all_names = set()
     counter = 0
 
     def get_new_id(n: int = 3):  # n is how many bytes to take the
@@ -30,7 +29,7 @@ def get_lcas(tree: Phylo.BaseTree.TreeMixin) -> dict[tuple[str, str], str]:
     return lca
 
 
-def get_dfs_order(tree: Phylo.BaseTree.TreeMixin) -> dict[str : tuple[int, int]]:
+def get_dfs_order(tree: Phylo.BaseTree.TreeMixin) -> dict[str, tuple[int, int]]:
     ret = {}
     n = 0
 
@@ -55,7 +54,7 @@ def get_dfs_order(tree: Phylo.BaseTree.TreeMixin) -> dict[str : tuple[int, int]]
     return ret
 
 
-def is_in_clade(u: str, v: str, dfs_order: dict[str : tuple[int, int]]) -> bool:
+def is_in_clade(u: str, v: str, dfs_order: dict[str, tuple[int, int]]) -> bool:
     # if u is in v
     return dfs_order[v][0] <= dfs_order[u][0] and dfs_order[u][1] <= dfs_order[v][1]
 
@@ -80,9 +79,7 @@ def root_at_internal_node(tree):
     tree.root_with_outgroup(outgroup_targets=tree.get_nonterminals()[0])
 
 
-def is_on_path(
-    s: str, u: str, t: str, lca: str, dfs_order: dict[str : tuple[int, int]]
-):
+def is_on_path(s: str, u: str, t: str, lca: str, dfs_order: dict[str, tuple[int, int]]):
     # checks to see if u is on the path from s to t
     # given that lca = lca(s, t)
     return (is_in_clade(u, lca, dfs_order) and is_in_clade(s, u, dfs_order)) or (

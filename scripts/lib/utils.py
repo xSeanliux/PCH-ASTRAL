@@ -3,6 +3,7 @@ import pandas as pd
 from Bio import Phylo
 import matplotlib.pyplot as plt
 from enum import IntEnum
+from pathlib import Path
 
 
 class QuartetType(IntEnum):
@@ -72,7 +73,7 @@ def flatten(iterable):
     print(type(iterable))
     try:
         iterator = iter(iterable)
-        if type(iterable) == str:
+        if type(iterable) is str:
             return iterable
     except TypeError:
         yield iterable
@@ -94,9 +95,11 @@ def get_list_of_clades(ptree: Phylo.BaseTree.TreeMixin):
 
 def clade_error(tree1: Phylo.BaseTree.TreeMixin, tree2: Phylo.BaseTree.TreeMixin):
     cladeset1 = set(
-        map(lambda l: ";".join(sorted(l)), get_list_of_clades(tree1))
+        map(lambda clade: ";".join(sorted(clade)), get_list_of_clades(tree1))
     )  # e.g. ["t1", "t0"] -> "t0;t1"
-    cladeset2 = set(map(lambda l: ";".join(sorted(l)), get_list_of_clades(tree2)))
+    cladeset2 = set(
+        map(lambda clade: ";".join(sorted(clade)), get_list_of_clades(tree2))
+    )
     return cladeset1.symmetric_difference(cladeset2)
 
 
