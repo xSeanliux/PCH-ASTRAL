@@ -1,0 +1,15 @@
+[project]
+name = "pch-astral"
+version = "0.1.0"
+description = "PCH-ASTRAL"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy", 
+    "matplotlib",
+    "seaborn",
+    "polars",
+    "pandas",
+    "scipy",
+    "biopython"
+]
