@@ -22,3 +22,8 @@ dependencies = [
 
 [tool.ty.rules]
 possibly-missing-submodule = "ignore"
+
+[tool.ruff.lint]
+ignore = [
+    "E741" # ambiguous variable name
+]
