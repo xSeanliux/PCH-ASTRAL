@@ -6,6 +6,7 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     steps: 
+      - uses: actions/checkout@v4
       - name: setup
         run: make setup
       - name: py-test
@@ -14,6 +15,7 @@ jobs:
     name: Static typing
     runs-on: ubuntu-latest
     steps: 
+      - uses: actions/checkout@v4
       - name: setup
         run: make setup
       - name: py-static
