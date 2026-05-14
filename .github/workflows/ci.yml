@@ -7,11 +7,11 @@ jobs:
     runs-on: ubuntu-latest
     steps: 
       - name: py-test
-      - run: make setup; make py-test
+        run: make setup; make py-test
   static-type: 
     name: Static typing
     runs-on: ubuntu-latest
     steps: 
       - name: py-static
-      - run: make setup; make py-static
+        run: make setup; make py-static
     
