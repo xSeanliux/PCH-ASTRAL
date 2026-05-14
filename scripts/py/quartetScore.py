@@ -4,14 +4,19 @@ from Bio import Phylo
 from scripts.lib.quartet_scorer import QuartetScorer
 from scripts.lib.getQuartets import get_quartets
 
+
 # Define the function that will process the input arguments and do something with them
 def main():
     # Set up the argument parser
     parser = argparse.ArgumentParser(description="Process tree, data, and output paths")
-    
+
     # Add command-line arguments
-    parser.add_argument('-t', '--tree', type=str, required=True, help='Path to the tree file (required)')
-    parser.add_argument('-d', '--data', type=str, required=True, help='Path to the data file (required)')
+    parser.add_argument(
+        "-t", "--tree", type=str, required=True, help="Path to the tree file (required)"
+    )
+    parser.add_argument(
+        "-d", "--data", type=str, required=True, help="Path to the data file (required)"
+    )
     # parser.add_argument('-o', '--output', type=str, required=True, help='Path for the output file (required)')
 
     # Parse the arguments
@@ -24,13 +29,10 @@ def main():
 
     try:
         # Assume the tree file is in Newick format
-        tree = Phylo.read(tree_path, 'newick')
+        tree = Phylo.read(tree_path, "newick")
         print(f"Tree loaded from: {tree_path}")
         print(f"Data file: {data_path}")
-        _, quartets = get_quartets(
-            csv_path = data_path,
-            mode = 11
-        )
+        _, quartets = get_quartets(csv_path=data_path, mode=11)
         # 11 for EVANS-ALL-K
         # print(f"Output will be saved to: {output_path}")
 
@@ -41,10 +43,13 @@ def main():
             total_quartets += w
             if scorer.test_quartet(q):
                 score += w
-        print(f"{score} / {total_quartets} = {score / total_quartets} quartets satisfied.")
+        print(
+            f"{score} / {total_quartets} = {score / total_quartets} quartets satisfied."
+        )
 
     except Exception as e:
         print(f"An error occurred: {e}")
+
 
 if __name__ == "__main__":
     main()

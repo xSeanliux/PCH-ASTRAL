@@ -1,0 +1,35 @@
+name: CI
+run-name: CI Run
+on: [push]
+jobs:
+  unit-test: 
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps: 
+      - uses: actions/checkout@v6
+      - name: "Set up Python"
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "pyproject.toml"
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - name: setup
+        run: make setup
+      - name: py-test
+        run: make py-test
+  static-type: 
+    name: Static typing
+    runs-on: ubuntu-latest
+    steps: 
+      - uses: actions/checkout@v6
+      - name: "Set up Python"
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "pyproject.toml"
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - name: setup
+        run: make setup
+      - name: py-static
+        run: make py-static
+    
