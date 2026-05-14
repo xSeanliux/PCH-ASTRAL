@@ -16,5 +16,4 @@ py-lint:
 	uv run ruff check --fix
 
 setup: 
-	chmod +x .git/hooks/precommit
 	uv sync
