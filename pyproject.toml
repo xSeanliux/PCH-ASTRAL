@@ -18,6 +18,7 @@ dependencies = [
     "pytest>=9.0.3",
     "shortuuid>=1.0.13",
     "ty>=0.0.35",
+    "dataclasses>=0.8",
 ]
 
 [tool.ty.rules]
