@@ -1,7 +1,6 @@
 import polars as pl
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
 
 Quple = tuple[str, str, str, str]
 Taxon = str
