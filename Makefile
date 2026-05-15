@@ -4,7 +4,7 @@ uv-lock:
 	uv lock
 
 py-test:
-	uv run pytest tests/
+	uv run python -m pytest tests/
 
 py-static: 
 	uv run ty check scripts/lib scripts/py 
