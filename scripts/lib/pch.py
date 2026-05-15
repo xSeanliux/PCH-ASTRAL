@@ -1,6 +1,7 @@
-import polars
+import polars as pl
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 Quple = tuple[str, str, str, str]
 Taxon = str
@@ -40,6 +41,34 @@ class Character:
 class Dataset:
     names: list[Taxon]
     chrs: list[Character]
+
+    @staticmethod
+    def _extract_names_and_chrs(
+        df: pl.DataFrame,
+    ) -> tuple[list[Taxon], list[Character]]:
+        cols = df.columns
+        assert cols[:3] == ["id", "feature", "weight"], (
+            f"expect first three cols to be id, feature, weight but found {cols[:3]}"
+        )
+        df = df.with_columns(pl.all().cast(pl.String))
+        names = cols[3:]
+        chrs: list[Character] = []
+        for row in df.iter_rows(named=True):
+            weight = int(row["weight"])
+            features = {
+                k: str(v).split("/")
+                for k, v in row.items()
+                if k not in ["id", "feature", "weight"]
+            }
+            chrs.append(Character(features=features, weight=weight))
+        return names, chrs
+
+    @staticmethod
+    def from_path(cls, path: Path) -> "Dataset":
+        assert path.is_file(), f"{path} is not a file."
+        df = pl.read_csv(path)
+        names, chrs = cls._extract_names_and_chrs(df)
+        return Dataset(names=names, chrs=chrs)
 
 
 def main():
