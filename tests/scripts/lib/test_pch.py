@@ -1,5 +1,5 @@
 import pytest
-from scripts.lib.pch import Quartet, Dataset, Character
+from scripts.lib.pch import Quartet, Dataset, Character, PCH_ASTRAL_W
 import polars as pl
 
 
@@ -33,3 +33,60 @@ def test_extract_names_and_chars_output():
     assert chrs[0] == Character(weight=4, features={"t1": ["1"]})
     assert chrs[1] == Character(weight=5, features={"t1": ["2"]})
     assert chrs[2] == Character(weight=6, features={"t1": ["1", "2"]})
+
+
+def test_pch_astral_w_default():
+    dataset = Dataset(
+        names=["a", "b", "c", "d"],
+        chrs=[
+            Character(
+                features={
+                    "a": ["1"],
+                    "b": ["1"],
+                    "c": ["2"],
+                    "d": ["2"],
+                },
+                weight=1,
+            )
+        ],
+    )
+    quartets = PCH_ASTRAL_W.get_quartets(dataset)
+    assert quartets == {Quartet(("a", "b", "c", "d")): 1}
+
+
+def test_pch_astral_w_overlap_no_quartet():
+    dataset = Dataset(
+        names=["a", "b", "c", "d"],
+        chrs=[
+            Character(
+                features={
+                    "a": ["1"],
+                    "b": ["1"],
+                    "c": ["1", "2"],
+                    "d": ["2"],
+                },
+                weight=1,
+            )
+        ],
+    )
+    quartets = PCH_ASTRAL_W.get_quartets(dataset)
+    assert quartets == {}
+
+
+def test_pch_astral_w_overlap_multiple_counts():
+    dataset = Dataset(
+        names=["a", "b", "c", "d"],
+        chrs=[
+            Character(
+                features={
+                    "a": ["0", "1"],
+                    "b": ["0", "1"],
+                    "c": ["2", "3"],
+                    "d": ["2", "3", "4"],
+                },
+                weight=1,
+            )
+        ],
+    )
+    quartets = PCH_ASTRAL_W.get_quartets(dataset)
+    assert quartets == {Quartet(("a", "b", "c", "d")): 4}
