@@ -1,6 +1,16 @@
 import pytest
-from scripts.lib.pch import Quartet, Dataset, Character, PCH_ASTRAL_W
+from scripts.lib.pch import (
+    Quartet,
+    Dataset,
+    Character,
+    PCH_ASTRAL_W,
+    print_quartets_for_astral3,
+    print_quartets_for_qfm,
+    print_quartets_for_wastral,
+)
+from collections import Counter
 import polars as pl
+from io import StringIO
 
 
 def test_quartet_normalise_both_sides():
@@ -14,6 +24,69 @@ def test_quartet_normalise_both_sides():
 def test_quartet_taxon_set():
     q = ("a", "b", "c", "d")
     return Quartet(q).taxon_set == set(q)
+
+
+@pytest.fixture
+def test_print_quartets() -> Counter[Quartet]:
+    return Counter[Quartet](
+        {
+            Quartet(("a", "b", "c", "d")): 2,
+            Quartet(("u", "v", "x", "y")): 1,
+        }
+    )
+
+
+def test_print_quartets_for_astral_3(test_print_quartets: Counter[Quartet]):
+    file = StringIO()
+    print_quartets_for_astral3(quartets=test_print_quartets, file=file)
+    outstr = file.getvalue()
+    print(outstr)
+    assert (
+        outstr.strip()
+        == """
+((a,b),(c,d));
+((a,b),(c,d));
+((u,v),(x,y));
+    """.strip()
+    )
+
+
+def test_print_quartets_for_wastral(test_print_quartets: Counter[Quartet]):
+    qfile = StringIO()
+    wfile = StringIO()
+    print_quartets_for_wastral(
+        quartets=test_print_quartets, quartet_file=qfile, weight_file=wfile
+    )
+    qstr = qfile.getvalue()
+    wstr = wfile.getvalue()
+    assert (
+        qstr.strip()
+        == """
+((a,b),(c,d));
+((u,v),(x,y));
+""".strip()
+    )
+    assert (
+        wstr.strip()
+        == """ 
+2
+1
+""".strip()
+    )
+
+
+def test_print_quartets_for_qfm(test_print_quartets: Counter[Quartet]):
+    file = StringIO()
+    print_quartets_for_qfm(quartets=test_print_quartets, file=file)
+    outstr = file.getvalue()
+    print(outstr)
+    assert (
+        outstr.strip()
+        == """
+((a,b),(c,d));2.000000
+((u,v),(x,y));1.000000
+    """.strip()
+    )
 
 
 def test_dataset_extract_throws_on_wrong_first_cols():

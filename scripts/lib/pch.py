@@ -1,10 +1,12 @@
 import polars as pl
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from enum import StrEnum
 from abc import ABC, abstractmethod
 from collections import defaultdict, Counter
 from itertools import combinations
+from typing import TextIO
 
 Quple = tuple[str, str, str, str]
 Taxon = str
@@ -125,6 +127,24 @@ class PCH_ASTRAL_O(QuartetGenerationScheme):
                 q, n = most_common[0]
                 quartets[q] += n
         return quartets
+
+
+def print_quartets_for_astral3(quartets: Counter[Quartet], file: TextIO):
+    for q, w in quartets.items():
+        file.write(f"{str(q)};\n" * w)
+
+
+def print_quartets_for_wastral(
+    quartets: Counter[Quartet], quartet_file: TextIO, weight_file: TextIO
+):
+    for q, w in quartets.items():
+        quartet_file.write(f"{str(q)};\n")
+        weight_file.write(f"{w}\n")
+
+
+def print_quartets_for_qfm(quartets: Counter[Quartet], file: TextIO):
+    for q, w in quartets.items():
+        file.write(f"{str(q)};{w:.6f}\n")
 
 
 def main():
