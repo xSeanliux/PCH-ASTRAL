@@ -23,7 +23,7 @@ def test_quartet_normalise_both_sides():
 
 def test_quartet_taxon_set():
     q = ("a", "b", "c", "d")
-    return Quartet(q).taxon_set == set(q)
+    assert Quartet(q).taxon_set == set(q)
 
 
 @pytest.fixture

@@ -2,11 +2,11 @@ import polars as pl
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from enum import StrEnum
 from abc import ABC, abstractmethod
 from collections import defaultdict, Counter
 from itertools import combinations
 from typing import TextIO
+import argparse
 
 Quple = tuple[str, str, str, str]
 Taxon = str
@@ -72,7 +72,7 @@ class Dataset:
             chrs.append(Character(features=features, weight=weight))
         return names, chrs
 
-    @staticmethod
+    @classmethod
     def from_path(cls, path: Path) -> "Dataset":
         assert path.is_file(), f"{path} is not a file."
         df = pl.read_csv(path)
@@ -129,26 +129,61 @@ class PCH_ASTRAL_O(QuartetGenerationScheme):
         return quartets
 
 
-def print_quartets_for_astral3(quartets: Counter[Quartet], file: TextIO):
+def print_quartets_for_astral3(quartets: Counter[Quartet], file: TextIO = sys.stdout):
     for q, w in quartets.items():
         file.write(f"{str(q)};\n" * w)
 
 
 def print_quartets_for_wastral(
-    quartets: Counter[Quartet], quartet_file: TextIO, weight_file: TextIO
+    quartets: Counter[Quartet],
+    quartet_file: TextIO = sys.stdout,
+    weight_file: TextIO = sys.stderr,
 ):
     for q, w in quartets.items():
         quartet_file.write(f"{str(q)};\n")
         weight_file.write(f"{w}\n")
 
 
-def print_quartets_for_qfm(quartets: Counter[Quartet], file: TextIO):
+def print_quartets_for_qfm(quartets: Counter[Quartet], file: TextIO = sys.stdout):
     for q, w in quartets.items():
         file.write(f"{str(q)};{w:.6f}\n")
 
 
+def get_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="PCH quartet generation",
+        description="generates quartets from an input character file following the PCH quartet generation scheme.",
+    )
+    parser.add_argument(
+        "-i", "--input", action="store", required=True, help="input characters file"
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        action="store",
+        required=True,
+        choices=["astral3", "wastral", "qfm"],
+        help="quartet output format.",
+    )
+    return parser
+
+
 def main():
-    print("GO")
+    parser = get_parser()
+    args = parser.parse_args()
+    quartet_fmt = args.format
+
+    print(args.input)
+    dataset = Dataset.from_path(path=Path(args.input))
+    quartets = PCH_ASTRAL_W.get_quartets(dataset)
+    if quartet_fmt == "astral3":
+        print_quartets_for_astral3(quartets)
+    elif quartet_fmt == "wastral":
+        print_quartets_for_wastral(quartets)
+    elif quartet_fmt == "qfm":
+        print_quartets_for_qfm(quartets)
+    else:
+        raise ValueError(f"Unknown format: {quartet_fmt}")
 
 
 if __name__ == "__main__":
