@@ -152,7 +152,7 @@ def print_quartets_for_qfm(quartets: Counter[Quartet], file: TextIO = sys.stdout
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="PCH quartet generation",
-        description="generates quartets from an input character file following the PCH quartet generation scheme.",
+        description="generates quartets from an input character file following the PCH quartet generation scheme. Quartets output to stdout; in QFM mode weights go to stderr.",
     )
     parser.add_argument(
         "-i", "--input", action="store", required=True, help="input characters file"
