@@ -1,41 +1,57 @@
+from pathlib import Path
 import sys
-from scripts.lib.types import Taxon
+from scripts.lib.types import Taxon, Dataset, State
+from typing import Literal
+from collections import defaultdict
+from Bio.Phylo.BaseTree import Tree, Clade
+from Bio.Phylo.NewickIO import write
 
 
-class BipartitionSet:
-    taxon_set: frozenset[Taxon]
-    bipartitions: set[frozenset[Taxon]]
+TreeFormat = Literal["newick", "nexus"]
+
+
+class ConstraintTrees:
+    treeset: set[Tree]
 
     def __init__(
         self,
-        taxon_set: frozenset[Taxon],
-        bipartitions: set[frozenset[Taxon]] = set(),
+        trees: set[Tree] = set(),
     ):
-        self.taxon_set = taxon_set
-        for bp in bipartitions:
-            self.add_bipartition(bp)
+        self.treeset = trees
 
-    def add_bipartition(self, taxa: frozenset[Taxon]):
+    def add_trees(self, trees: set[Tree]):
         """
         adds a bipartition to the taxon set. taxa contains all the taxa on one side.
         """
-        assert len(self.taxon_set - taxa) == 0, (
-            f"taxa should be a subset of the list of taxa. Extra: {self.taxon_set - taxa}"
-        )
-
-        self.bipartitions.add(taxa)
+        self.treeset.update(trees)
 
     def print_bipartition_set(self, outfile=sys.stdout):
-        for bp in self.bipartitions:
-            lhs = ",".join(bp)
-            rhs = ",".join(self.taxon_set - bp)
-            print(f"(({lhs}),({rhs}));", file=outfile)
+        write(
+            trees=self.treeset,
+            handle=outfile,
+            plain=True,
+        )
 
-    def merge(self, other: "BipartitionSet") -> "BipartitionSet":
-        assert other.taxon_set == self.taxon_set, (
-            f"merge must have the same taxon set. Found: {other.taxon_set=} vs {self.taxon_set=}"
-        )
-        return BipartitionSet(
-            taxon_set=self.taxon_set,
-            bipartitions=self.bipartitions | other.bipartitions,
-        )
+
+def trees_from_charset(input_file: Path) -> set[Tree]:
+    dataset = Dataset.from_path(input_file)
+    treeset: set[Tree] = set()
+    taxon_set = set(dataset.names)
+    for chr in dataset.chrs:
+        state_to_taxon: dict[State, set[Taxon]] = defaultdict(set)
+        for t, ss in chr.features.items():
+            for s in ss:
+                state_to_taxon[s].add(t)
+
+        for ts in state_to_taxon.values():
+            tree = Tree.from_clade(
+                Clade(
+                    clades=[
+                        Clade(clades=[Clade(name=t) for t in ts]),
+                        Clade(clades=[Clade(name=t) for t in taxon_set - ts]),
+                    ]
+                )
+            )
+            treeset.add(tree)
+
+    return treeset
