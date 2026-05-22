@@ -1,9 +1,24 @@
 import sys
 import pandas as pd
 from Bio import Phylo
+from Bio.Phylo.BaseTree import Tree
 import matplotlib.pyplot as plt
 from enum import IntEnum
 from pathlib import Path
+from io import StringIO
+
+
+def tree_to_newick(tree: Tree) -> str:
+    sio = StringIO()
+    Phylo.write(trees=[tree], file=sio, plain=True, format="newick")
+    return sio.getvalue()
+
+
+def newick_to_tree(newick: str) -> Tree:
+    sio = StringIO(initial_value=newick)
+    trees = list(Phylo.parse(file=sio, format="newick"))
+    assert len(trees) == 1, f"expected one tree, got {len(trees)}"
+    return trees[0]
 
 
 class QuartetType(IntEnum):
