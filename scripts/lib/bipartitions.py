@@ -33,7 +33,7 @@ class ConstraintTrees:
         )
 
 
-def trees_from_dataset(dataset: Dataset) -> set[Tree]:
+def constraint_trees_from_dataset(dataset: Dataset) -> set[Tree]:
     treeset: set[Tree] = set()
     taxon_set = set(dataset.names)
     for chr in dataset.chrs:

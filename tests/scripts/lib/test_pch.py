@@ -2,12 +2,12 @@ import pytest
 from scripts.lib.pch import (
     Quartet,
     Dataset,
-    Character,
     PCH_ASTRAL_W,
     print_quartets_for_astral3,
     print_quartets_for_qfm,
     print_quartets_for_wastral,
 )
+from scripts.lib.types import Character
 from collections import Counter
 import polars as pl
 from io import StringIO
