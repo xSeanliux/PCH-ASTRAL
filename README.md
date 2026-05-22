@@ -8,7 +8,7 @@
    * [Repository organization](#repository-organization)
       + [The `data` folder ](#the-example-folder)
       + [The `scripts` folder ](#the-scripts-folder)
-   * [Reproduction](#reproduction)
+   * [Reproducibility](#reproducibility)
    * [Running on your own data](#running-on-your-own-data)
       + [Data format](#data-format)
    * [Glossary ](#glossary)

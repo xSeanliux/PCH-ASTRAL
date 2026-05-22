@@ -17,15 +17,14 @@
 <!-- TOC end -->
 
 ## Requirements 
-This program requires: 
-- [ASTRAL](https://github.com/smirarab/ASTRAL). Simply do 
-```bash
-git submodule update --init --recursive && pushd ASTRAL && unzip Astral.5.7.8.zip && popd
-```
-to install ASTRAL. Your ASTRAL executable should be under `ASTRAL/Astral/astral.5.7.8.jar`.
+
+Please run 
+```bash 
+make setup
+``` 
+
+to install things. You will also need:
 - [Java](https://www.java.com/en/). You will need to have an installation of Java to run ASTRAL. This project was developed with OpenJDK version `1.8.0_412` and runtime `1.8.0_412-b08`. 
-- [PAUP*](https://paup.phylosolutions.com/), should be already under `scripts/bin/paup`. If that version for whatever reason does not work, install it and change `$PAUP_PATH` in [runMP4.sh](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/sh/runMP4.sh#L32-L35).
-- [MrBayes](https://nbisweden.github.io/MrBayes/), version 3.2.7. Optionally, install [BEAGLE](https://github.com/beagle-dev/beagle-lib) to speed up inference. Then please update `MB_EXEC` in [runGA.sh](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/sh/runGA.sh#L4) to point to the `mb` executable file.
 - Python & [conda](https://anaconda.org/). Please install the requirements in `requirements.txt`. 
 - R. Please install [R](https://www.r-project.org/). This is needed to run MP4 and transform/score the outputs of the data.
 
