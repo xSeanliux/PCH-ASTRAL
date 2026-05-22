@@ -20,7 +20,7 @@
 
 Please run 
 ```bash 
-make setup
+make setup; make install-bins
 ``` 
 
 to install things. You will also need:

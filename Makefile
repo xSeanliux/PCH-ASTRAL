@@ -35,5 +35,5 @@ install-mrbayes:
 
 install-bins: install-astral3 install-aster install-mrbayes install-paup install-w-tree-qmc
 
-setup: install-bins install-uv
+setup: install-uv
 	uv sync
