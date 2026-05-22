@@ -1,4 +1,5 @@
-from scripts.lib.getBipartitions import trees_to_newick
+from scripts.lib.utils import trees_to_newick
+from Bio.Phylo import parse
 import argparse
 
 
@@ -50,11 +51,11 @@ def parse_arguments():
 
 
 def get_and_print_trees(trees_path: str, schema: str):
-    trees = trees_to_newick(
-        trees_path=trees_path,
-        schema=schema,
+    trees = parse(file=trees_path, format=schema)
+    newick = trees_to_newick(
+        trees=trees,
     )
-    for t in trees:
+    for t in newick:
         print(t)
 
 

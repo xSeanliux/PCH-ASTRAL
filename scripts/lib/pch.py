@@ -14,7 +14,7 @@ from scripts.lib.types import (
 )
 
 
-class PCH_ASTRAL_W(QuartetGenerationScheme):
+class PCH_W(QuartetGenerationScheme):
     @classmethod
     def get_quartets(cls, dataset: Dataset) -> Counter[Quartet]:
         quartets: Counter[Quartet] = Counter()
@@ -39,9 +39,9 @@ class PCH_ASTRAL_W(QuartetGenerationScheme):
         return quartets
 
 
-class PCH_ASTRAL_O(QuartetGenerationScheme):
+class PCH_O(QuartetGenerationScheme):
     def get_quartets(cls, dataset: Dataset) -> Counter[Quartet]:
-        quartets_w = PCH_ASTRAL_W.get_quartets(dataset)
+        quartets_w = PCH_W.get_quartets(dataset)
         four_taxa_to_quartets: dict[set[Taxon], Counter[Quartet]] = defaultdict(Counter)
         quartets = Counter[Quartet]()
         for q, n in quartets_w.items():
@@ -104,7 +104,7 @@ def main():
 
     print(args.input)
     dataset = Dataset.from_path(path=Path(args.input))
-    quartets = PCH_ASTRAL_W.get_quartets(dataset)
+    quartets = PCH_W.get_quartets(dataset)
     if quartet_fmt == "astral3":
         print_quartets_for_astral3(quartets)
     elif quartet_fmt == "wastral":

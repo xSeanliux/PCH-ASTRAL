@@ -2,7 +2,7 @@ import pytest
 from scripts.lib.pch import (
     Quartet,
     Dataset,
-    PCH_ASTRAL_W,
+    PCH_W,
     print_quartets_for_astral3,
     print_quartets_for_qfm,
     print_quartets_for_wastral,
@@ -128,7 +128,7 @@ def test_pch_astral_w_default():
             )
         ],
     )
-    quartets = PCH_ASTRAL_W.get_quartets(dataset)
+    quartets = PCH_W.get_quartets(dataset)
     assert quartets == {Quartet(("a", "b", "c", "d")): 1}
 
 
@@ -147,7 +147,7 @@ def test_pch_astral_w_overlap_no_quartet():
             )
         ],
     )
-    quartets = PCH_ASTRAL_W.get_quartets(dataset)
+    quartets = PCH_W.get_quartets(dataset)
     assert quartets == {}
 
 
@@ -166,5 +166,5 @@ def test_pch_astral_w_overlap_multiple_counts():
             )
         ],
     )
-    quartets = PCH_ASTRAL_W.get_quartets(dataset)
+    quartets = PCH_W.get_quartets(dataset)
     assert quartets == {Quartet(("a", "b", "c", "d")): 4}

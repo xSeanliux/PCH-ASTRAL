@@ -2,7 +2,8 @@
 from pathlib import Path
 from Bio import Phylo
 from scripts.lib.quartet_scorer import QuartetScorer
-from scripts.lib.getQuartets import get_quartets
+from scripts.lib.types import Dataset
+from scripts.lib.pch import PCH_W
 from itertools import product
 from io import StringIO
 import pandas as pd
@@ -43,10 +44,8 @@ for qmode, ef, hf, cf, poly, tree, rep in product(
         / f"sim_tree{tree}_{rep}.csv"
     )
 
-    _, quartets = get_quartets(
-        csv_path=data_path,
-        mode=qmode,
-    )
+    dataset = Dataset.from_path(data_path)
+    quartets = PCH_W.get_quartets(dataset)
 
     print(
         f"{len(quartets)} distinct quartets found with a total weight of {sum(quartets.values())}."
@@ -71,7 +70,7 @@ for qmode, ef, hf, cf, poly, tree, rep in product(
     total_quartets = 0
     for q, w in quartets.items():
         total_quartets += w
-        if scorer.test_quartet(q):
+        if scorer.test_quartet(q._quartet):
             score += w
 
     assert total_quartets == sum(quartets.values())
