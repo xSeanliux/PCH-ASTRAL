@@ -25,7 +25,7 @@ class ConstraintTrees:
         """
         self.treeset.update(trees)
 
-    def print_bipartition_set(self, outfile=sys.stdout):
+    def write(self, outfile=sys.stdout):
         write(
             trees=self.treeset,
             handle=outfile,
