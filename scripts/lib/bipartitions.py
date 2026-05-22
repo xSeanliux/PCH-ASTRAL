@@ -33,8 +33,7 @@ class ConstraintTrees:
         )
 
 
-def trees_from_charset(input_file: Path) -> set[Tree]:
-    dataset = Dataset.from_path(input_file)
+def trees_from_dataset(dataset: Dataset) -> set[Tree]:
     treeset: set[Tree] = set()
     taxon_set = set(dataset.names)
     for chr in dataset.chrs:
@@ -44,6 +43,8 @@ def trees_from_charset(input_file: Path) -> set[Tree]:
                 state_to_taxon[s].add(t)
 
         for ts in state_to_taxon.values():
+            if len(ts) == len(taxon_set):
+                continue
             tree = Tree.from_clade(
                 Clade(
                     clades=[
