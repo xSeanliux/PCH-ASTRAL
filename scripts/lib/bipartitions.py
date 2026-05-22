@@ -1,10 +1,12 @@
 from pathlib import Path
 import sys
 from scripts.lib.types import Taxon, Dataset, State
+from scripts.lib.utils import tree_to_newick
 from typing import Literal
 from collections import defaultdict
 from Bio.Phylo.BaseTree import Tree, Clade
 from Bio.Phylo.NewickIO import write
+from io import StringIO
 
 
 TreeFormat = Literal["newick", "nexus"]
@@ -27,7 +29,7 @@ class ConstraintTrees:
 
     def write(self, outfile=sys.stdout):
         write(
-            trees=self.treeset,
+            trees=sorted(self.treeset, key=tree_to_newick),
             handle=outfile,
             plain=True,
         )
@@ -48,8 +50,8 @@ def constraint_trees_from_dataset(dataset: Dataset) -> set[Tree]:
             tree = Tree.from_clade(
                 Clade(
                     clades=[
-                        Clade(clades=[Clade(name=t) for t in ts]),
-                        Clade(clades=[Clade(name=t) for t in taxon_set - ts]),
+                        Clade(clades=[Clade(name=t) for t in sorted(ts)]),
+                        Clade(clades=[Clade(name=t) for t in sorted(taxon_set - ts)]),
                     ]
                 )
             )
