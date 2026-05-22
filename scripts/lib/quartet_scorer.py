@@ -5,6 +5,7 @@
 
 from Bio import Phylo
 from typing import Tuple
+from scripts.lib.types import Quple
 
 
 class QuartetScorer:
@@ -16,7 +17,7 @@ class QuartetScorer:
         taxa_names = [c.name for c in tree.get_terminals()]
         self.taxa_dfs_ord = {n: i for i, n in enumerate(taxa_names)}
 
-    def test_quartet(self, q: Tuple[str, str, str, str]) -> bool:
+    def test_quartet(self, q: Quple) -> bool:
         a, b, c, d = q
         l = self.tree.common_ancestor([a, b, c, d])
         l1 = self.tree.common_ancestor([a, b])

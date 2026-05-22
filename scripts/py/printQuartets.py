@@ -1,5 +1,9 @@
-from scripts.lib.getQuartets import print_quartets, get_quartets
-from scripts.lib.utils import eprint
+from scripts.lib.pch import (
+    PCH_W,
+    print_quartets_for_astral3,
+    print_quartets_for_wastral,
+)
+from scripts.lib.types import Dataset
 
 import argparse
 
@@ -7,19 +11,11 @@ import argparse
 def main():
     # Initialize argument parser
     parser = argparse.ArgumentParser(
-        description="Prints quartets based on the input CSV and quartet generation method (default 1)"
+        description="Prints quartets based on the input CSV and quartet generation method PCH-W"
     )
 
     # Add '-i' argument for a string input
     parser.add_argument("-i", type=str, required=True, help="Path to the input CSV.")
-
-    # Add '-q' argument for an integer input, with a default value of 1
-    parser.add_argument(
-        "-q",
-        type=int,
-        default=10,
-        help="Quartet generation strategy. Default 1 is EVANS-ALL. Others are kept but not used",
-    )
 
     # WASTER mode
     parser.add_argument(
@@ -33,19 +29,12 @@ def main():
     args = parser.parse_args()
 
     # Print out the results
+    dataset = Dataset.from_path(args.i)
+    quartets = PCH_W.get_quartets(dataset)
     if args.waster:
-        _, quartets = get_quartets(
-            csv_path=args.i,
-            mode=args.q,
-        )
-        for (a, b, c, d), C in quartets.items():
-            print(f"(({a},{b}),({c},{d}));")
-            eprint(C)
+        print_quartets_for_wastral(quartets)
     else:
-        print_quartets(
-            csv_path=args.i,
-            mode=args.q,
-        )
+        print_quartets_for_astral3(quartets)
 
 
 if __name__ == "__main__":

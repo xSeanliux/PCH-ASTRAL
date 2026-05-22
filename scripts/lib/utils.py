@@ -6,12 +6,19 @@ import matplotlib.pyplot as plt
 from enum import IntEnum
 from pathlib import Path
 from io import StringIO
+from typing import Sequence
 
 
 def tree_to_newick(tree: Tree) -> str:
     sio = StringIO()
     Phylo.write(trees=[tree], file=sio, plain=True, format="newick")
     return sio.getvalue()
+
+
+def trees_to_newick(trees: Sequence[Tree]) -> list[str]:
+    sio = StringIO()
+    Phylo.write(trees=trees, file=sio, plain=True, format="newick")
+    return sio.getvalue().split("\n")
 
 
 def newick_to_tree(newick: str) -> Tree:

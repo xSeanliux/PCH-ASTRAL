@@ -1,4 +1,5 @@
-from scripts.lib.getBipartitions import trees_to_newick
+from scripts.lib.utils import trees_to_newick
+from Bio.Phylo import parse
 import argparse
 
 
@@ -31,8 +32,9 @@ def main():
     # Parse the command-line arguments
     args = parse_arguments()
 
-    trees = trees_to_newick(trees_path=args.input, schema=args.format)
-    for t in trees:
+    trees = parse(file=args.input, format=args.format)
+    newick = trees_to_newick(trees=trees)
+    for t in newick:
         print(t)
     # print(f"Got {len(trees)} trees")
 

@@ -11,7 +11,7 @@ State = str
 
 @dataclass(unsafe_hash=True)
 class Quartet:
-    _quartets: Quple
+    _quartet: Quple
 
     @classmethod
     def normalise(cls, q: Quple) -> Quple:
@@ -25,15 +25,15 @@ class Quartet:
         return (a, b, c, d)
 
     def __str__(self):
-        a, b, c, d = self._quartets
+        a, b, c, d = self._quartet
         return f"(({a},{b}),({c},{d}))"
 
     def __init__(self, q: Quple):
-        self._quartets = self.normalise(q)
+        self._quartet = self.normalise(q)
 
     @property
     def taxon_set(self) -> set[Taxon]:
-        return set(self._quartets)
+        return set(self._quartet)
 
 
 @dataclass

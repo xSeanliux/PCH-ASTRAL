@@ -2,7 +2,8 @@ import argparse
 from pathlib import Path
 from Bio import Phylo
 from scripts.lib.quartet_scorer import QuartetScorer
-from scripts.lib.getQuartets import get_quartets
+from scripts.lib.pch import PCH_W
+from scripts.lib.types import Dataset
 
 
 # Define the function that will process the input arguments and do something with them
@@ -32,16 +33,15 @@ def main():
         tree = Phylo.read(tree_path, "newick")
         print(f"Tree loaded from: {tree_path}")
         print(f"Data file: {data_path}")
-        _, quartets = get_quartets(csv_path=data_path, mode=11)
-        # 11 for EVANS-ALL-K
-        # print(f"Output will be saved to: {output_path}")
+        dataset = Dataset.from_path(data_path)
+        quartets = PCH_W.get_quartets(dataset)
 
         scorer = QuartetScorer(tree)
         score = 0
         total_quartets = 0
         for q, w in quartets.items():
             total_quartets += w
-            if scorer.test_quartet(q):
+            if scorer.test_quartet(q._quartet):
                 score += w
         print(
             f"{score} / {total_quartets} = {score / total_quartets} quartets satisfied."
