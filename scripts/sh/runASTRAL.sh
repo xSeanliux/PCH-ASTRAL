@@ -50,7 +50,7 @@ ASTRAL_VARIANT=ASTRAL\("$QUARTET","$BIPARTITIONS"\)
 mkdir -p $TREEOUTPUT/$ASTRAL_VARIANT/logs
 mkdir -p $TREEOUTPUT/$ASTRAL_VARIANT/trees
 
-python3 scripts/py/printQuartets.py\
+python3 scripts/py/print_quartets.py\
     -i $INPUT\
     -q $QUARTET > ~/scratch/tmp_quartet_$RUNID.txt
 echo "✅ ASTRAL quartet generation, $(wc -l ~/scratch/tmp_quartet_$RUNID.txt | awk '{ print $1 }') quartets"
