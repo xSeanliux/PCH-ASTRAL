@@ -79,7 +79,7 @@ The `allscores.txt` file is a simple `txt` file that has the original CSV path o
 
 We take the latest version of ASTRAL-III from its
 GitHub site. We used ASTRAL 5.7.8. Additionally, we also fed into ASTRAL the set of
-bipartitions of all MP trees and all GA trees. The code to generate this set of bipartitions can be found at `scripts/py/printBipartitions.py`. 
+bipartitions of all MP trees and all GA trees. The code to generate this set of bipartitions can be found at `scripts/py/print_result_bipartitions.py`. 
 
 We refer the reader to the [`scripts/sh/runASTRAL.sh` bash
 file](https://github.com/xSeanliux/PCH-ASTRAL/blob/main/scripts/sh/runASTRAL.sh)
