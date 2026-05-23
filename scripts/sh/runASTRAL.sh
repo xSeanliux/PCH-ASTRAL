@@ -65,7 +65,7 @@ if [[ $RUN_EXACT == "-x" ]]; then
     touch ~/scratch/tmp_bipartitions_$RUNID.bootstrap.trees
 else : 
 
-    python3 scripts/py/getResultBipartitions.py\
+    python3 scripts/py/print_result_bipartitions.py\
         -f $TREEOUTPUT\
         -n $NAME\
         -m -g > ~/scratch/tmp_bipartitions_$RUNID.bootstrap.trees
