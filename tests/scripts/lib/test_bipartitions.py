@@ -24,6 +24,8 @@ def test_get_trees_from_dataset():
         names=["a", "b", "c", "d"],
         chrs=[
             Character(
+                id="t0",
+                feature="test",
                 features={
                     "a": ["0"],
                     "b": ["0", "1"],
