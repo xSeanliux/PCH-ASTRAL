@@ -38,6 +38,8 @@ class Quartet:
 
 @dataclass
 class Character:
+    id: str
+    feature: str
     features: dict[Taxon, list[State]]
     weight: int
 
@@ -65,7 +67,14 @@ class Dataset:
                 for k, v in row.items()
                 if k not in ["id", "feature", "weight"]
             }
-            chrs.append(Character(features=features, weight=weight))
+            chrs.append(
+                Character(
+                    id=row["id"],
+                    feature=row["feature"],
+                    features=features,
+                    weight=weight,
+                )
+            )
         return names, chrs
 
     @classmethod

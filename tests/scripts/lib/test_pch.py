@@ -108,9 +108,11 @@ def test_dataset_extract_names_and_chars_output():
     names, chrs = Dataset._extract_names_and_chrs(df)
     assert names == ["t1"]
     assert len(chrs) == 3
-    assert chrs[0] == Character(weight=4, features={"t1": ["1"]})
-    assert chrs[1] == Character(weight=5, features={"t1": ["2"]})
-    assert chrs[2] == Character(weight=6, features={"t1": ["1", "2"]})
+    assert chrs[0] == Character(id="a", feature="abc", weight=4, features={"t1": ["1"]})
+    assert chrs[1] == Character(id="b", feature="def", weight=5, features={"t1": ["2"]})
+    assert chrs[2] == Character(
+        id="c", feature="ghi", weight=6, features={"t1": ["1", "2"]}
+    )
 
 
 def test_pch_astral_w_default():
@@ -118,6 +120,8 @@ def test_pch_astral_w_default():
         names=["a", "b", "c", "d"],
         chrs=[
             Character(
+                id="t0",
+                feature="test",
                 features={
                     "a": ["1"],
                     "b": ["1"],
@@ -137,6 +141,8 @@ def test_pch_astral_w_overlap_no_quartet():
         names=["a", "b", "c", "d"],
         chrs=[
             Character(
+                id="t0",
+                feature="test",
                 features={
                     "a": ["1"],
                     "b": ["1"],
@@ -156,6 +162,8 @@ def test_pch_astral_w_overlap_multiple_counts():
         names=["a", "b", "c", "d"],
         chrs=[
             Character(
+                id="t0",
+                feature="test",
                 features={
                     "a": ["0", "1"],
                     "b": ["0", "1"],
