@@ -80,7 +80,7 @@ class Dataset:
     @classmethod
     def from_path(cls, path: Path) -> "Dataset":
         assert path.is_file(), f"{path} is not a file."
-        df = pl.read_csv(path)
+        df = pl.read_csv(path, infer_schema=False)
         names, chrs = cls._extract_names_and_chrs(df)
         return Dataset(names=names, chrs=chrs)
 
