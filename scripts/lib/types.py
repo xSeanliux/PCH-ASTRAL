@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from collections import Counter
+from enum import StrEnum
+from typing import Literal
 
 Quple = tuple[str, str, str, str]
 Taxon = str
@@ -88,3 +90,10 @@ class Dataset:
 class QuartetGenerationScheme(ABC):
     @abstractmethod
     def get_quartets(cls, dataset: Dataset) -> Counter[Quartet]: ...
+
+
+class Polymorphism(StrEnum):
+    VERYLOW = "verylow"
+    LOW = "low"
+    HIGH = "high"
+    VERYHIGH = "veryhigh"
