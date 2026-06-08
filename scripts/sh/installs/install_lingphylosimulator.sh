@@ -1,17 +1,22 @@
 #!/bin/bash
 git clone https://github.com/marccanby/LingPhyloSimulator.git bin/LingPhyloSimulator --quiet
 
-CLASSPATH="bin/LingPhyloSimulator"
 JAROUT="bin/LingPhyloSimulator/out"
+BUILD="bin/LingPhyloSimulator/build"
 
-for FILE in bin/lingphylosimulator_jars/*.jar; do
-    CLASSPATH=$FILE:$CLASSPATH
-    jar xf "$FILE"
+javac -cp "bin/lingphylosimulator_jars/*":"bin/LingPhyloSimulator"\
+    -d $BUILD \
+    bin/LingPhyloSimulator/*.java 
+
+pushd $JAROUT
+
+for j in ../../lingphylosimulator_jars/*.jar; do
+  jar xf "$j"
 done
-echo $CLASSPATH
 
-javac -cp $CLASSPATH -d $JAROUT bin/LingPhyloSimulator/*.java 
+cp -R ../build/* .
 
+jar cfe ../LingPhyloSimulator.jar Simulator .
 
-jar cfe bin/LingPhyloSimulator.jar Simulator $JAROUT/Simulator.class bin/LingPhyloSimulator/Main bin/lingphylosimulator_jars
-# rm -rf bin/LingPhyloSimulator
+popd
+rm -rf bin/LingPhyloSimulator
