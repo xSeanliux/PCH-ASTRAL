@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from collections import Counter
 from enum import StrEnum
-from typing import Literal
 
 Quple = tuple[str, str, str, str]
 Taxon = str
