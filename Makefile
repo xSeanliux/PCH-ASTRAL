@@ -33,7 +33,10 @@ install-paup:
 install-mrbayes: 
 	@bash scripts/sh/installs/install_mrbayes.sh
 
-install-bins: install-astral3 install-aster install-mrbayes install-paup install-w-tree-qmc
+install-lingphylosimulator:
+	@bash scripts/sh/installs/install_lingphylosimulator.sh
+
+install-bins: install-astral3 install-aster install-mrbayes install-paup install-w-tree-qmc install_lingphylosimulator
 
 setup: install-uv
 	uv sync
