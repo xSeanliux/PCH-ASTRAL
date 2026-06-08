@@ -1,4 +1,4 @@
 *
 !.gitignore
 !.gitkeep
-!lingphylosimulator_jars/
+!lingphylosimulator_jars/*.jar
