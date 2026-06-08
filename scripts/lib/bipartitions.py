@@ -1,4 +1,3 @@
-from pathlib import Path
 import sys
 from scripts.lib.types import Taxon, Dataset, State
 from scripts.lib.utils import tree_to_newick
@@ -6,7 +5,6 @@ from typing import Literal
 from collections import defaultdict
 from Bio.Phylo.BaseTree import Tree, Clade
 from Bio.Phylo.NewickIO import write
-from io import StringIO
 
 
 TreeFormat = Literal["newick", "nexus"]

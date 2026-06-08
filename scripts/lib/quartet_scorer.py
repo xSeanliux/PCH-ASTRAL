@@ -4,7 +4,6 @@
 # Uses DFS order.
 
 from Bio import Phylo
-from typing import Tuple
 from scripts.lib.types import Quple
 
 
