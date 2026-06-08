@@ -3,13 +3,12 @@ from pathlib import Path
 import polars as pl
 import numpy as np
 from polars.datatypes import (
-    DataTypeClass,
     Int64,
     Float64,
     String,
 )
 
-CONFIG_SCHEMA: pl.Schema = pl.Schema(
+CONFIG_SCHEMA_T: pl.Schema = pl.Schema(
     {
         "nchar": Int64,
         "weight": Int64,
@@ -65,7 +64,7 @@ class SimulationConfigFactory:
         )
         base_df = pl.read_csv(base_config_path)
         transposed = base_df.transpose(include_header=True, column_names="").cast(
-            CONFIG_SCHEMA
+            CONFIG_SCHEMA_T
         )
 
         # character transform

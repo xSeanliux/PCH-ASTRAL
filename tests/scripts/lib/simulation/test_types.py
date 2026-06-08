@@ -1,4 +1,4 @@
-from scripts.lib.simulation.types import SimulationConfigFactory, CONFIG_SCHEMA
+from scripts.lib.simulation.types import SimulationConfigFactory, CONFIG_SCHEMA_T
 from scripts.lib.types import Polymorphism
 import pytest
 import os
@@ -71,7 +71,9 @@ def test_to_polars_valid():
     )
     df = scf._to_polars_df()
 
-    transposed = df.transpose(include_header=True, column_names="").cast(CONFIG_SCHEMA)
+    transposed = df.transpose(include_header=True, column_names="").cast(
+        CONFIG_SCHEMA_T
+    )
     assert transposed.select(pl.col("nchar")).sum().item() == 640
     assert_series_equal(
         transposed["h_factor"], pl.Series([7122.0] * len(transposed)), check_names=False
