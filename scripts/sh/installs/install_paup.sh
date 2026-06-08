@@ -18,3 +18,5 @@ curl -o bin/paup.gz $PAUP_URL -L &&
     gunzip bin/paup && 
     chmod +x bin/paup
     echo "paup installed"
+
+rm bin/paup.gz
