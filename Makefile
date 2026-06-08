@@ -15,6 +15,9 @@ py-fmt:
 py-lint:
 	uv run ruff check --fix scripts/lib scripts/py
 
+py-lint-check:
+	uv run ruff check scripts/lib scripts/py
+
 install-uv: 
 	@curl -LsSf https://astral.sh/uv/install.sh | sh
 
