@@ -2,27 +2,30 @@ from scripts.lib.types import Polymorphism
 from pathlib import Path
 import polars as pl
 import numpy as np
-from polars import (
+from polars.datatypes import (
+    DataTypeClass,
     Int64,
     Float64,
     String,
 )
 
-CONFIG_SCHEMA: dict[str, pl.DataType] = {
-    "nchar": Int64,
-    "weight": Int64,
-    "sigma_dlc": Float64,
-    "sigma_het": Float64,
-    "dlc_is_individual": String,
-    "height_factor": Int64,
-    "alpha_trm_site": Int64,
-    "beta_trm_site": Int64,
-    "h_root": Float64,
-    "h_factor": Float64,
-    "birth_rate": Int64,
-    "death_rate": Int64,
-    "death_power": Int64,
-}
+CONFIG_SCHEMA: pl.Schema = pl.Schema(
+    {
+        "nchar": Int64,
+        "weight": Int64,
+        "sigma_dlc": Float64,
+        "sigma_het": Float64,
+        "dlc_is_individual": String,
+        "height_factor": Int64,
+        "alpha_trm_site": Int64,
+        "beta_trm_site": Int64,
+        "h_root": Float64,
+        "h_factor": Float64,
+        "birth_rate": Int64,
+        "death_rate": Int64,
+        "death_power": Int64,
+    }
+)
 
 
 class SimulationConfigFactory:
