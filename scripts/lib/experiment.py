@@ -1,6 +1,6 @@
-import yaml
 from pydantic import BaseModel, Field
 from scripts.lib.types import Polymorphism
+from pathlib import Path
 from enum import StrEnum
 
 
@@ -54,5 +54,6 @@ class MethodConfig(BaseModel):
 
 
 class ExperimentConfig(BaseModel):
+    experiment_folder: Path  # where all experiment artifacts will be located
     simulation: ExperimentSimulationConfig
     methods: MethodConfig

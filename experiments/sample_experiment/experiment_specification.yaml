@@ -3,7 +3,8 @@ default_sim_configs: &default_sim_configs
   homoplasy_factor: 0.1
   tree_height: 4
   n_chars: 320
-      
+
+experiment_folder: experiments/sample_experiment    
 simulation:
   n_taxa: 30
   n_horizontal_edges:
