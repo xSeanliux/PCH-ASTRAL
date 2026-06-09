@@ -54,6 +54,25 @@ class SimulationConfigFactory:
         self.homoplasy_factor = homoplasy_factor
         self.do_borrowing = do_borrowing
 
+    def update_params(
+        self,
+        base_config_path: Path | None = None,
+        poly_level: Polymorphism | None = None,
+        character_count: int | None = None,
+        min_tree_height: int | None = None,
+        homoplasy_factor: float | None = None,
+        do_borrowing: bool | None = None,
+    ):
+        assert base_config_path is None or base_config_path.is_dir(), (
+            f"Expected base_configs to be a directory. Found {base_config_path=}"
+        )
+        self.base_configs = base_config_path or self.base_configs
+        self.poly_level = poly_level or self.poly_level
+        self.character_count = character_count or self.character_count
+        self.min_tree_height = min_tree_height or self.min_tree_height
+        self.homoplasy_factor = homoplasy_factor or self.homoplasy_factor
+        self.do_borrowing = do_borrowing or self.do_borrowing
+
     def _to_polars_df(self) -> pl.DataFrame:
         borrowing_str = "borrowing" if self.do_borrowing else "noborrowing"
         base_config_path = (
@@ -81,7 +100,6 @@ class SimulationConfigFactory:
         assert (self.min_tree_height * tree_height_gcd % base_min_tree_height) == 0, (
             f"Invalid min_tree_height: {self.min_tree_height}, {tree_height_gcd=}, {base_min_tree_height=}"
         )
-        print(f"{tree_height_gcd=}, {base_min_tree_height}")
         transposed = transposed.with_columns(
             ((pl.col("nchar") * self.character_count) // base_chr_count).alias("nchar"),
             (
@@ -92,7 +110,6 @@ class SimulationConfigFactory:
             pl.col("column").alias("character_class"),
         ).drop(["column"])
         reconstructed = transposed.transpose(include_header=True)
-        print(reconstructed.to_dicts()[-1])
         reconstructed = reconstructed.rename(reconstructed.to_dicts()[-1]).rename(
             {"character_class": ""}
         )

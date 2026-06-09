@@ -4,7 +4,7 @@ from pathlib import Path
 from enum import StrEnum
 
 
-class SimulationConfigSetting(BaseModel):
+class SimulationParamSetting(BaseModel):
     poly: Polymorphism
     homoplasy_factor: float
     tree_height: int
@@ -20,7 +20,7 @@ class ExperimentSimulationConfig(BaseModel):
     base_config_dir: Path
     base_trees_file: Path
     base_networks_dir: Path
-    simulation_configs: list[SimulationConfigSetting]
+    simulation_params: list[SimulationParamSetting]
 
 
 class ASTRAL3Config(BaseModel):

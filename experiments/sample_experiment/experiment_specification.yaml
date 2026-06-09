@@ -4,7 +4,7 @@ default_sim_configs: &default_sim_configs
   tree_height: 4
   n_chars: 320
 
-experiment_folder: experiments/sample_experiment    
+experiment_folder: experiments/sample_experiment
 simulation:
   n_taxa: 30
   n_horizontal_edges:
@@ -17,7 +17,7 @@ simulation:
   base_config_dir: data/base_configs
   base_trees_file: data/trees.txt
   base_networks_dir: data/base_networks
-  simulation_configs:
+  simulation_params:
     - <<: *default_sim_configs
 
     # varying homoplasy factor
