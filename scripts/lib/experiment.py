@@ -1,10 +1,11 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from scripts.lib.types import Polymorphism
 from pathlib import Path
 from enum import StrEnum
 
 
 class SimulationParamSetting(BaseModel):
+    model_config = ConfigDict(frozen=True)
     poly: Polymorphism
     homoplasy_factor: float
     tree_height: int
@@ -12,6 +13,7 @@ class SimulationParamSetting(BaseModel):
 
 
 class ExperimentSimulationConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
     n_horizontal_edges: list[int]
     n_trees: int
     n_replicas: int
@@ -24,6 +26,8 @@ class ExperimentSimulationConfig(BaseModel):
 
 
 class ASTRAL3Config(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     class BipartitionStrategy(StrEnum):
         BINARY_CHARACTER = "binary_character"
         MP4_TREES = "mp4_trees"
@@ -33,23 +37,29 @@ class ASTRAL3Config(BaseModel):
     is_exact: bool
 
 
-class WeightedASTRALConfig(BaseModel): ...
+class WeightedASTRALConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
 
 
 class WeightedTreeQMCConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     class NormalisationStrategy(StrEnum):
         N2 = "n2"
 
     normalisation_strategy: NormalisationStrategy
 
 
-class MP4Config(BaseModel): ...
+class MP4Config(BaseModel):
+    model_config = ConfigDict(frozen=True)
 
 
-class GAConfig(BaseModel): ...
+class GAConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
 
 
 class MethodConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
     astral_3: ASTRAL3Config | None = Field(None)
     wastral: WeightedASTRALConfig | None = Field(None)
     w_tree_qmc: WeightedTreeQMCConfig | None = Field(None)
@@ -58,6 +68,7 @@ class MethodConfig(BaseModel):
 
 
 class ExperimentConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
     experiment_folder: Path  # where all experiment artifacts will be located
     simulation: ExperimentSimulationConfig
     methods: MethodConfig
