@@ -21,6 +21,7 @@ dependencies = [
     "dataclasses>=0.8",
     "pydantic>=2.13.4",
     "pyyaml>=6.0.3",
+    "typer>=0.26.7",
 ]
 
 [tool.ty.rules]
