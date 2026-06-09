@@ -16,6 +16,9 @@ class ExperimentSimulationConfig(BaseModel):
     n_trees: int
     n_replicas: int
     n_taxa: int
+    base_config_dir: Path
+    base_trees_file: Path
+    base_networks_dir: Path
     simulation_configs: list[SimulationConfigSetting]
 
 

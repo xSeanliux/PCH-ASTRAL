@@ -14,6 +14,9 @@ simulation:
     - 3
   n_trees: 16
   n_replicas: 2
+  base_config_dir: data/base_configs
+  base_trees_file: data/trees.txt
+  base_networks_dir: data/base_networks
   simulation_configs:
     - <<: *default_sim_configs
 
