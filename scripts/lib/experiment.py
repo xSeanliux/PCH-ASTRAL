@@ -16,6 +16,7 @@ class ExperimentSimulationConfig(BaseModel):
     n_trees: int
     n_replicas: int
     n_taxa: int
+    # bases: trees will be copied, configs used to generate new configs based on simulation configs.
     base_config_dir: Path
     base_trees_file: Path
     base_networks_dir: Path
