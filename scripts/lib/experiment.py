@@ -18,8 +18,8 @@ class ExperimentSimulationConfig(BaseModel):
     n_taxa: int
     # bases: trees will be copied, configs used to generate new configs based on simulation configs.
     base_config_dir: Path
-    base_trees_file: Path
-    base_networks_dir: Path
+    base_trees_file: Path  # expect one file with each line a newick string.
+    base_networks_dir: Path  # expect one folder, underneath each file is a network named `netX-Y.txt`, where X is the number of reticulation edges & Y is the model tree number.
     simulation_params: list[SimulationParamSetting]
 
 
