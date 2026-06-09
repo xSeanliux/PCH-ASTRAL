@@ -19,6 +19,8 @@ dependencies = [
     "shortuuid>=1.0.13",
     "ty>=0.0.35",
     "dataclasses>=0.8",
+    "pydantic>=2.13.4",
+    "pyyaml>=6.0.3",
 ]
 
 [tool.ty.rules]
