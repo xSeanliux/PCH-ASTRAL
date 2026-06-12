@@ -1,0 +1,55 @@
+default_sim_configs: &default_sim_configs
+  poly: high
+  homoplasy_factor: 0.1
+  tree_height: 4
+  n_chars: 320
+
+experiment_folder: experiments/sample_experiment
+simulation:
+  n_taxa: 30
+  n_horizontal_edges:
+    - 0
+    - 1
+    - 2
+    - 3
+  n_trees: 16
+  n_replicas: 2
+  base_config_dir: data/base_configs
+  base_trees_file: data/trees.txt
+  base_networks_dir: data/base_networks
+  simulation_params:
+    - <<: *default_sim_configs
+
+    # varying homoplasy factor
+    - <<: *default_sim_configs
+      homoplasy_factor: 0
+    - <<: *default_sim_configs
+      homoplasy_factor: 0.2
+
+    # varying tree height
+    - <<: *default_sim_configs
+      tree_height: 2
+    - <<: *default_sim_configs
+      tree_height: 8
+    
+    # varying polymorphism
+    - <<: *default_sim_configs
+      polymorphism: verylow
+    - <<: *default_sim_configs
+      polymorphism: low
+    - <<: *default_sim_configs
+      polymorphism: veryhigh
+    
+    # varying n chars
+    - <<: *default_sim_configs
+      n_chars: 80
+    - <<: *default_sim_configs
+      n_chars: 320
+    - <<: *default_sim_configs
+      n_chars: 640
+
+methods: 
+  astral_3: 
+    is_exact: False
+    bipartition_strategies: 
+      - mp4_trees

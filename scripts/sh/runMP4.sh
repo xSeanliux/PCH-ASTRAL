@@ -29,13 +29,7 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-if [[ $OS_TYPE = "RedHat" ]]; then 
-    PAUP_PATH=scripts/bin/paup4a168_centos64
-elif [[ $OS_TYPE = "OSX" ]]; then 
-    PAUP_PATH=scripts/bin/paup
-else 
-    echo "PAUP_PATH could not be set (OSTYPE ="$OS_TYPE" may be invalid )"
-fi
+PAUP_PATH=bin/paup
 chmod a+x $PAUP_PATH
 
 # Check required arguments
