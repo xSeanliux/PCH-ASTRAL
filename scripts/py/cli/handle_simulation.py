@@ -214,3 +214,4 @@ def handle_simulation(config: ExperimentConfig):
         data=sim_data_registry, schema=SIMULATED_DATA_REGISTRY_SCHEMA
     )
     sim_data_registry_pl.write_csv(e_folder / "simulated_data_registry.csv")
+    print(f"Simulated {len(sim_data_registry)} datasets.")
