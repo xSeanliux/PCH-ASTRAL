@@ -29,6 +29,7 @@ class InferenceResult:
     homoplasy_factor: float
     n_chars: int
 
+    tree_inference_method: TreeInferenceMethod
     point_estimate_path: Path
     group_estimate_path: Optional[Path] = (
         None  # for when the inference method returns multiple trees
@@ -37,8 +38,6 @@ class InferenceResult:
     consensus_method: Optional[str] = (
         None  # for when the inference method has multiple trees
     )
-
-    tree_inference_method: TreeInferenceMethod
 
     metadata: dict[str, str] = {}
     runtime: timedelta
