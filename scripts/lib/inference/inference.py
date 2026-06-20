@@ -30,6 +30,8 @@ class InferenceResult:
     n_chars: int
 
     tree_inference_method: TreeInferenceMethod
+    runtime: timedelta
+
     point_estimate_path: Path
     group_estimate_path: Optional[Path] = (
         None  # for when the inference method returns multiple trees
@@ -40,4 +42,3 @@ class InferenceResult:
     )
 
     metadata: dict[str, str] = {}
-    runtime: timedelta
