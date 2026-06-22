@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Docs
+
+Check `docs/` first for anything not covered here:
+- `docs/KEYS.md` — dataset/sim/inference join keys and what each inference method does.
+- `docs/HOW_TO_RUN.md` — legacy bash inference scripts: I/O, key lines, caveats (migration reference).
+- `docs/CLI.md` — the config-driven `simulation`/`inference` CLI.
+
 ## What this is
 
 PCH-ASTRAL infers linguistic phylogenies from polymorphic character matrices. The pipeline is **order-dependent**:
@@ -52,3 +59,7 @@ Beware: `ASTRAL/` is the git submodule; `Astral/` is a separate top-level dir ho
 See `data/README.md`. Networks: `net{reticulation_edges}-{tree_num}.txt`; `A=0` is a plain tree. Simulation seeds are deterministic (hashed from registry key in `scripts/py/cli/handle_simulation.py`).
 
 Type checker: **ty**. Linter: **ruff** (`E741` ignored, see `pyproject.toml`). Tests mirror `scripts/` under `tests/`.
+
+## Brevity note 
+
+Keep _all_ communication: be it code, docs, comments, or just agent interactions, brief. Aim to condense all writing such that if you remove any word it will take away from the idea of the sentence. Make sure sentences are brief, concise, easy to understand.
