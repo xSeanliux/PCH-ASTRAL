@@ -1,3 +1,6 @@
+> AI disclaimer: For all commits before Jun 20, 2026, the following holds: almost all of the code was handwritten, except for a few bash scripts for which ChatGPT was used to generate the boilerplate for in scripts/bash. Post that date, some code may be generated with AI; those commits will be clearly marked as having been fully or partially AI-generated (i.e., the git commits will show Claude Code as a co-author). 
+
+
 # PCH-ASTRAL (Polymorphic CHaracters with ASTRAL)
 ## Table of Contents 
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
