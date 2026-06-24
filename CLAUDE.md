@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Check `docs/` first for anything not covered here:
 - `docs/KEYS.md` — dataset/sim/inference join keys and what each inference method does.
 - `docs/HOW_TO_RUN.md` — legacy bash inference scripts: I/O, key lines, caveats (migration reference).
+- `docs/SCRIPT_CONTRACTS.md` — I/O contracts for the primitives the inference API shells out to.
 - `docs/CLI.md` — the config-driven `simulation`/`inference` CLI.
 
 ## What this is
