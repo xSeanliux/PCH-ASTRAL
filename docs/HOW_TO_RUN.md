@@ -1,8 +1,8 @@
 # How to run (legacy bash inference)
 
-This catalogues the legacy bash inference scripts: what each does, its I/O, the key line(s), and caveats. Use it to (a) document the scripts, (b) plan the migration to the config-driven CLI (`scripts/py/cli/main.py`), and (c) orient agents. The CLI does not yet cover inference; these scripts are the reference for what inference must reproduce.
+This catalogues the legacy bash inference scripts: what each does, its I/O, the key line(s), and caveats. It is the reference for the migration to the config-driven CLI (`scripts/py/cli/main.py`), which does not yet cover inference — these scripts define what inference must reproduce.
 
-The scripts form two layers:
+The scripts form three groups:
 
 - **Orchestrators** (repo root) — loop over model conditions / datasets and call the runners.
 - **Runners** (`scripts/sh/run{ASTRAL,GA,MP4}.sh`) — run one method on one dataset CSV.

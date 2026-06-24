@@ -2,48 +2,124 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the ad-hoc bash inference pipeline with a config-driven `inference` CLI command that reads an experiment YAML, runs the requested inference methods over the simulation registry, and writes a joinable results registry — starting with a fully working MP4 slice.
+**Goal:** Replace the ad-hoc bash inference pipeline with a config-driven CLI that is a *unified entrypoint* over hardened scripts: atomic per-dataset commands (`pch infer/score/summarize`) and pipeline commands (`pch experiment inference <yaml>`) that share one Python API. Both simulated and real linguistic datasets run through the same atomic commands. Start with a fully working MP4 slice.
 
-**Architecture:** Mirror the existing `simulation` command exactly (`scripts/py/cli/main.py` → `handle_simulation`). A new `handle_inference(config)` reads `{experiment_folder}/simulation_data/simulated_data_registry.csv`, selects enabled methods from `config.methods`, and for each `(dataset, method)` pair shells out to a per-method runner (reusing the validated `scripts/sh/run*.sh` scripts), times it, and assembles an `InferenceResult`. Results are written to `{experiment_folder}/inference_data/inference_registry.csv` whose join keys match the simulation registry, so the two can be joined for analysis. Method-specific command construction lives in a pure `runners.py` module so it is unit-testable without external binaries.
+**Architecture — three layers, each independently testable:**
 
-**Tech Stack:** Python 3.12 (uv), Typer (CLI), Pydantic v2 (`ExperimentConfig`), Polars (registry I/O), `rich` (progress/printing), `shortuuid` (run IDs), `subprocess` (shelling to bash runners), pytest.
+```
+Typer CLI (pch infer/score/summarize, experiment …)   ← unified entrypoint; renders objects (text / --json)
+        │ calls (in-process — never parses stdout)
+Python API (infer/score/summarize → typed objects)    ← wraps scripts, parses their output → objects
+        │ shells to
+Hardened scripts (run*.sh, RFScorer.R, consensusTree.R) ← robust primitives with defined I/O contracts
+```
+
+The **Python API is the source of truth for results**: `infer() → InferenceResult`, `score() → ScoreResult`, `summarize() → Path`. The pipeline (`handle_inference`) consumes these objects directly — it does **not** shell out to the atomic CLI and parse text. The CLI commands are thin renderers: human text by default, `--json` for machine consumption. The experiment registry CSV is the durable, joinable rendering of `InferenceResult`s.
+
+**Method configuration is unified through the existing Pydantic models** (`scripts/lib/experiment.py`: `ASTRAL3Config`, `WeightedTreeQMCConfig`, …). A `METHOD_CONFIG` registry maps each `TreeInferenceMethod` to its config class; three input paths converge on one validated instance — the experiment YAML's `methods:` block, an atomic `--method-config <yaml>`, or atomic flags (merged: flags override file override model defaults). The YAML and CLI can't drift because they validate against the same model.
+
+**Tech Stack:** Python 3.12 (uv), Typer (CLI), Pydantic v2 (method configs + `ExperimentConfig`), Polars (registry I/O), `rich` (progress/printing), `shortuuid` (run IDs), `subprocess` (shelling to hardened scripts), pytest.
 
 **Source spec:** `specs/cli_specs/human_specs.md`. Method descriptions: `docs/KEYS.md`. Legacy script catalogue (what inference must reproduce): `docs/HOW_TO_RUN.md`.
+
+## Pipeline artifact model
+
+**Everything joinable; minimal files. The registry CSV is the experiment index** — this is the difference from log-scraping.
+
+**`inference_data/inference_registry.csv`** — one row per `(dataset, method, replica)` run. Columns: the simulation join keys (`poly_level … replica`) + `method`, `config_hash`, `fn_rate`, `fp_rate`, `runtime_seconds`, **`point_estimate_newick`** (the inferred tree inline — no per-run file), `tree_set_path`, `status`, `ran_at`. Joinable to `simulated_data_registry.csv` on the keys; ~20 MB at 50k rows (≈100 conditions × ~100 replicas × ~5 methods).
+
+**No per-run metric/tree files** (the bloat trap). The point estimate is one Newick string → a column. Only variable/large artifacts are files, **consolidated, never per-replica**:
+- `inference_data/tree_sets/{method}__{condition}.trees` — multi-tree outputs (GA posterior, MP set), grouped per method×condition (hundreds of files, not 50k).
+- `inference_data/logs/` — consolidated per group, or kept only for `status=failed` runs.
+
+**Self-contained & timestamped** — all under `experiment_folder/`:
+```
+experiments/my_run/
+  experiment_specification.yaml      # config — source of truth
+  manifest.json                      # context: created_at, completed_at, git_sha, cli_version, methods, counts, status
+  simulation_data/   … simulated_data_registry.csv, configs/, model_*   (existing)
+  inference_data/
+    inference_registry.csv           # THE joinable index (metrics + point estimates inline)
+    tree_sets/   {method}__{condition}.trees
+    logs/
+    .parts/      {run_key}.json       # transient per-run staging (see below); cleared after compaction
+```
+`manifest.json` carries experiment-level context; per-row `ran_at` records when each run was computed.
+
+**Concurrency-safe idempotent writes (SLURM 4h reruns).** Jobs time out and rerun, often in parallel — so no shared-file writes. Each run writes only its own `.parts/{run_key}.json` (idempotent: a killed job's partial part is replaced on rerun). `pch experiment compact` merges parts → the canonical registry (last-writer-wins by `run_key`, newest `ran_at`) and concatenates tree-set parts into the group files. **No two jobs write the same file → no mutex needed** — more robust than `flock` on a shared NFS/Lustre FS. The local executor compacts at the end; SLURM runs `compact` as a final dependent job (and `pch experiment status` compacts on demand).
+
+**CLI interacts with artifacts** (the payoff of joinability):
+- `pch experiment status <folder>` — counts by method, % complete, failures, run timestamps.
+- `pch experiment query <folder> [filters] [--json]` — filter + join sim⨝inference registries; answers "FN/FP for ASTRAL3 across high-poly conditions" with zero log scraping.
+- `pch experiment get <folder> --run <key> --what point_estimate|tree_set|log`.
 
 ## Global Constraints
 
 - **Python 3.12, managed with uv.** Run tests with `uv run python -m pytest`, type-check with `make py-static` (ty), format with `make py-fmt` (ruff), lint with `make py-lint`.
 - **Tests mirror `scripts/` under `tests/`** (e.g. `scripts/lib/inference/inference.py` → `tests/scripts/lib/inference/test_inference.py`). No `__init__.py` needed — the project uses implicit namespace packages (confirmed: `scripts/py/cli/` and `scripts/lib/inference/` have none).
-- **Registry join keys must match the simulation registry verbatim** (`scripts/py/cli/schemata.py`): `poly_level, character_count, min_tree_height, homoplasy_factor, horizontal_edges, model_tree, replica`. This is the whole point of the registry per `docs/KEYS.md` — inference rows must join to simulation rows on these columns.
+- **Registry join keys must match the simulation registry verbatim** (`scripts/py/cli/schemata.py`): `poly_level, character_count, min_tree_height, homoplasy_factor, horizontal_edges, model_tree, replica` — so inference rows join to simulation rows (`docs/KEYS.md`).
+- **The Python API returns objects; everything else renders them.** `score()` returns a `ScoreResult`, not a printed line; `infer()` returns an `InferenceResult`. stdout (text / `--json`) and the registry CSV are renderings. The pipeline calls the API in-process and **never parses CLI stdout**.
+- **Method config flows through the existing Pydantic models** — never re-define a method's parameters outside its config class. Atomic flags and `--method-config` both produce a validated instance of that class.
+- **Wrap, don't reimplement; harden first.** Keep PAUP/MrBayes/ASTRAL/R orchestration in the existing scripts; the API shells to them. Each script gets a defined I/O contract (M0) before the API depends on it — a subprocess+parse is hidden inside an API function so nothing downstream sees raw text.
+- **Everything joinable, minimal files** (see *Pipeline artifact model*): one registry row per run, point estimate inline, no per-replica metric/tree files; heavy artifacts consolidated per method×condition.
+- **Concurrency-safe & idempotent.** Runs write only their own `.parts/{run_key}.json`; `compact` merges. No shared-file writes, no locks. Reruns (SLURM timeouts) overwrite by `run_key` — safe to run any number of times.
+- **Experiments self-contained & contextualised.** All artifacts under `experiment_folder/`; `manifest.json` timestamps the run (`created_at`/`completed_at`, git sha, CLI version).
 - **Brevity (repo CLAUDE.md):** keep code, comments, and docs tight — if removing a word loses nothing, remove it.
-- **Reuse the bash runners, do not reimplement** PAUP/MrBayes/ASTRAL orchestration in Python for this milestone. `handle_simulation` shells out to `java -jar ...`; inference shells out to `bash scripts/sh/run*.sh` the same way.
 - **`ruff` ignores `E741`** (see `pyproject.toml`); otherwise default rules.
 
 ---
 
 ## Migration Roadmap (what needs doing, end to end)
 
-The full migration is too large for one placeholder-free plan, so it is split into milestones. **Each milestone produces working, testable software on its own.** This document fully specifies **Milestone 1**; Milestones 2–5 are scoped here and should each be expanded into their own plan (via this same skill) when reached.
+The full migration is too large for one placeholder-free plan, so it is split into milestones. **Each milestone produces working, testable software on its own.** This document specifies **M0** (script contracts) and **M1** (the three-layer scaffolding) in detail; M2–M5 are scoped at the interface level and expand into their own plans when reached.
+
+> **Architecture note:** the original M1 below was written before the three-layer (CLI → Python API → hardened scripts) decision. Its component tasks remain valid building blocks — Task 1 (`InferenceResult`), Task 2 (registry schema), Task 3 (MP4 command/path construction, now the hardened-script *wrapper*). The decision **inserts** two tasks and **reshapes** two; see *"M1 task structure (three-layer)"* below for the authoritative task list and interface signatures. Full TDD step-by-step for the new/changed tasks is written at execution time (or after design lock).
 
 | Milestone | Deliverable | Status |
 |-----------|-------------|--------|
-| **M1 — MP4 slice + scaffolding** | `inference` CLI runs MP4 across the sim registry and writes `inference_registry.csv`. Establishes the runner abstraction, result dataclass, and registry schema. | **Detailed below** |
-| **M2 — GA + ASTRAL3 runners** | Add Gray-Atkinson and ASTRAL III (heuristic + exact). ASTRAL3 is order-dependent — its bipartition strategies (`mp4_trees`, `ga_trees`) require MP4/GA to have run first (see `docs/HOW_TO_RUN.md`); the orchestrator must sequence methods accordingly. Reconcile the stale `printQuartets.py -q` interface (`runASTRAL.sh` calls `-q`; current script takes `-i`/`-w`). | Scoped below |
-| **M3 — Scoring & metrics** | Populate `fn_rate`/`fp_rate` in the registry by scoring each point estimate against its true tree via `scripts/R/RFScorer.R` (the model tree is resolvable from `model_graph_registry.csv` by `(horizontal_edges, model_tree)`). Add per-run runtime breakdown. | Scoped below |
-| **M4 — wASTRAL + TREE-QMC** | Add the two methods with no existing bash runner. Requires discovering the binary interfaces installed by `scripts/sh/installs/install_aster.sh` and `install_w_tree_qmc.sh`, and wiring `WeightedASTRALConfig` / `WeightedTreeQMCConfig`. PCH-W quartets already exist (`printQuartets.py -w`). | Scoped below |
-| **M5 — SLURM orchestration** | Submit `(dataset, method)` jobs to SLURM instead of running them inline, replacing `run_parallel_sim.sh`. Job dependencies for order-dependent methods (M2). | Scoped below |
+| **M0 — Script hardening & interface contracts** | Pin a defined I/O contract (exact inputs, outputs, stdout shape, exit codes) for each `run*.sh` and `*.R` the API will call; fix the stale `printQuartets.py` interface; remove hardcoded `~/scratch` assumptions so the Python API can call them reliably. No Python yet — robust primitives only. | **Detailed below** |
+| **M1 — API + atomic `infer` + MP4 + pipeline slice** | The three-layer scaffolding: `infer() → InferenceResult` API wrapping the hardened MP4 script, the `METHOD_CONFIG` registry + `resolve_config`, the atomic `pch infer --method mp4`, and `pch experiment inference <yaml>` running MP4 across the sim registry. Implements the artifact model: per-run `.parts/` writes → `compact` → joinable `inference_registry.csv` (point estimate inline), `manifest.json`, and `pch experiment status`. | **Detailed below** |
+| **M2 — Atomic `score` + `summarize` (object API)** | `score() → ScoreResult` (wraps `RFScorer.R`) and `summarize() → Path` (wraps `consensusTree.R`), each with a thin `pch score`/`pch summarize` CLI (text + `--json`). The true tree for scoring resolves from `model_graph_registry.csv` by `(horizontal_edges, model_tree)`; the pipeline populates `fn_rate`/`fp_rate` by calling `score()` in-process. | Scoped below |
+| **M3 — GA + ASTRAL3 runners** | Add Gray-Atkinson and ASTRAL III via `infer()`, with `ASTRAL3Config` (bipartition strategies) and `GAConfig` flowing through `resolve_config`. ASTRAL3 is order-dependent — `mp4_trees`/`ga_trees` strategies require MP4/GA outputs to exist first (`docs/HOW_TO_RUN.md`); the pipeline sequences methods accordingly. | Scoped below |
+| **M4 — wASTRAL + TREE-QMC** | The two methods with no existing bash runner — first discover/harden (M0-style) the binary interfaces from `install_aster.sh` / `install_w_tree_qmc.sh`, then wire `WeightedASTRALConfig` / `WeightedTreeQMCConfig`. PCH-W quartets already exist (`printQuartets.py -w`). | Scoped below |
+| **M5 — Pipeline executor + SLURM** | `pch experiment inference --executor local\|slurm [--dry-run]` via a `LocalExecutor`/`SlurmExecutor` abstraction; SLURM emits one sbatch per `(dataset, method)` (each calling `pch infer`) with `--dependency` chains for order-dependent methods, replacing `run_parallel_sim.sh`. Real-dataset atomic runs already work (path-based `pch infer`, no registry). | Scoped below |
 
 ---
 
-## File Structure (Milestone 1)
+## M0 — Script hardening & interface contracts (detail)
 
-- **Modify** `scripts/lib/inference/inference.py` — fix the `metadata` mutable-default crash; add optional breadcrumb fields and `to_registry_row()`.
-- **Modify** `scripts/py/cli/schemata.py` — add `INFERENCE_REGISTRY_SCHEMA`.
-- **Create** `scripts/lib/inference/runners.py` — pure per-method command + artifact-path construction (MP4 only in M1).
-- **Create** `scripts/py/cli/handle_inference.py` — orchestration, mirroring `handle_simulation.py`.
-- **Modify** `scripts/py/cli/main.py` — wire the `inference` command to `handle_inference`.
-- **Modify** `experiments/README.md` and `docs/CLI.md` — document the now-working `inference` command.
-- **Create** tests: `tests/scripts/lib/inference/test_inference.py`, `tests/scripts/lib/inference/test_runners.py`, `tests/scripts/py/cli/test_handle_inference.py`.
+No Python. For each script the API will call, write down and enforce a contract, then fix the known gaps. Deliverable: a short `docs/SCRIPT_CONTRACTS.md` table + the script edits, with a smoke test per script.
+
+- **`scripts/sh/runMP4.sh`** — contract: in `--input <csv> --name --output <dir>`; out `{out}/MP4/trees/{name}-maj.tree` (point estimate), `{name}.trees` (set), `{out}/MP4/logs/{name}.log`; exit non-zero on PAUP failure. Edit: make the scratch dir configurable (env `PCH_SCRATCH`, default `~/scratch`) instead of hardcoded; `mkdir -p` it.
+- **`scripts/sh/runGA.sh`, `runASTRAL.sh`** — same treatment (contracts + scratch). `runASTRAL.sh`: **fix the stale `printQuartets.py -q` call** — current `printQuartets.py` takes `-i`/`-w`, no `-q`; reconcile the quartet-generation interface so the script runs.
+- **`scripts/R/RFScorer.R`** — contract: stdout is **exactly one line** `fn_rate fp_rate` (space-separated floats), nothing else; all progress/diagnostics to stderr; exit non-zero on bad input. (Today it already `cat`s `fn fp`, but `--do-print` can leak to stdout — gate it to stderr so `score()` can parse unambiguously.)
+- **`scripts/R/consensusTree.R`** — contract: in `-i <trees> -m <mode> -o <out>`; writes one Newick tree to `-o`; exit non-zero if input unreadable.
+
+## File Structure (Milestone 1, three-layer)
+
+- **Modify** `scripts/lib/inference/inference.py` — fix the `metadata` mutable-default crash; add breadcrumb fields + `to_registry_row()`. *(existing Task 1)*
+- **Modify** `scripts/py/cli/schemata.py` — add `INFERENCE_REGISTRY_SCHEMA`. *(existing Task 2)*
+- **Create** `scripts/lib/inference/runners.py` — pure per-method argv + artifact-path construction over the hardened scripts (MP4 in M1). *(existing Task 3)*
+- **Create** `scripts/lib/inference/methods.py` — **NEW:** `METHOD_CONFIG` registry (method → Pydantic config class) + `resolve_config(method, config_file, overrides) -> BaseModel`.
+- **Create** `scripts/lib/inference/api.py` — **NEW:** `infer(...) -> InferenceResult` — the object-returning API; builds argv via `runners`, runs the hardened script, times it, assembles the result. The single point that touches `subprocess`.
+- **Modify** `scripts/py/cli/handle_inference.py` — pipeline: iterate the sim registry, call `api.infer(...)` per `(dataset, method)`, write the registry. *(reshaped Task 4 — calls the API, no longer shells directly)*
+- **Modify** `scripts/py/cli/main.py` — wire **both** `pch infer` (atomic, renders `InferenceResult`; `--json`) and `pch experiment inference` (pipeline). *(reshaped Task 5)*
+- **Modify** `experiments/README.md`, `docs/CLI.md` — document the atomic + pipeline commands.
+- **Create** tests mirroring each module under `tests/`, incl. `test_methods.py` (config resolution) and `test_api.py` (stubbed subprocess → `InferenceResult`).
+
+### M1 task structure (three-layer) — authoritative list
+
+| # | Task | Status vs original | Key interface |
+|---|------|--------------------|---------------|
+| 1 | Fix `InferenceResult` + `to_registry_row()` | unchanged (detailed below) | `InferenceResult.to_registry_row() -> dict` |
+| 2 | `INFERENCE_REGISTRY_SCHEMA` | unchanged (detailed below) | Polars schema matching the row dict |
+| 3 | MP4 `runners.py` (argv + paths) | unchanged (detailed below) | `build_argv(method, runid, input_csv, name, out) -> list[str]` |
+| 4 | **NEW** `methods.py` config registry | new | `resolve_config(method: TreeInferenceMethod, config_file: Path\|None, overrides: dict) -> BaseModel`; `METHOD_CONFIG: dict[TreeInferenceMethod, type[BaseModel]]` |
+| 5 | **NEW** `api.infer()` | new | `infer(input_csv: Path, output_dir: Path, method: TreeInferenceMethod, config: BaseModel, *, name: str\|None=None) -> InferenceResult` |
+| 6 | `handle_inference` pipeline | reshaped (was Task 4) | `handle_inference(config: ExperimentConfig) -> Path`; loops registry, calls `api.infer`, writes CSV |
+| 7 | Wire `pch infer` + `pch experiment inference` | reshaped (was Task 5) | atomic command renders `InferenceResult` (text/`--json`); pipeline command calls `handle_inference` |
+
+The full TDD steps for Tasks 1–3 follow verbatim below (still valid). Tasks 4–7 are specified at the interface level above and get their TDD steps written when M1 executes.
 
 ---
 
@@ -447,7 +523,9 @@ git commit -m "feat: MP4 inference runner (argv + artifact paths)"
 
 ---
 
-### Task 4: `handle_inference` orchestration
+### Task 4 (SUPERSEDED → new Tasks 6–7): `handle_inference` orchestration
+
+> **Superseded by the three-layer decision.** This version shells from `handle_inference` directly to the runner. Under the new architecture the subprocess call moves into `api.infer()` (new Task 5 in the authoritative list), and `handle_inference` calls `api.infer(...)` per pair (Task 6). The code below is retained as reference for the registry-writing loop and the `condition = dataset_csv.parent.name` path trick — both still apply — but the subprocess/timing block migrates into `api.infer()`.
 
 Mirror `handle_simulation`: read the simulation registry, select enabled methods, run each `(dataset, method)` pair (shelling to the runner, capturing logs, timing), and write the results registry. The output directory per condition reuses the simulation layout: `inference_data/{condition}/`, where `condition = dataset_csv.parent.name` (e.g. `high_0.1_4_320`) — derived from the path, avoiding float-formatting mismatches.
 
@@ -650,10 +728,12 @@ git commit -m "feat: handle_inference orchestrates MP4 over the sim registry"
 
 ### Task 5: Wire the CLI command and document it
 
+> **Superseded by the three-layer decision (→ new Task 7).** This version wires only the pipeline `inference` command. The new Task 7 wires **both** the atomic `pch infer` (renders an `InferenceResult`; `--json`) **and** `pch experiment inference` (pipeline). The stub-replacement and doc-update steps below still apply to the pipeline command.
+
 Replace the `inference` stub in `main.py` with a real call, and update the docs that describe the command as a stub.
 
 **Files:**
-- Modify: `scripts/py/cli/main.py:22-25`
+- Modify: `scripts/py/cli/main.py` (the `inference` stub)
 - Modify: `experiments/README.md`, `docs/CLI.md`
 - Test: `tests/scripts/py/cli/test_main.py`
 
@@ -752,33 +832,54 @@ git commit -m "feat: wire inference CLI command to handle_inference; document it
 
 ## Milestones 2–5 (expand each into its own plan when reached)
 
-These are scoped, not yet task-decomposed. Each is a separate plan because each is an independent reviewer gate and ships working software on its own.
+Scoped, not yet task-decomposed; each becomes its own plan and reviewer gate when reached.
 
-### M2 — GA + ASTRAL3 runners
-- **Deliverable:** `gray_atkinson` and `astral_3` selectable in YAML and runnable end-to-end.
-- **Key files:** `scripts/lib/inference/runners.py` (add GA + ASTRAL3 argv/paths from `scripts/sh/runGA.sh`, `runASTRAL.sh`), `handle_inference.py` (`select_methods` + **method ordering**).
-- **Critical constraint:** ASTRAL3 is order-dependent — `ASTRAL3Config.bipartition_strategies` of `mp4_trees`/`ga_trees` require those methods' outputs to already exist (`docs/HOW_TO_RUN.md`, "ASTRAL requires MP4 and GA first"). `select_methods` must return a topologically ordered list and `handle_inference` must run all datasets through the prerequisite methods before ASTRAL3.
-- **Known defect to fix here:** `runASTRAL.sh` calls `printQuartets.py -q $QUARTET`, but the current `printQuartets.py` accepts `-i`/`-w` only (no `-q`). Reconcile before ASTRAL3 can run.
+### M2 — Atomic `score` + `summarize` (object API)
+- **Deliverable:** `score() → ScoreResult` and `summarize() → Path`, each with a thin `pch score` / `pch summarize` CLI (text + `--json`); pipeline populates `fn_rate`/`fp_rate` by calling `score()` in-process.
+- **Key files:** new `scripts/lib/inference/scoring.py` — `ScoreResult` dataclass + `score(estimate, reference, *, fmt, prune) -> ScoreResult` wrapping the hardened `RFScorer.R` (parses its one-line `fn fp` stdout, M0 contract); `summarize.py` wrapping `consensusTree.R`. `api.infer` / `handle_inference` gain the scoring call; true tree resolves from `model_graph_registry.csv` by `(horizontal_edges, model_tree)`.
+- **Caveat:** `RFScorer.R` format/prune flags differ per method (`newick` vs `nexus`; ASTRAL-IV `q=4` prunes the extra-root leaf — see `run_inference_sim.sh`). `score()` exposes these as params.
 
-### M3 — Scoring & metrics
-- **Deliverable:** `fn_rate`/`fp_rate` populated in `inference_registry.csv`.
-- **Key files:** new `scripts/lib/inference/scoring.py` wrapping `scripts/R/RFScorer.R` (FN/FP = normalized RF halves; `RFScorer.R:59` `computeFnFpRate`). Resolve each row's true tree from `model_graph_registry.csv` by `(horizontal_edges, model_tree)`. Parse the `FN FP` stdout line and set the existing nullable `InferenceResult.fn_rate/fp_rate` fields.
-- **Caveat:** `RFScorer.R` format/prune flags differ per method (`newick` vs `nexus`; ASTRAL-IV `q=4` prunes the extra-root leaf — see `run_inference_sim.sh:140-142`).
+### M3 — GA + ASTRAL3 runners
+- **Deliverable:** `gray_atkinson` and `astral_3` runnable via `pch infer` and the pipeline.
+- **Key files:** `runners.py` (GA + ASTRAL3 argv/paths over the hardened `runGA.sh`/`runASTRAL.sh`); `methods.py` already routes `ASTRAL3Config`/`GAConfig` through `resolve_config` — wire the flags (`--exact`, repeatable `--bipartition`); `handle_inference` gains **method ordering**.
+- **Critical constraint:** ASTRAL3 is order-dependent — `ASTRAL3Config.bipartition_strategies` of `mp4_trees`/`ga_trees` require those methods' outputs to already exist (`docs/HOW_TO_RUN.md`). The pipeline must run all datasets through prerequisite methods before ASTRAL3. (The stale `printQuartets.py` interface is already fixed in M0.)
 
-### M4 — wASTRAL + TREE-QMC runners
-- **Deliverable:** the two methods with no existing bash runner.
-- **Key files:** `runners.py` (+ argv), `experiment.py` (`WeightedASTRALConfig` is currently empty; `WeightedTreeQMCConfig.normalisation_strategy` exists with only `N2`).
-- **Discovery required:** binary interfaces from `scripts/sh/installs/install_aster.sh` and `install_w_tree_qmc.sh` are not yet documented — first task of that plan is to determine their CLIs. PCH-W quartets already exist via `printQuartets.py -w` (wASTRAL weighted format).
+### M4 — wASTRAL + TREE-QMC
+- **Deliverable:** the two methods with no existing bash runner, via `pch infer`.
+- **Key files:** new hardened runner scripts (M0-style) + `runners.py` argv; `methods.py`/`experiment.py` (`WeightedASTRALConfig` is currently empty; `WeightedTreeQMCConfig.normalisation_strategy` has only `N2` — extend as the binary supports). Flags: `--normalisation n2`, etc.
+- **Discovery required:** binary interfaces from `install_aster.sh` / `install_w_tree_qmc.sh` are undocumented — first task is to determine and contract their CLIs. PCH-W quartets already exist via `printQuartets.py -w`.
 
-### M5 — SLURM orchestration
-- **Deliverable:** submit `(dataset, method)` jobs to SLURM instead of inline `subprocess.run`, replacing `run_parallel_sim.sh`.
-- **Key files:** new `scripts/lib/inference/slurm.py` (sbatch template + submission); `handle_inference.py` gains a `--slurm` path. Encode method ordering (M2) as `--dependency=afterany` chains, mirroring `run_parallel_sim.sh:43`.
+### M5 — Pipeline executor + SLURM
+- **Deliverable:** `pch experiment inference --executor local|slurm [--dry-run]`, replacing `run_parallel_sim.sh`. Real-dataset atomic runs already work (path-based `pch infer`).
+- **Key files:** new `scripts/lib/inference/executor.py` — `LocalExecutor` (inline `api.infer`) / `SlurmExecutor` (one sbatch per `(dataset, method)`, each invoking `pch infer`, with `--dependency=afterany` chains for ordered methods). `handle_inference` takes an executor.
 - **Reference:** `run_parallel_sim.sh` (sbatch heredoc, dependency chaining), `docs/HOW_TO_RUN.md`.
+
+---
+
+## Documentation — the run manual
+
+A single living manual, **`docs/RUNNING_INFERENCE.md`**, is the entry point for *running* the pipeline, written for two audiences in one document:
+
+- **Humans** — a task-oriented walkthrough: install/setup, "run an experiment end to end" with copy-paste commands, the `experiment_folder/` layout, how to read `inference_registry.csv`, how to query results, and how reruns/SLURM behave. Concrete examples over prose.
+- **Agents** — a precise reference block that lets an agent operate without reading source: exact command signatures (`pch infer/score/summarize`, `pch experiment inference/status/query/get/compact`), the registry column contract + join keys, the invariants (objects-not-stdout, idempotent `.parts`→`compact`, self-contained folder), and where each artifact lives. Each fact links to its canonical doc (`docs/KEYS.md` keys, `docs/SCRIPT_CONTRACTS.md` script I/O, `docs/CLI.md` command surface).
+
+**How the docs fit together** (no duplication — each owns one thing):
+
+| Doc | Owns |
+|---|---|
+| `docs/RUNNING_INFERENCE.md` | **NEW** — how to *run* it (humans + agents); links the rest |
+| `docs/CLI.md` | command surface reference (flags, args) |
+| `docs/KEYS.md` | join keys + method descriptions |
+| `docs/SCRIPT_CONTRACTS.md` | **NEW (M0)** — each script's I/O contract |
+| `docs/HOW_TO_RUN.md` | legacy bash catalogue (migration reference; retired when migration completes) |
+| `CLAUDE.md` `## Docs` index | one-line pointer to each of the above |
+
+**Docs are a per-milestone deliverable, not a final phase.** Each milestone's Definition of Done includes updating `RUNNING_INFERENCE.md` (and the relevant reference doc) for what it shipped, and adding its entry to the `CLAUDE.md` index — so the manual is never stale. M0 creates `SCRIPT_CONTRACTS.md`; M1 creates `RUNNING_INFERENCE.md` covering `infer` + `experiment inference`/`status`; later milestones extend it.
 
 ---
 
 ## Self-Review
 
-- **Spec coverage** (`specs/cli_specs/human_specs.md`): YAML as source of truth → M1 (reuses `ExperimentConfig`). Per-method artifacts + index/registry with params, artifact paths, runtime → M1 (`InferenceResult` + `inference_registry.csv`). FN/FP metrics → M3 (fields already present, nullable). Methods MP/GA/PCH already in bash + not-yet-implemented ones → MP4 (M1), GA + ASTRAL3 (M2), wASTRAL + TREE-QMC (M4). SLURM → M5. All spec points map to a milestone.
-- **Placeholder scan:** every code step shows complete code; no TBD/"handle edge cases"/"similar to". Pass.
-- **Type consistency:** `to_registry_row()` keys (Task 1) ⇔ `INFERENCE_REGISTRY_SCHEMA` columns (Task 2) — asserted equal by `test_registry_row_matches_schema_columns`. `select_methods` returns `list[TreeInferenceMethod]` consumed by `handle_inference` and the runner dispatch; names match across Tasks 3–4. `build_argv`/`point_estimate_path`/`group_estimate_path`/`consensus_method`/`log_path` signatures identical in Task 3 definition and Task 4 calls. Pass.
+- **Spec coverage** (`specs/cli_specs/human_specs.md`): YAML as source of truth → M1 (reuses `ExperimentConfig` + `METHOD_CONFIG`). Per-method config via Pydantic models, flags, or `--method-config` → M1 (`resolve_config`). Per-method artifacts + index/registry → M1 (`InferenceResult` + `inference_registry.csv`). FN/FP metrics as objects/stdout/CSV → M2 (`ScoreResult`, `score()`). Methods → MP4 (M1), GA + ASTRAL3 (M3), wASTRAL + TREE-QMC (M4). Atomic single commands on real *and* simulated data → M1 (`pch infer`, path-based). SLURM + local executor → M5. Script robustness → M0. **Joinable artifacts + no per-replica bloat, self-contained & timestamped folder, concurrency-safe reruns, CLI query** → *Pipeline artifact model* (registry/parts/compact/manifest in M1; `query`/`get` join in M2+). **Run manual for humans + agents** → *Documentation* (per-milestone). All spec points map to a milestone.
+- **Placeholder scan:** M0 + Tasks 1–3 fully specified (code below); Tasks 4–7 and M2–M5 specified at the interface level (signatures given) pending execution/design-lock — flagged explicitly, not silent TBDs.
+- **Type consistency:** `to_registry_row()` keys (Task 1) ⇔ `INFERENCE_REGISTRY_SCHEMA` columns (Task 2) — asserted equal by `test_registry_row_matches_schema_columns`. New layer: `resolve_config(...) -> BaseModel` (Task 4) feeds `api.infer(..., config: BaseModel) -> InferenceResult` (Task 5), consumed by `handle_inference` (Task 6) and rendered by `pch infer`/`pch experiment inference` (Task 7). `build_argv(...)` (Task 3) is called inside `api.infer`. `ScoreResult` (M2) is the return of `score()`, rendered to stdout/CSV — never parsed back.

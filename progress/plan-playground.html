@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCH-ASTRAL · Inference CLI Plan & User Story</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #161b22; --panel2: #1c2430; --line: #2a3340;
+    --ink: #e6edf3; --dim: #8b97a6; --accent: #58a6ff; --green: #3fb950;
+    --amber: #d29922; --purple: #bc8cff; --pink: #f778ba; --red: #f85149;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px;
+    height: 100vh; overflow: hidden;
+  }
+  .app { display: grid; grid-template-columns: 290px 1fr; grid-template-rows: 1fr auto; height: 100vh; }
+  .sidebar { grid-row: 1 / 3; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 16px; }
+  .stage { position: relative; overflow: hidden; background: radial-gradient(circle at 30% 20%, #131a24 0%, var(--bg) 70%); }
+  .promptbar { grid-column: 2; background: var(--panel); border-top: 1px solid var(--line); padding: 12px 16px; }
+
+  h1 { font-size: 14px; margin: 0 0 2px; letter-spacing: .3px; }
+  .sub { color: var(--dim); font-size: 11.5px; margin-bottom: 16px; line-height: 1.4; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--dim); margin: 18px 0 8px; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 6px; }
+  .tab { flex: 1; padding: 7px 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 7px;
+    color: var(--dim); cursor: pointer; font-size: 12px; text-align: center; transition: .12s; }
+  .tab.on { background: var(--accent); color: #06101f; border-color: var(--accent); font-weight: 600; }
+
+  .preset { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 5px 9px; background: var(--panel2); border: 1px solid var(--line); border-radius: 20px;
+    color: var(--ink); cursor: pointer; font-size: 11.5px; transition: .12s; }
+  .chip:hover { border-color: var(--accent); }
+
+  .row { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+  .row label { flex: 1; cursor: pointer; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+  .seg { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { flex: 1; padding: 7px; background: var(--panel2); border: none; color: var(--dim);
+    cursor: pointer; font-size: 12px; }
+  .seg button.on { background: var(--accent); color: #06101f; font-weight: 600; }
+
+  .comments { display: flex; flex-direction: column; gap: 6px; }
+  .comment { background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--amber);
+    border-radius: 6px; padding: 7px 9px; font-size: 12px; }
+  .comment .ct { color: var(--accent); font-weight: 600; font-size: 11px; }
+  .comment .cx { color: var(--ink); margin-top: 2px; }
+  .comment .del { float: right; color: var(--dim); cursor: pointer; border: none; background: none; font-size: 14px; }
+  .empty { color: var(--dim); font-size: 11.5px; font-style: italic; }
+
+  svg { width: 100%; height: 100%; display: block; }
+  .node { cursor: pointer; }
+  .node rect { transition: stroke .12s, filter .12s; }
+  .node:hover rect { filter: brightness(1.18); }
+  .node text { pointer-events: none; }
+  .nlabel { font-size: 12px; font-weight: 600; }
+  .nsub { font-family: var(--mono); font-size: 9.5px; }
+  .badge { font-size: 9px; font-weight: 700; }
+
+  .zoom { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; }
+  .zoom button { width: 28px; height: 28px; background: var(--panel2); border: 1px solid var(--line);
+    color: var(--ink); border-radius: 6px; cursor: pointer; font-size: 15px; }
+  .legend { position: absolute; bottom: 12px; left: 12px; background: rgba(22,27,34,.92); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font-size: 11px; display: flex; flex-direction: column; gap: 4px; }
+  .legend .li { display: flex; align-items: center; gap: 6px; color: var(--dim); }
+  .legend .ln { width: 18px; height: 0; border-top: 2px solid; }
+
+  .preview { position: absolute; top: 12px; left: 12px; width: 340px; max-height: 42%; overflow: auto;
+    background: rgba(15,20,27,.94); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .preview h3 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--dim); }
+  .preview pre { margin: 0; font-family: var(--mono); font-size: 11px; line-height: 1.5; color: #b9e6c4; white-space: pre-wrap; }
+  .preview .cmt { color: var(--dim); }
+  .preview .flag { color: var(--accent); }
+
+  .prompt-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .prompt-head h2 { margin: 0; }
+  .copy { padding: 6px 14px; background: var(--green); color: #04130a; border: none; border-radius: 6px;
+    font-weight: 600; cursor: pointer; font-size: 12px; }
+  .copy.done { background: var(--accent); color: #06101f; }
+  #promptOut { font-family: var(--mono); font-size: 11.5px; line-height: 1.5; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 10px 12px;
+    max-height: 130px; overflow: auto; white-space: pre-wrap; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal-bg.on { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; width: 420px; }
+  .modal h3 { margin: 0 0 2px; font-size: 14px; }
+  .modal .mf { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-bottom: 10px; }
+  .modal textarea { width: 100%; height: 90px; background: var(--bg); border: 1px solid var(--line); border-radius: 7px;
+    color: var(--ink); padding: 8px; font-family: inherit; font-size: 13px; resize: vertical; }
+  .modal .mbtns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+  .modal button { padding: 7px 14px; border-radius: 6px; border: 1px solid var(--line); cursor: pointer; font-size: 12px; }
+  .modal .save { background: var(--accent); color: #06101f; border-color: var(--accent); font-weight: 600; }
+  .modal .cancel { background: var(--panel2); color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <h1>PCH-ASTRAL Inference CLI</h1>
+    <div class="sub">Plan + user story for the YAML/CLI migration. Click any box to attach a note; copy the prompt to refine the plan.</div>
+
+    <h2>View</h2>
+    <div class="tabs">
+      <div class="tab on" data-view="arch" onclick="setView('arch')">User story · CLI design</div>
+      <div class="tab" data-view="road" onclick="setView('road')">Plan · roadmap</div>
+    </div>
+
+    <div id="archControls">
+      <h2>Presets</h2>
+      <div class="preset">
+        <div class="chip" onclick="preset('story')">Full design</div>
+        <div class="chip" onclick="preset('atomic')">Atomic only</div>
+        <div class="chip" onclick="preset('real')">Real dataset run</div>
+        <div class="chip" onclick="preset('slurm')">SLURM sweep</div>
+      </div>
+
+      <h2>Data source</h2>
+      <div class="seg" id="segData">
+        <button class="on" data-d="sim" onclick="setData('sim')">Simulated (registry)</button>
+        <button data-d="real" onclick="setData('real')">Real dataset</button>
+      </div>
+
+      <h2>Executor</h2>
+      <div class="seg" id="segExec">
+        <button class="on" data-e="local" onclick="setExec('local')">Local</button>
+        <button data-e="slurm" onclick="setExec('slurm')">SLURM</button>
+      </div>
+
+      <h2>Methods enabled</h2>
+      <div id="methods"></div>
+
+      <h2>Layers</h2>
+      <div id="layers"></div>
+    </div>
+
+    <h2>Notes (<span id="ccount">0</span>)</h2>
+    <div class="comments" id="comments"><div class="empty">Click a box in the diagram to add a note.</div></div>
+  </aside>
+
+  <section class="stage">
+    <div class="zoom">
+      <button onclick="zoom(.1)">+</button>
+      <button onclick="zoom(-.1)">−</button>
+      <button onclick="zoomReset()">⟲</button>
+    </div>
+    <div class="preview" id="preview"></div>
+    <svg id="svg" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="ar-blue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#58a6ff"/></marker>
+        <marker id="ar-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#3fb950"/></marker>
+        <marker id="ar-gray" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#8b97a6"/></marker>
+      </defs>
+      <g id="viewport"><g id="edges"></g><g id="nodes"></g></g>
+    </svg>
+    <div class="legend" id="legend">
+      <div class="li"><span class="ln" style="border-color:#58a6ff"></span> invokes (pipeline → atomic)</div>
+      <div class="li"><span class="ln" style="border-color:#3fb950;border-top-style:dashed"></span> wraps existing script</div>
+      <div class="li"><span class="ln" style="border-color:#8b97a6;border-top-style:dotted"></span> feeds / depends on</div>
+    </div>
+  </section>
+
+  <div class="promptbar">
+    <div class="prompt-head">
+      <h2>Prompt to refine the plan</h2>
+      <button class="copy" id="copyBtn" onclick="copyPrompt()">Copy prompt</button>
+    </div>
+    <div id="promptOut"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 id="mTitle">Component</h3>
+    <div class="mf" id="mFile"></div>
+    <textarea id="mText" placeholder="What should change here? e.g. 'add a --threads flag', 'this milestone should ship before M2'…"></textarea>
+    <div class="mbtns">
+      <button class="cancel" onclick="closeModal()">Cancel</button>
+      <button class="save" onclick="saveComment()">Add note</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DEFAULTS = { view: 'arch', data: 'sim', exec: 'local',
+  methods: { mp4:true, ga:true, astral3:true, wastral:false, treeqmc:false } };
+const LAYER_META = {
+  entry:   { name: 'Entry',        color: '#1f2937', stroke: '#58a6ff' },
+  pipeline:{ name: 'Pipeline cmds', color: '#3a2e12', stroke: '#d29922' },
+  executor:{ name: 'Executor',     color: '#3a1f3a', stroke: '#bc8cff' },
+  atomic:  { name: 'Atomic cmds',  color: '#12313a', stroke: '#58a6ff' },
+  runner:  { name: 'Method runners',color: '#13321b', stroke: '#3fb950' },
+  backend: { name: 'Wrapped backends',color:'#3a1414', stroke: '#f85149' },
+  data:    { name: 'Data sources', color: '#3a1226', stroke: '#f778ba' },
+};
+const state = structuredClone(DEFAULTS);
+state.comments = [];
+state.layers = Object.fromEntries(Object.keys(LAYER_META).map(k => [k, true]));
+let pending = null, scale = 1;
+
+// ---- Architecture nodes (user story) ----
+const ARCH_NODES = [
+  { id:'cli', label:'pch (CLI)', sub:'scripts/py/cli/main.py', x:420, y:24, w:160, h:46, layer:'entry' },
+
+  { id:'exp-sim', label:'experiment simulation', sub:'<exp.yaml>', x:120, y:120, w:210, h:46, layer:'pipeline' },
+  { id:'exp-inf', label:'experiment inference', sub:'<exp.yaml> --executor', x:560, y:120, w:230, h:46, layer:'pipeline' },
+
+  { id:'ex-local', label:'LocalExecutor', sub:'inline subprocess', x:520, y:212, w:150, h:42, layer:'executor' },
+  { id:'ex-slurm', label:'SlurmExecutor', sub:'sbatch + --dependency', x:700, y:212, w:180, h:42, layer:'executor' },
+
+  { id:'infer', label:'pch infer', sub:'--method --input --output', x:120, y:300, w:200, h:46, layer:'atomic' },
+  { id:'summ',  label:'pch summarize', sub:'--trees --consensus', x:340, y:300, w:185, h:46, layer:'atomic' },
+  { id:'score', label:'pch score', sub:'--estimate --reference', x:545, y:300, w:190, h:46, layer:'atomic' },
+
+  { id:'m-mp4',   label:'mp4', sub:'parsimony', x:70,  y:392, w:96, h:40, layer:'runner', method:'mp4' },
+  { id:'m-ga',    label:'ga', sub:'Gray-Atkinson', x:178, y:392, w:110, h:40, layer:'runner', method:'ga' },
+  { id:'m-as3',   label:'astral3', sub:'heuristic/exact', x:300, y:392, w:120, h:40, layer:'runner', method:'astral3' },
+  { id:'m-was',   label:'wastral', sub:'weighted', x:432, y:392, w:110, h:40, layer:'runner', method:'wastral' },
+  { id:'m-qmc',   label:'treeqmc', sub:'max-cut', x:554, y:392, w:110, h:40, layer:'runner', method:'treeqmc' },
+
+  { id:'b-paup', label:'runMP4.sh', sub:'PAUP*', x:60, y:486, w:120, h:42, layer:'backend' },
+  { id:'b-mb',   label:'runGA.sh', sub:'MrBayes', x:192, y:486, w:120, h:42, layer:'backend' },
+  { id:'b-as',   label:'runASTRAL.sh', sub:'ASTRAL / ASTER', x:324, y:486, w:150, h:42, layer:'backend' },
+  { id:'b-rf',   label:'RFScorer.R', sub:'FN/FP rate', x:545, y:486, w:130, h:42, layer:'backend' },
+  { id:'b-cons', label:'consensusTree.R', sub:'maj / MCC', x:340, y:486, w:160, h:42, layer:'backend' },
+
+  { id:'d-sim',  label:'simulated_data_registry.csv', sub:'experiment_folder/', x:560, y:392, w:250, h:40, layer:'data', dsrc:'sim' },
+  { id:'d-real', label:'real dataset.csv', sub:'data/real/…  (path-based)', x:560, y:300, w:0, h:0, layer:'data', dsrc:'real', hideDefault:true },
+  { id:'d-reg',  label:'inference_registry.csv', sub:'joinable output index', x:740, y:392, w:210, h:40, layer:'data' },
+];
+const ARCH_EDGES = [
+  ['cli','exp-sim','blue'], ['cli','exp-inf','blue'],
+  ['exp-sim','infer','gray'],
+  ['exp-inf','ex-local','blue'], ['exp-inf','ex-slurm','blue'],
+  ['ex-local','infer','blue'], ['ex-slurm','infer','blue'],
+  ['infer','m-mp4','gray'], ['infer','m-ga','gray'], ['infer','m-as3','gray'],
+  ['infer','m-was','gray'], ['infer','m-qmc','gray'],
+  ['m-mp4','b-paup','green'], ['m-ga','b-mb','green'], ['m-as3','b-as','green'],
+  ['summ','b-cons','green'], ['score','b-rf','green'],
+  ['d-sim','exp-inf','gray'], ['infer','d-reg','gray'], ['score','d-reg','gray'],
+];
+
+// ---- Roadmap milestones (plan) ----
+const MILES = [
+  { id:'M1', label:'M1 · MP4 slice + scaffolding', status:'next',
+    sub:'infer(mp4) end-to-end · registry schema · fix InferenceResult crash', x:80, y:60, w:840, h:74 },
+  { id:'M2', label:'M2 · GA + ASTRAL3 runners', status:'todo',
+    sub:'order-dependent (ASTRAL needs MP4/GA) · reconcile stale printQuartets interface', x:80, y:160, w:840, h:74 },
+  { id:'M3', label:'M3 · Scoring & metrics', status:'todo',
+    sub:'FN/FP vs true tree (RFScorer.R) · runtime in registry', x:80, y:260, w:840, h:74 },
+  { id:'M4', label:'M4 · wASTRAL + TREE-QMC', status:'todo',
+    sub:'no existing bash runner · discover ASTER / w-TREE-QMC binary interfaces', x:80, y:360, w:840, h:74 },
+  { id:'M5', label:'M5 · SLURM orchestration', status:'todo',
+    sub:'replace run_parallel_sim.sh · dependency chains for ordered methods', x:80, y:460, w:840, h:74 },
+];
+const STATUS_COL = { next:{f:'#13321b',s:'#3fb950',t:'NEXT'}, todo:{f:'#1c2430',s:'#8b97a6',t:'TODO'}, done:{f:'#12313a',s:'#58a6ff',t:'DONE'} };
+
+// ---- rendering ----
+const nodesG = document.getElementById('nodes');
+const edgesG = document.getElementById('edges');
+const svg = document.getElementById('svg');
+
+function nodeVisible(n) {
+  if (state.view !== 'arch') return false;
+  if (!state.layers[n.layer]) return false;
+  if (n.method && !state.methods[n.method]) return false;
+  if (n.dsrc && n.dsrc !== state.data) return false;
+  return true;
+}
+function archNode(id){ return ARCH_NODES.find(n=>n.id===id); }
+
+function render() {
+  document.getElementById('archControls').style.display = state.view==='arch' ? 'block' : 'none';
+  document.getElementById('legend').style.display = state.view==='arch' ? 'flex' : 'none';
+  document.getElementById('preview').style.display = state.view==='arch' ? 'block' : 'none';
+  svg.setAttribute('viewBox', state.view==='arch' ? '0 0 1000 640' : '0 0 1000 580');
+  edgesG.innerHTML=''; nodesG.innerHTML='';
+  state.view==='arch' ? renderArch() : renderRoad();
+  updatePreview(); updatePrompt();
+}
+
+function renderArch() {
+  ARCH_EDGES.forEach(([a,b,c])=>{
+    const na=archNode(a), nb=archNode(b);
+    if(!na||!nb||!nodeVisible(na)||!nodeVisible(nb)) return;
+    edgesG.appendChild(edge(na,nb,c));
+  });
+  ARCH_NODES.filter(nodeVisible).forEach(n=>nodesG.appendChild(drawNode(n)));
+}
+function renderRoad() {
+  for(let i=0;i<MILES.length-1;i++) edgesG.appendChild(edge(
+    {x:MILES[i].x+30,y:MILES[i].y+MILES[i].h,w:0,h:0},
+    {x:MILES[i+1].x+30,y:MILES[i+1].y,w:0,h:0},'gray'));
+  MILES.forEach(m=>nodesG.appendChild(drawMilestone(m)));
+}
+
+function edge(na,nb,color){
+  const x1=na.x+na.w/2, y1=na.y+na.h, x2=nb.x+nb.w/2, y2=nb.y;
+  const my=(y1+y2)/2;
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d',`M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`);
+  p.setAttribute('fill','none'); p.setAttribute('stroke',{blue:'#58a6ff',green:'#3fb950',gray:'#8b97a6'}[color]);
+  p.setAttribute('stroke-width','1.6'); p.setAttribute('marker-end',`url(#ar-${color})`);
+  p.setAttribute('opacity','.7');
+  if(color==='green') p.setAttribute('stroke-dasharray','6,3');
+  if(color==='gray') p.setAttribute('stroke-dasharray','2,3');
+  return p;
+}
+
+function drawNode(n){
+  const m=LAYER_META[n.layer];
+  const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class','node'); g.onclick=()=>openModal(n.id,n.label,n.sub);
+  const hasNote=state.comments.some(c=>c.target===n.id);
+  g.innerHTML=`<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="9"
+      fill="${m.color}" stroke="${hasNote?'#d29922':m.stroke}" stroke-width="${hasNote?2.5:1.4}"/>
+    <text class="nlabel" x="${n.x+n.w/2}" y="${n.y+n.h/2-3}" text-anchor="middle" fill="#e6edf3">${n.label}</text>
+    <text class="nsub" x="${n.x+n.w/2}" y="${n.y+n.h/2+12}" text-anchor="middle" fill="${m.stroke}">${n.sub}</text>
+    ${hasNote?`<circle cx="${n.x+n.w-9}" cy="${n.y+9}" r="5" fill="#d29922"/>`:''}`;
+  return g;
+}
+function drawMilestone(m){
+  const s=STATUS_COL[m.status];
+  const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class','node'); g.onclick=()=>openModal(m.id,m.label,m.sub);
+  const hasNote=state.comments.some(c=>c.target===m.id);
+  g.innerHTML=`<rect x="${m.x}" y="${m.y}" width="${m.w}" height="${m.h}" rx="11"
+      fill="${s.f}" stroke="${hasNote?'#d29922':s.s}" stroke-width="${hasNote?2.5:1.6}"/>
+    <rect x="${m.x}" y="${m.y}" width="6" height="${m.h}" rx="3" fill="${s.s}"/>
+    <text class="nlabel" x="${m.x+22}" y="${m.y+30}" fill="#e6edf3" style="font-size:15px">${m.label}</text>
+    <text class="nsub" x="${m.x+22}" y="${m.y+52}" fill="${s.s}" style="font-size:11.5px">${m.sub}</text>
+    <text class="badge" x="${m.x+m.w-16}" y="${m.y+26}" text-anchor="end" fill="${s.s}">${s.t}</text>
+    ${hasNote?`<circle cx="${m.x+m.w-12}" cy="${m.y+m.h-12}" r="5" fill="#d29922"/>`:''}`;
+  return g;
+}
+
+// ---- live command preview ----
+function updatePreview(){
+  const pv=document.getElementById('preview');
+  const enabled=Object.keys(state.methods).filter(k=>state.methods[k]);
+  const input = state.data==='real' ? 'data/real/ielex.csv' : 'sim_0_1_1.csv (from registry)';
+  let lines=[];
+  if(state.data==='real'){
+    lines.push('<span class="cmt"># real dataset — atomic, registry-free</span>');
+    enabled.forEach(mth=>lines.push(`pch infer <span class="flag">--method</span> ${mth} \\`,`     <span class="flag">--input</span> data/real/ielex.csv <span class="flag">--output</span> results/ielex/`));
+    lines.push('pch score <span class="flag">--estimate</span> results/ielex/'+(enabled[0]||'mp4')+'.nwk \\','     <span class="flag">--reference</span> gold/ielex.nwk');
+  } else {
+    lines.push('<span class="cmt"># whole experiment from YAML</span>');
+    const ex = state.exec==='slurm' ? ' <span class="flag">--executor</span> slurm' : '';
+    lines.push(`pch experiment inference exp.yaml${ex}`);
+    lines.push('<span class="cmt"># fans out, per (dataset, method):</span>');
+    enabled.forEach(mth=>lines.push(`  pch infer <span class="flag">--method</span> ${mth} <span class="flag">--input</span> &lt;csv&gt;`));
+    if(state.exec==='slurm') lines.push('<span class="cmt"># 1 sbatch/job; --dependency for ordered methods</span>');
+  }
+  pv.innerHTML=`<h3>Live: resulting commands</h3><pre>${lines.join('\n')}</pre>`;
+}
+
+// ---- prompt ----
+function updatePrompt(){
+  const out=document.getElementById('promptOut');
+  const parts=[];
+  parts.push('Refine the PCH-ASTRAL inference CLI plan (progress/plans/2026-06-22-inference-cli-migration.md) and the two-layer CLI design.');
+  if(state.view==='arch'){
+    const en=Object.keys(state.methods).filter(k=>state.methods[k]);
+    const off=Object.keys(state.methods).filter(k=>!state.methods[k]);
+    parts.push(`\nViewing the CLI architecture with data source = ${state.data}, executor = ${state.exec}.`);
+    parts.push(`Methods in focus: ${en.join(', ')||'none'}${off.length?` (deferred: ${off.join(', ')})`:''}.`);
+    const hidden=Object.keys(state.layers).filter(k=>!state.layers[k]);
+    if(hidden.length) parts.push(`Hidden layers: ${hidden.map(k=>LAYER_META[k].name).join(', ')}.`);
+  } else {
+    parts.push('\nViewing the M1–M5 migration roadmap.');
+  }
+  if(state.comments.length){
+    parts.push('\nNotes on specific items:');
+    state.comments.forEach(c=>parts.push(`\n• ${c.targetLabel}${c.targetFile?` (${c.targetFile})`:''}:\n  ${c.text}`));
+  } else {
+    parts.push('\n(Add notes by clicking boxes to target specific refinements.)');
+  }
+  out.textContent=parts.join('\n');
+}
+
+// ---- controls ----
+function setView(v){ state.view=v; document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===v)); render(); }
+function setData(d){ state.data=d; document.querySelectorAll('#segData button').forEach(b=>b.classList.toggle('on',b.dataset.d===d)); render(); }
+function setExec(e){ state.exec=e; document.querySelectorAll('#segExec button').forEach(b=>b.classList.toggle('on',b.dataset.e===e)); render(); }
+
+function buildMethodControls(){
+  const wrap=document.getElementById('methods');
+  const meta={mp4:'parsimony',ga:'Gray-Atkinson',astral3:'ASTRAL III',wastral:'weighted ASTRAL',treeqmc:'TREE-QMC'};
+  wrap.innerHTML='';
+  Object.keys(state.methods).forEach(k=>{
+    const r=document.createElement('div'); r.className='row';
+    r.innerHTML=`<input type="checkbox" id="m_${k}" ${state.methods[k]?'checked':''}>
+      <label for="m_${k}">${k} <span style="color:var(--dim);font-size:11px">· ${meta[k]}</span></label>`;
+    r.querySelector('input').onchange=e=>{state.methods[k]=e.target.checked; render();};
+    wrap.appendChild(r);
+  });
+}
+function buildLayerControls(){
+  const wrap=document.getElementById('layers'); wrap.innerHTML='';
+  Object.entries(LAYER_META).forEach(([k,m])=>{
+    const r=document.createElement('div'); r.className='row';
+    r.innerHTML=`<input type="checkbox" id="l_${k}" ${state.layers[k]?'checked':''}>
+      <span class="swatch" style="background:${m.stroke}"></span>
+      <label for="l_${k}">${m.name}</label>`;
+    r.querySelector('input').onchange=e=>{state.layers[k]=e.target.checked; render();};
+    wrap.appendChild(r);
+  });
+}
+function preset(name){
+  if(name==='story'){ state.data='sim'; state.exec='local'; setAll(state.methods,{mp4:1,ga:1,astral3:1,wastral:1,treeqmc:1}); Object.keys(state.layers).forEach(k=>state.layers[k]=true); }
+  if(name==='atomic'){ state.layers.entry=false; state.layers.pipeline=false; state.layers.executor=false; state.layers.atomic=true; state.layers.runner=true; state.layers.backend=true; state.layers.data=true; }
+  if(name==='real'){ state.data='real'; state.exec='local'; setAll(state.methods,{mp4:0,ga:1,astral3:0,wastral:0,treeqmc:0}); }
+  if(name==='slurm'){ state.data='sim'; state.exec='slurm'; setAll(state.methods,{mp4:1,ga:1,astral3:1,wastral:0,treeqmc:0}); Object.keys(state.layers).forEach(k=>state.layers[k]=true); }
+  syncControls(); render();
+}
+function setAll(o,v){ Object.keys(o).forEach(k=>o[k]=!!v[k]); }
+function syncControls(){
+  buildMethodControls(); buildLayerControls();
+  document.querySelectorAll('#segData button').forEach(b=>b.classList.toggle('on',b.dataset.d===state.data));
+  document.querySelectorAll('#segExec button').forEach(b=>b.classList.toggle('on',b.dataset.e===state.exec));
+}
+
+// ---- comments ----
+function openModal(id,label,sub){ pending={id,label,sub}; document.getElementById('mTitle').textContent=label;
+  document.getElementById('mFile').textContent=sub||''; document.getElementById('mText').value=''; document.getElementById('modalBg').classList.add('on'); document.getElementById('mText').focus(); }
+function closeModal(){ document.getElementById('modalBg').classList.remove('on'); pending=null; }
+function saveComment(){ const t=document.getElementById('mText').value.trim();
+  if(t&&pending){ state.comments.push({id:Date.now(),target:pending.id,targetLabel:pending.label,targetFile:pending.sub,text:t}); renderComments(); render(); }
+  closeModal(); }
+function renderComments(){
+  const list=document.getElementById('comments'); document.getElementById('ccount').textContent=state.comments.length;
+  if(!state.comments.length){ list.innerHTML='<div class="empty">Click a box in the diagram to add a note.</div>'; return; }
+  list.innerHTML='';
+  state.comments.forEach(c=>{ const d=document.createElement('div'); d.className='comment';
+    d.innerHTML=`<button class="del" onclick="delComment(${c.id})">×</button><div class="ct">${c.targetLabel}</div><div class="cx">${c.text}</div>`;
+    list.appendChild(d); });
+}
+function delComment(id){ state.comments=state.comments.filter(c=>c.id!==id); renderComments(); render(); }
+
+// ---- zoom + copy ----
+function zoom(d){ scale=Math.max(.5,Math.min(2,scale+d)); document.getElementById('viewport').setAttribute('transform',`scale(${scale})`); }
+function zoomReset(){ scale=1; document.getElementById('viewport').setAttribute('transform','scale(1)'); }
+function copyPrompt(){ navigator.clipboard.writeText(document.getElementById('promptOut').textContent).then(()=>{
+  const b=document.getElementById('copyBtn'); b.textContent='Copied!'; b.classList.add('done');
+  setTimeout(()=>{b.textContent='Copy prompt'; b.classList.remove('done');},1400); }); }
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeModal(); if(e.key==='Enter'&&e.metaKey&&pending)saveComment(); });
+syncControls(); render();
+</script>
+</body>
+</html>

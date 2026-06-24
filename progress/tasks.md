@@ -1,6 +1,6 @@
 # Tasks
 
-Task tracking for PCH-ASTRAL. Other progress artifacts live alongside this file under `progress/`.
+Task tracking for PCH-ASTRAL.
 
 ## In progress
 
@@ -8,11 +8,14 @@ Task tracking for PCH-ASTRAL. Other progress artifacts live alongside this file 
 
 ## To do
 
-- [ ] **M1** — MP4 inference slice + scaffolding (fixes the `inference.py` mutable-default crash; wires the `inference` CLI command). See plan.
-- [ ] **M2** — GA + ASTRAL3 runners; reconcile `runASTRAL.sh`'s stale `printQuartets.py -q` call with the current `-i`/`-w` interface.
-- [ ] **M3** — FN/FP scoring & runtime metrics in the registry.
+- [ ] **M0** — Script hardening & interface contracts + `docs/SCRIPT_CONTRACTS.md` (fix stale `printQuartets.py`, drop `~/scratch` hardcoding). See plan.
+- [ ] **M1** — Three-layer scaffolding: Python API (`infer → InferenceResult`), `METHOD_CONFIG` registry, atomic `pch infer --method mp4`, pipeline slice. Artifact model: `.parts`→`compact`→joinable `inference_registry.csv` (point estimate inline), `manifest.json`, `pch experiment status`; `docs/RUNNING_INFERENCE.md`.
+- [ ] **M2** — Atomic `score`/`summarize` object API (`ScoreResult`); FN/FP in the registry; `pch experiment query`/`get` (sim⨝inference join).
+- [ ] **M3** — GA + ASTRAL3 runners (order-dependent).
 - [ ] **M4** — wASTRAL + TREE-QMC runners (binary-interface discovery).
-- [ ] **M5** — SLURM orchestration (replace `run_parallel_sim.sh`).
+- [ ] **M5** — Pipeline executor + SLURM, concurrency-safe reruns (replace `run_parallel_sim.sh`).
+
+**Docs are a per-milestone deliverable** — each milestone updates `docs/RUNNING_INFERENCE.md` (the human+agent run manual) and the `CLAUDE.md` docs index for what it shipped.
 
 ## Done
 
