@@ -4,7 +4,7 @@ Task tracking for PCH-ASTRAL.
 
 ## In progress
 
-- [ ] Migrate legacy bash inference to the config-driven CLI. **Plan:** [`progress/plans/2026-06-22-inference-cli-migration.md`](plans/2026-06-22-inference-cli-migration.md) (5 milestones; M1 = MP4 slice, fully task-decomposed). References: `docs/HOW_TO_RUN.md`, `specs/cli_specs/human_specs.md`.
+- [ ] Migrate legacy bash inference to the config-driven CLI. **Plan:** [`progress/plans/2026-06-22-inference-cli-migration.md`](plans/2026-06-22-inference-cli-migration.md) · **Agent-team split + gap review:** [`…-agent-team.md`](plans/2026-06-22-inference-cli-agent-team.md). References: `docs/HOW_TO_RUN.md`, `specs/cli_specs/human_specs.md`.
 
 ## To do
 
