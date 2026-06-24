@@ -10,7 +10,7 @@ Task tracking for PCH-ASTRAL.
 
 - [ ] **M0** — Script hardening & interface contracts + `docs/SCRIPT_CONTRACTS.md` (fix stale `printQuartets.py`, drop `~/scratch` hardcoding). See plan.
 - [ ] **M1** — Three-layer scaffolding: Python API (`infer → InferenceResult`), `METHOD_CONFIG` registry, atomic `pch infer --method mp4`, pipeline slice. Artifact model: `.parts`→`compact`→joinable `inference_registry.csv` (point estimate inline), `manifest.json`, `pch experiment status`; `docs/RUNNING_INFERENCE.md`.
-- [ ] **M2** — Atomic `score`/`summarize` object API (`ScoreResult`); FN/FP in the registry; `pch experiment query`/`get` (sim⨝inference join).
+- [ ] **M2** — Atomic `score`/`summarize` object API (`ScoreResult`); FN/FP in the registry. (`query`/`get` deferred — CSV is directly joinable.)
 - [ ] **M3** — GA + ASTRAL3 runners (order-dependent).
 - [ ] **M4** — wASTRAL + TREE-QMC runners (binary-interface discovery).
 - [ ] **M5** — Pipeline executor + SLURM, concurrency-safe reruns (replace `run_parallel_sim.sh`).
