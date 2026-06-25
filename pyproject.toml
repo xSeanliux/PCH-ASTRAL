@@ -24,6 +24,9 @@ dependencies = [
     "typer>=0.26.7",
 ]
 
+[project.scripts]
+pch = "scripts.py.cli.main:app"
+
 [tool.ty.rules]
 possibly-missing-submodule = "ignore"
 
