@@ -5,8 +5,14 @@ import polars as pl
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
+from scripts.lib.inference.inference import (
+    InferenceResult,
+    TreeInferenceMethod,
+    RunStatus,
+)
 from scripts.lib.types import Polymorphism
+import scripts.py.cli.handle_inference as hi
+from scripts.lib.inference.scoring import ScoreResult
 from scripts.py.cli.handle_inference import handle_inference, select_methods
 
 
@@ -39,6 +45,16 @@ def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):
     dataset = cond_dir / "sim_0_1_1.csv"
     dataset.write_text("id,feature,weight,A,B\n")
 
+    base_tree = tmp_path / "base.txt"
+    base_tree.write_text("(A,B);\n")
+    pl.DataFrame(
+        {
+            "horizontal_edges": [0],
+            "model_tree": [1],
+            "path": [str(base_tree)],
+        }
+    ).write_csv(tmp_path / "simulation_data" / "model_graph_registry.csv")
+
     pl.DataFrame(
         {
             "poly_level": ["high"],
@@ -65,6 +81,7 @@ def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):
         )
 
     monkeypatch.setattr(api, "infer", fake_infer)
+    monkeypatch.setattr(hi, "score", lambda est, ref: ScoreResult(0.25, 0.5))
 
     cfg = ExperimentConfig.model_validate(_config(tmp_path))
     out = handle_inference(cfg)
@@ -78,4 +95,6 @@ def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):
     assert r["character_count"] == 320
     assert r["model_tree"] == 1
     assert r["replica"] == 1
+    assert r["fn_rate"] == 0.25
+    assert r["fp_rate"] == 0.5
     assert Polymorphism(r["poly_level"]) is Polymorphism.HIGH
