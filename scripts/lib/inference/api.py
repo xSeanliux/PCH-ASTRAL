@@ -23,7 +23,13 @@ def infer(
     name = name or input_csv.stem
     runid = shortuuid.uuid()
 
-    argv = runners.build_argv(method, runid, input_csv, name, output_dir)
+    argv = runners.build_argv(method, runid, input_csv, name, output_dir, config)
+    missing = runners.missing_prerequisites(method, config, output_dir, name)
+    if missing:
+        joined = ", ".join(str(p) for p in missing)
+        raise FileNotFoundError(
+            f"{method} needs MP4/GA outputs first; missing: {joined}"
+        )
     log = runners.log_path(method, output_dir, name)
     log.parent.mkdir(parents=True, exist_ok=True)
 
