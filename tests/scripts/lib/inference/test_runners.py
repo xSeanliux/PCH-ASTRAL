@@ -1,8 +1,12 @@
 from pathlib import Path
 
-import pytest
-
-from scripts.lib.experiment import ASTRAL3Config, GAConfig, MP4Config
+from scripts.lib.experiment import (
+    ASTRAL3Config,
+    GAConfig,
+    MP4Config,
+    WeightedASTRALConfig,
+    WeightedTreeQMCConfig,
+)
 from scripts.lib.inference import runners
 from scripts.lib.inference.inference import TreeInferenceMethod
 
@@ -203,21 +207,86 @@ def test_missing_prerequisites_astral3_heuristic_empty_when_present(tmp_path: Pa
     )
 
 
-def test_unimplemented_method_raises():
-    with pytest.raises(NotImplementedError):
-        runners.build_argv(
-            TreeInferenceMethod.PCH_WASTRAL,
-            "x",
-            Path("a.csv"),
-            "a",
-            Path("o"),
-            MP4Config(),
+def test_build_wastral_argv():
+    argv = runners.build_argv(
+        TreeInferenceMethod.PCH_WASTRAL,
+        runid="abc123",
+        input_csv=Path("data/sim_0_1_1.csv"),
+        name="sim_0_1_1",
+        output_dir=Path("out/high_0.1_4_320"),
+        config=WeightedASTRALConfig(),
+    )
+    assert argv == [
+        "bash",
+        "scripts/sh/runWASTRAL.sh",
+        "--runid",
+        "abc123",
+        "--input",
+        "data/sim_0_1_1.csv",
+        "--name",
+        "sim_0_1_1",
+        "--output",
+        "out/high_0.1_4_320",
+    ]
+
+
+def test_build_tree_qmc_argv_has_norm():
+    argv = runners.build_argv(
+        TreeInferenceMethod.PCH_W_TREE_QMC,
+        runid="abc123",
+        input_csv=Path("data/sim_0_1_1.csv"),
+        name="sim_0_1_1",
+        output_dir=Path("out/high_0.1_4_320"),
+        config=WeightedTreeQMCConfig(normalisation_strategy="n2"),
+    )
+    assert argv == [
+        "bash",
+        "scripts/sh/runTREEQMC.sh",
+        "--runid",
+        "abc123",
+        "--input",
+        "data/sim_0_1_1.csv",
+        "--name",
+        "sim_0_1_1",
+        "--output",
+        "out/high_0.1_4_320",
+        "--norm",
+        "2",
+    ]
+
+
+def test_wastral_point_estimate_path():
+    out = Path("out/high_0.1_4_320")
+    assert (
+        runners.point_estimate_path(TreeInferenceMethod.PCH_WASTRAL, out, "sim_0_1_1")
+        == out / "WASTRAL" / "trees" / "sim_0_1_1.tree"
+    )
+
+
+def test_tree_qmc_point_estimate_path():
+    out = Path("out/high_0.1_4_320")
+    assert (
+        runners.point_estimate_path(
+            TreeInferenceMethod.PCH_W_TREE_QMC, out, "sim_0_1_1"
         )
-    with pytest.raises(NotImplementedError):
-        runners.point_estimate_path(TreeInferenceMethod.PCH_WASTRAL, Path("o"), "a")
-    with pytest.raises(NotImplementedError):
-        runners.group_estimate_path(TreeInferenceMethod.PCH_WASTRAL, Path("o"), "a")
-    with pytest.raises(NotImplementedError):
-        runners.consensus_method(TreeInferenceMethod.PCH_WASTRAL)
-    with pytest.raises(NotImplementedError):
-        runners.log_path(TreeInferenceMethod.PCH_WASTRAL, Path("o"), "a")
+        == out / "TREEQMC" / "trees" / "sim_0_1_1.tree"
+    )
+
+
+def test_missing_prerequisites_empty_for_quartet_methods():
+    out = Path("out/high_0.1_4_320")
+    assert (
+        runners.missing_prerequisites(
+            TreeInferenceMethod.PCH_WASTRAL, WeightedASTRALConfig(), out, "sim_0_1_1"
+        )
+        == []
+    )
+    assert (
+        runners.missing_prerequisites(
+            TreeInferenceMethod.PCH_W_TREE_QMC,
+            WeightedTreeQMCConfig(normalisation_strategy="n2"),
+            out,
+            "sim_0_1_1",
+        )
+        == []
+    )

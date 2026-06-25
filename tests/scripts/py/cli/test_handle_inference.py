@@ -3,13 +3,21 @@ from pathlib import Path
 
 import polars as pl
 
-from scripts.lib.experiment import ExperimentConfig
+from scripts.lib.experiment import (
+    ExperimentConfig,
+    WeightedASTRALConfig,
+    WeightedTreeQMCConfig,
+)
 from scripts.lib.inference import api
 from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod
 from scripts.lib.types import Polymorphism
 import scripts.py.cli.handle_inference as hi
 from scripts.lib.inference.scoring import ScoreResult
-from scripts.py.cli.handle_inference import handle_inference, select_methods
+from scripts.py.cli.handle_inference import (
+    handle_inference,
+    pipeline_config,
+    select_methods,
+)
 
 
 def test_select_methods_mp_only():
@@ -41,6 +49,32 @@ def test_select_methods_respects_enabled():
         TreeInferenceMethod.GA,
         TreeInferenceMethod.PCH_ASTRAL3,
     ]
+
+
+def test_select_methods_includes_quartet_methods():
+    cfg = ExperimentConfig.model_validate(
+        _config(
+            Path("x"),
+            methods={"wastral": {}, "w_tree_qmc": {"normalisation_strategy": "n2"}},
+        )
+    )
+    selected = select_methods(cfg.methods)
+    assert TreeInferenceMethod.PCH_WASTRAL in selected
+    assert TreeInferenceMethod.PCH_W_TREE_QMC in selected
+
+
+def test_pipeline_config_returns_quartet_instances():
+    cfg = ExperimentConfig.model_validate(
+        _config(
+            Path("x"),
+            methods={"wastral": {}, "w_tree_qmc": {"normalisation_strategy": "n2"}},
+        )
+    )
+    wa = pipeline_config(cfg.methods, TreeInferenceMethod.PCH_WASTRAL)
+    qmc = pipeline_config(cfg.methods, TreeInferenceMethod.PCH_W_TREE_QMC)
+    assert isinstance(wa, WeightedASTRALConfig)
+    assert isinstance(qmc, WeightedTreeQMCConfig)
+    assert qmc.normalisation_strategy.value == "n2"
 
 
 def _config(folder: Path, methods: dict | None = None) -> dict:

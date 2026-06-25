@@ -65,6 +65,37 @@ def build_argv(
         if getattr(config, "is_exact", False):
             argv.append("-x")
         return argv
+    if method is TreeInferenceMethod.PCH_WASTRAL:
+        return [
+            "bash",
+            "scripts/sh/runWASTRAL.sh",
+            "--runid",
+            runid,
+            "--input",
+            str(input_csv),
+            "--name",
+            name,
+            "--output",
+            str(output_dir),
+        ]
+    if method is TreeInferenceMethod.PCH_W_TREE_QMC:
+        # normalisation_strategy.value "n2" -> "2", "n0" -> "0". Default "2".
+        strat = getattr(config, "normalisation_strategy", None)
+        norm = strat.value.removeprefix("n") if strat is not None else "2"
+        return [
+            "bash",
+            "scripts/sh/runTREEQMC.sh",
+            "--runid",
+            runid,
+            "--input",
+            str(input_csv),
+            "--name",
+            name,
+            "--output",
+            str(output_dir),
+            "--norm",
+            norm,
+        ]
     raise NotImplementedError(f"No runner for {method}")
 
 
@@ -77,6 +108,10 @@ def point_estimate_path(
         return output_dir / "GA" / "trees" / f"{name}.tree"
     if method is TreeInferenceMethod.PCH_ASTRAL3:
         return output_dir / ASTRAL_VARIANT / "trees" / f"{name}.tree"
+    if method is TreeInferenceMethod.PCH_WASTRAL:
+        return output_dir / "WASTRAL" / "trees" / f"{name}.tree"
+    if method is TreeInferenceMethod.PCH_W_TREE_QMC:
+        return output_dir / "TREEQMC" / "trees" / f"{name}.tree"
     raise NotImplementedError(f"No runner for {method}")
 
 
@@ -87,7 +122,11 @@ def group_estimate_path(
         return output_dir / "MP4" / "trees" / f"{name}.trees"
     if method is TreeInferenceMethod.GA:
         return output_dir / "GA" / "trees1" / f"{name}.trees"
-    if method is TreeInferenceMethod.PCH_ASTRAL3:
+    if method in (
+        TreeInferenceMethod.PCH_ASTRAL3,
+        TreeInferenceMethod.PCH_WASTRAL,
+        TreeInferenceMethod.PCH_W_TREE_QMC,
+    ):
         return None
     raise NotImplementedError(f"No runner for {method}")
 
@@ -97,7 +136,11 @@ def consensus_method(method: TreeInferenceMethod) -> Optional[str]:
         return "majority"
     if method is TreeInferenceMethod.GA:
         return "mcc"
-    if method is TreeInferenceMethod.PCH_ASTRAL3:
+    if method in (
+        TreeInferenceMethod.PCH_ASTRAL3,
+        TreeInferenceMethod.PCH_WASTRAL,
+        TreeInferenceMethod.PCH_W_TREE_QMC,
+    ):
         return None
     raise NotImplementedError(f"No runner for {method}")
 
@@ -109,6 +152,13 @@ def log_path(method: TreeInferenceMethod, output_dir: Path, name: str) -> Path:
         return output_dir / "GA" / "logs" / f"{name}.log"
     if method is TreeInferenceMethod.PCH_ASTRAL3:
         return output_dir / ASTRAL_VARIANT / "logs" / f"{name}.log"
+    # ponytail: runWASTRAL.sh/runTREEQMC.sh currently write the log under
+    # trees/{name}.log; this points at logs/ per the runner contract. Reconcile
+    # on the cluster (needs live verification) — either move the log or this.
+    if method is TreeInferenceMethod.PCH_WASTRAL:
+        return output_dir / "WASTRAL" / "logs" / f"{name}.log"
+    if method is TreeInferenceMethod.PCH_W_TREE_QMC:
+        return output_dir / "TREEQMC" / "logs" / f"{name}.log"
     raise NotImplementedError(f"No runner for {method}")
 
 

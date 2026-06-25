@@ -23,6 +23,11 @@ def select_methods(methods: MethodConfig) -> list[TreeInferenceMethod]:
         selected.append(TreeInferenceMethod.GA)
     if methods.astral_3 is not None:
         selected.append(TreeInferenceMethod.PCH_ASTRAL3)
+    # Quartet methods generate their own quartets — no ordering constraint.
+    if methods.wastral is not None:
+        selected.append(TreeInferenceMethod.PCH_WASTRAL)
+    if methods.w_tree_qmc is not None:
+        selected.append(TreeInferenceMethod.PCH_W_TREE_QMC)
     return selected
 
 
@@ -32,6 +37,8 @@ def pipeline_config(methods: MethodConfig, m: TreeInferenceMethod) -> BaseModel:
         TreeInferenceMethod.MP: methods.mp4,
         TreeInferenceMethod.GA: methods.gray_atkinson,
         TreeInferenceMethod.PCH_ASTRAL3: methods.astral_3,
+        TreeInferenceMethod.PCH_WASTRAL: methods.wastral,
+        TreeInferenceMethod.PCH_W_TREE_QMC: methods.w_tree_qmc,
     }[m]
     assert config is not None
     return config
