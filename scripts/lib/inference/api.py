@@ -31,7 +31,14 @@ def infer(
     if runner is None:
         raise ValueError(f"No runner registered for method {method.value!r}")
 
-    argv = runner.build_argv(runid, input_csv, name, output_dir)
+    missing = runner.missing_prerequisites(config, output_dir, name)
+    if missing:
+        joined = ", ".join(str(p) for p in missing)
+        raise FileNotFoundError(
+            f"{method} needs MP4/GA outputs first; missing: {joined}"
+        )
+
+    argv = runner.build_argv(runid, input_csv, name, output_dir, config)
     log = runner.log_path(output_dir, name)
     log.parent.mkdir(parents=True, exist_ok=True)
 

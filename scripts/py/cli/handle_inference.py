@@ -3,20 +3,38 @@
 from pathlib import Path
 
 import polars as pl
+from pydantic import BaseModel
 from rich import print
 
 from scripts.lib.experiment import ExperimentConfig, MethodConfig
 from scripts.lib.inference import api, registry
 from scripts.lib.inference.inference import TreeInferenceMethod
-from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference.scoring import resolve_reference_newick, score
 from scripts.lib.types import Polymorphism
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 
 def select_methods(methods: MethodConfig) -> list[TreeInferenceMethod]:
-    # M1: only MP4 is wired.
-    return [TreeInferenceMethod.MP] if methods.mp4 is not None else []
+    # Dependency order: MP4 and GA before ASTRAL3 (its bipartition prereqs).
+    selected: list[TreeInferenceMethod] = []
+    if methods.mp4 is not None:
+        selected.append(TreeInferenceMethod.MP)
+    if methods.gray_atkinson is not None:
+        selected.append(TreeInferenceMethod.GA)
+    if methods.astral_3 is not None:
+        selected.append(TreeInferenceMethod.PCH_ASTRAL3)
+    return selected
+
+
+def pipeline_config(methods: MethodConfig, m: TreeInferenceMethod) -> BaseModel:
+    # Non-None because select_methods only included enabled methods.
+    config = {
+        TreeInferenceMethod.MP: methods.mp4,
+        TreeInferenceMethod.GA: methods.gray_atkinson,
+        TreeInferenceMethod.PCH_ASTRAL3: methods.astral_3,
+    }[m]
+    assert config is not None
+    return config
 
 
 def handle_inference(config: ExperimentConfig) -> Path:
@@ -29,7 +47,7 @@ def handle_inference(config: ExperimentConfig) -> Path:
     methods = select_methods(config.methods)
     assert methods, (
         "No runnable inference methods selected — the config enables none that this "
-        "milestone supports (M1 wires only MP4). Nothing to do."
+        "milestone supports (M3 wires MP4/GA/ASTRAL3). Nothing to do."
     )
     inference_dir = experiment_folder / "inference_data"
 
@@ -43,7 +61,10 @@ def handle_inference(config: ExperimentConfig) -> Path:
         for method in methods:
             out_dir = inference_dir / Path(row["path"]).parent.name
             result = api.infer(
-                Path(row["path"]), out_dir, method, resolve_config(method, None)
+                Path(row["path"]),
+                out_dir,
+                method,
+                pipeline_config(config.methods, method),
             )
             # Stamp the simulation join keys from the sim-registry row.
             result.poly = Polymorphism(row["poly_level"])
