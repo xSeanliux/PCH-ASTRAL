@@ -9,6 +9,7 @@ from scripts.lib.experiment import ExperimentConfig, MethodConfig
 from scripts.lib.inference import api, registry
 from scripts.lib.inference.inference import TreeInferenceMethod
 from scripts.lib.inference.method_config import resolve_config
+from scripts.lib.inference.scoring import resolve_reference_newick, score
 from scripts.lib.types import Polymorphism
 
 
@@ -45,6 +46,18 @@ def handle_inference(config: ExperimentConfig) -> Path:
             result.ret_edges = row["horizontal_edges"]
             result.target_tree = row["model_tree"]
             result.replica = row["replica"]
+            if result.target_tree is not None and result.point_estimate_newick:
+                try:
+                    ref = resolve_reference_newick(
+                        experiment_folder, result.target_tree
+                    )
+                    sr = score(result.point_estimate_newick, ref)
+                    result.fn_rate = sr.fn_rate
+                    result.fp_rate = sr.fp_rate
+                except Exception as e:  # noqa: BLE001 — one bad score must not abort
+                    print(
+                        f"[yellow]Scoring failed for {result.dataset_id}: {e}[/yellow]"
+                    )
             registry.write_result(result, experiment_folder)
             n_runs += 1
 

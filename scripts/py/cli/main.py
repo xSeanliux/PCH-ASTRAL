@@ -10,6 +10,8 @@ from scripts.lib.inference import api
 from scripts.lib.inference.inference import TreeInferenceMethod
 from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference import registry
+from scripts.lib.inference.scoring import score
+from scripts.lib.inference.summarize import summarize
 from scripts.py.cli.handle_inference import handle_inference
 from scripts.py.cli.handle_simulation import handle_simulation
 
@@ -51,6 +53,35 @@ def infer(
             f"[{result.status}] {result.tree_inference_method.value} "
             f"in {result.runtime_seconds:.2f}s -> {result.point_estimate_newick or '(no tree)'}"
         )
+
+
+@app.command(name="score")
+def score_(
+    estimate: Path = typer.Option(..., "--estimate"),
+    reference: Path = typer.Option(..., "--reference"),
+    json_: bool = typer.Option(False, "--json"),
+):
+    """RF-score one estimate against a reference Newick."""
+    sr = score(estimate.read_text(), reference.read_text())
+    if json_:
+        print(json.dumps({"fn_rate": sr.fn_rate, "fp_rate": sr.fp_rate}))
+    else:
+        print(f"FN {sr.fn_rate}  FP {sr.fp_rate}")
+
+
+_CONSENSUS_MODES = {"average": 1, "majority": 2, "map": 3, "mcc": 4}
+
+
+@app.command(name="summarize")
+def summarize_(
+    trees: Path = typer.Option(..., "--trees"),
+    output: Path = typer.Option(..., "--output"),
+    consensus: str = typer.Option(..., "--consensus"),
+    discard: int = typer.Option(0, "--discard"),
+):
+    """Consensus-summarize a tree set to a single Newick."""
+    out = summarize(trees, output, mode=_CONSENSUS_MODES[consensus], discard=discard)
+    print(out)
 
 
 @experiment.command()
