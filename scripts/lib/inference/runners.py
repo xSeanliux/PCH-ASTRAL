@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Protocol
 
 from pydantic import BaseModel
 
@@ -9,15 +9,38 @@ from scripts.lib.inference.inference import TreeInferenceMethod
 ASTRAL_VARIANT = "ASTRAL(11,5)"
 
 
-def build_argv(
-    method: TreeInferenceMethod,
-    runid: str,
-    input_csv: Path,
-    name: str,
-    output_dir: Path,
-    config: BaseModel,
-) -> list[str]:
-    if method is TreeInferenceMethod.MP:
+class Runner(Protocol):
+    def build_argv(
+        self,
+        runid: str,
+        input_csv: Path,
+        name: str,
+        output_dir: Path,
+        config: BaseModel,
+    ) -> list[str]: ...
+
+    def point_estimate_path(self, output_dir: Path, name: str) -> Path: ...
+
+    def group_estimate_path(self, output_dir: Path, name: str) -> Optional[Path]: ...
+
+    def consensus_method(self) -> Optional[str]: ...
+
+    def log_path(self, output_dir: Path, name: str) -> Path: ...
+
+    def missing_prerequisites(
+        self, config: BaseModel, output_dir: Path, name: str
+    ) -> list[Path]: ...
+
+
+class MP4Runner:
+    def build_argv(
+        self,
+        runid: str,
+        input_csv: Path,
+        name: str,
+        output_dir: Path,
+        config: BaseModel,
+    ) -> list[str]:
         return [
             "bash",
             "scripts/sh/runMP4.sh",
@@ -30,7 +53,34 @@ def build_argv(
             "--output",
             str(output_dir),
         ]
-    if method is TreeInferenceMethod.GA:
+
+    def point_estimate_path(self, output_dir: Path, name: str) -> Path:
+        return output_dir / "MP4" / "trees" / f"{name}-maj.tree"
+
+    def group_estimate_path(self, output_dir: Path, name: str) -> Optional[Path]:
+        return output_dir / "MP4" / "trees" / f"{name}.trees"
+
+    def consensus_method(self) -> Optional[str]:
+        return "majority"
+
+    def log_path(self, output_dir: Path, name: str) -> Path:
+        return output_dir / "MP4" / "logs" / f"{name}.log"
+
+    def missing_prerequisites(
+        self, config: BaseModel, output_dir: Path, name: str
+    ) -> list[Path]:
+        return []
+
+
+class GARunner:
+    def build_argv(
+        self,
+        runid: str,
+        input_csv: Path,
+        name: str,
+        output_dir: Path,
+        config: BaseModel,
+    ) -> list[str]:
         return [
             "bash",
             "scripts/sh/runGA.sh",
@@ -43,7 +93,34 @@ def build_argv(
             "--output",
             str(output_dir),
         ]
-    if method is TreeInferenceMethod.PCH_ASTRAL3:
+
+    def point_estimate_path(self, output_dir: Path, name: str) -> Path:
+        return output_dir / "GA" / "trees" / f"{name}.tree"
+
+    def group_estimate_path(self, output_dir: Path, name: str) -> Optional[Path]:
+        return output_dir / "GA" / "trees1" / f"{name}.trees"
+
+    def consensus_method(self) -> Optional[str]:
+        return "mcc"
+
+    def log_path(self, output_dir: Path, name: str) -> Path:
+        return output_dir / "GA" / "logs" / f"{name}.log"
+
+    def missing_prerequisites(
+        self, config: BaseModel, output_dir: Path, name: str
+    ) -> list[Path]:
+        return []
+
+
+class ASTRAL3Runner:
+    def build_argv(
+        self,
+        runid: str,
+        input_csv: Path,
+        name: str,
+        output_dir: Path,
+        config: BaseModel,
+    ) -> list[str]:
         # ponytail: Q=11,B=5 fixed; heuristic mode uses MP4+GA bipartitions per
         # the script. Map config.bipartition_strategies to runASTRAL params later.
         argv = [
@@ -65,7 +142,42 @@ def build_argv(
         if getattr(config, "is_exact", False):
             argv.append("-x")
         return argv
-    if method is TreeInferenceMethod.PCH_WASTRAL:
+
+    def point_estimate_path(self, output_dir: Path, name: str) -> Path:
+        return output_dir / ASTRAL_VARIANT / "trees" / f"{name}.tree"
+
+    def group_estimate_path(self, output_dir: Path, name: str) -> Optional[Path]:
+        return None
+
+    def consensus_method(self) -> Optional[str]:
+        return None
+
+    def log_path(self, output_dir: Path, name: str) -> Path:
+        return output_dir / ASTRAL_VARIANT / "logs" / f"{name}.log"
+
+    def missing_prerequisites(
+        self, config: BaseModel, output_dir: Path, name: str
+    ) -> list[Path]:
+        """Files that must exist before the method can run, but currently don't."""
+        if getattr(config, "is_exact", False):
+            return []
+        # Heuristic ASTRAL reads MP4 + GA tree sets to build bipartitions.
+        needed = [
+            output_dir / "MP4" / "trees" / f"{name}.trees",
+            output_dir / "GA" / "trees1" / f"{name}.trees",
+        ]
+        return [p for p in needed if not p.exists()]
+
+
+class WASTRALRunner:
+    def build_argv(
+        self,
+        runid: str,
+        input_csv: Path,
+        name: str,
+        output_dir: Path,
+        config: BaseModel,
+    ) -> list[str]:
         return [
             "bash",
             "scripts/sh/runWASTRAL.sh",
@@ -78,7 +190,37 @@ def build_argv(
             "--output",
             str(output_dir),
         ]
-    if method is TreeInferenceMethod.PCH_W_TREE_QMC:
+
+    def point_estimate_path(self, output_dir: Path, name: str) -> Path:
+        return output_dir / "WASTRAL" / "trees" / f"{name}.tree"
+
+    def group_estimate_path(self, output_dir: Path, name: str) -> Optional[Path]:
+        return None
+
+    def consensus_method(self) -> Optional[str]:
+        return None
+
+    def log_path(self, output_dir: Path, name: str) -> Path:
+        # ponytail: runWASTRAL.sh currently writes the log under
+        # trees/{name}.log; this points at logs/ per the runner contract. Reconcile
+        # on the cluster (needs live verification) — either move the log or this.
+        return output_dir / "WASTRAL" / "logs" / f"{name}.log"
+
+    def missing_prerequisites(
+        self, config: BaseModel, output_dir: Path, name: str
+    ) -> list[Path]:
+        return []
+
+
+class TREEQMCRunner:
+    def build_argv(
+        self,
+        runid: str,
+        input_csv: Path,
+        name: str,
+        output_dir: Path,
+        config: BaseModel,
+    ) -> list[str]:
         # normalisation_strategy.value "n2" -> "2", "n0" -> "0". Default "2".
         strat = getattr(config, "normalisation_strategy", None)
         norm = strat.value.removeprefix("n") if strat is not None else "2"
@@ -96,83 +238,32 @@ def build_argv(
             "--norm",
             norm,
         ]
-    raise NotImplementedError(f"No runner for {method}")
 
-
-def point_estimate_path(
-    method: TreeInferenceMethod, output_dir: Path, name: str
-) -> Path:
-    if method is TreeInferenceMethod.MP:
-        return output_dir / "MP4" / "trees" / f"{name}-maj.tree"
-    if method is TreeInferenceMethod.GA:
-        return output_dir / "GA" / "trees" / f"{name}.tree"
-    if method is TreeInferenceMethod.PCH_ASTRAL3:
-        return output_dir / ASTRAL_VARIANT / "trees" / f"{name}.tree"
-    if method is TreeInferenceMethod.PCH_WASTRAL:
-        return output_dir / "WASTRAL" / "trees" / f"{name}.tree"
-    if method is TreeInferenceMethod.PCH_W_TREE_QMC:
+    def point_estimate_path(self, output_dir: Path, name: str) -> Path:
         return output_dir / "TREEQMC" / "trees" / f"{name}.tree"
-    raise NotImplementedError(f"No runner for {method}")
 
-
-def group_estimate_path(
-    method: TreeInferenceMethod, output_dir: Path, name: str
-) -> Optional[Path]:
-    if method is TreeInferenceMethod.MP:
-        return output_dir / "MP4" / "trees" / f"{name}.trees"
-    if method is TreeInferenceMethod.GA:
-        return output_dir / "GA" / "trees1" / f"{name}.trees"
-    if method in (
-        TreeInferenceMethod.PCH_ASTRAL3,
-        TreeInferenceMethod.PCH_WASTRAL,
-        TreeInferenceMethod.PCH_W_TREE_QMC,
-    ):
+    def group_estimate_path(self, output_dir: Path, name: str) -> Optional[Path]:
         return None
-    raise NotImplementedError(f"No runner for {method}")
 
-
-def consensus_method(method: TreeInferenceMethod) -> Optional[str]:
-    if method is TreeInferenceMethod.MP:
-        return "majority"
-    if method is TreeInferenceMethod.GA:
-        return "mcc"
-    if method in (
-        TreeInferenceMethod.PCH_ASTRAL3,
-        TreeInferenceMethod.PCH_WASTRAL,
-        TreeInferenceMethod.PCH_W_TREE_QMC,
-    ):
+    def consensus_method(self) -> Optional[str]:
         return None
-    raise NotImplementedError(f"No runner for {method}")
 
-
-def log_path(method: TreeInferenceMethod, output_dir: Path, name: str) -> Path:
-    if method is TreeInferenceMethod.MP:
-        return output_dir / "MP4" / "logs" / f"{name}.log"
-    if method is TreeInferenceMethod.GA:
-        return output_dir / "GA" / "logs" / f"{name}.log"
-    if method is TreeInferenceMethod.PCH_ASTRAL3:
-        return output_dir / ASTRAL_VARIANT / "logs" / f"{name}.log"
-    # ponytail: runWASTRAL.sh/runTREEQMC.sh currently write the log under
-    # trees/{name}.log; this points at logs/ per the runner contract. Reconcile
-    # on the cluster (needs live verification) — either move the log or this.
-    if method is TreeInferenceMethod.PCH_WASTRAL:
-        return output_dir / "WASTRAL" / "logs" / f"{name}.log"
-    if method is TreeInferenceMethod.PCH_W_TREE_QMC:
+    def log_path(self, output_dir: Path, name: str) -> Path:
+        # ponytail: runTREEQMC.sh currently writes the log under
+        # trees/{name}.log; this points at logs/ per the runner contract. Reconcile
+        # on the cluster (needs live verification) — either move the log or this.
         return output_dir / "TREEQMC" / "logs" / f"{name}.log"
-    raise NotImplementedError(f"No runner for {method}")
+
+    def missing_prerequisites(
+        self, config: BaseModel, output_dir: Path, name: str
+    ) -> list[Path]:
+        return []
 
 
-def missing_prerequisites(
-    method: TreeInferenceMethod, config: BaseModel, output_dir: Path, name: str
-) -> list[Path]:
-    """Files that must exist before `method` can run, but currently don't."""
-    if method is TreeInferenceMethod.PCH_ASTRAL3 and not getattr(
-        config, "is_exact", False
-    ):
-        # Heuristic ASTRAL reads MP4 + GA tree sets to build bipartitions.
-        needed = [
-            output_dir / "MP4" / "trees" / f"{name}.trees",
-            output_dir / "GA" / "trees1" / f"{name}.trees",
-        ]
-        return [p for p in needed if not p.exists()]
-    return []
+RUNNERS: dict[TreeInferenceMethod, Runner] = {
+    TreeInferenceMethod.MP: MP4Runner(),
+    TreeInferenceMethod.GA: GARunner(),
+    TreeInferenceMethod.PCH_ASTRAL3: ASTRAL3Runner(),
+    TreeInferenceMethod.PCH_WASTRAL: WASTRALRunner(),
+    TreeInferenceMethod.PCH_W_TREE_QMC: TREEQMCRunner(),
+}

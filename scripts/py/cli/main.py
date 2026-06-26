@@ -12,7 +12,7 @@ from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference import registry
 from scripts.lib.inference.scoring import score
 from scripts.lib.inference.summarize import summarize
-from scripts.py.cli.handle_inference import handle_inference
+from scripts.lib.inference.pipeline import handle_inference
 from scripts.py.cli.handle_simulation import handle_simulation
 
 app = typer.Typer()

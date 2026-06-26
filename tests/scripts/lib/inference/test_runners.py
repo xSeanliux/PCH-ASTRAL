@@ -7,13 +7,16 @@ from scripts.lib.experiment import (
     WeightedASTRALConfig,
     WeightedTreeQMCConfig,
 )
-from scripts.lib.inference import runners
 from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.inference.runners import ASTRAL_VARIANT, RUNNERS
+
+
+def test_runners_cover_every_method():
+    assert set(RUNNERS) == set(TreeInferenceMethod)
 
 
 def test_build_mp4_argv():
-    argv = runners.build_argv(
-        TreeInferenceMethod.MP,
+    argv = RUNNERS[TreeInferenceMethod.MP].build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
         name="sim_0_1_1",
@@ -36,24 +39,21 @@ def test_build_mp4_argv():
 
 def test_mp4_artifact_paths():
     out = Path("out/high_0.1_4_320")
+    runner = RUNNERS[TreeInferenceMethod.MP]
     assert (
-        runners.point_estimate_path(TreeInferenceMethod.MP, out, "sim_0_1_1")
+        runner.point_estimate_path(out, "sim_0_1_1")
         == out / "MP4" / "trees" / "sim_0_1_1-maj.tree"
     )
     assert (
-        runners.group_estimate_path(TreeInferenceMethod.MP, out, "sim_0_1_1")
+        runner.group_estimate_path(out, "sim_0_1_1")
         == out / "MP4" / "trees" / "sim_0_1_1.trees"
     )
-    assert runners.consensus_method(TreeInferenceMethod.MP) == "majority"
-    assert (
-        runners.log_path(TreeInferenceMethod.MP, out, "sim_0_1_1")
-        == out / "MP4" / "logs" / "sim_0_1_1.log"
-    )
+    assert runner.consensus_method() == "majority"
+    assert runner.log_path(out, "sim_0_1_1") == out / "MP4" / "logs" / "sim_0_1_1.log"
 
 
 def test_build_ga_argv():
-    argv = runners.build_argv(
-        TreeInferenceMethod.GA,
+    argv = RUNNERS[TreeInferenceMethod.GA].build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
         name="sim_0_1_1",
@@ -76,24 +76,21 @@ def test_build_ga_argv():
 
 def test_ga_artifact_paths():
     out = Path("out/high_0.1_4_320")
+    runner = RUNNERS[TreeInferenceMethod.GA]
     assert (
-        runners.point_estimate_path(TreeInferenceMethod.GA, out, "sim_0_1_1")
+        runner.point_estimate_path(out, "sim_0_1_1")
         == out / "GA" / "trees" / "sim_0_1_1.tree"
     )
     assert (
-        runners.group_estimate_path(TreeInferenceMethod.GA, out, "sim_0_1_1")
+        runner.group_estimate_path(out, "sim_0_1_1")
         == out / "GA" / "trees1" / "sim_0_1_1.trees"
     )
-    assert runners.consensus_method(TreeInferenceMethod.GA) == "mcc"
-    assert (
-        runners.log_path(TreeInferenceMethod.GA, out, "sim_0_1_1")
-        == out / "GA" / "logs" / "sim_0_1_1.log"
-    )
+    assert runner.consensus_method() == "mcc"
+    assert runner.log_path(out, "sim_0_1_1") == out / "GA" / "logs" / "sim_0_1_1.log"
 
 
 def test_build_astral3_argv_exact():
-    argv = runners.build_argv(
-        TreeInferenceMethod.PCH_ASTRAL3,
+    argv = RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
         name="sim_0_1_1",
@@ -120,8 +117,7 @@ def test_build_astral3_argv_exact():
 
 
 def test_build_astral3_argv_heuristic_has_no_x():
-    argv = runners.build_argv(
-        TreeInferenceMethod.PCH_ASTRAL3,
+    argv = RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
         name="sim_0_1_1",
@@ -133,33 +129,30 @@ def test_build_astral3_argv_heuristic_has_no_x():
 
 def test_astral3_artifact_paths():
     out = Path("out/high_0.1_4_320")
-    variant = runners.ASTRAL_VARIANT
+    runner = RUNNERS[TreeInferenceMethod.PCH_ASTRAL3]
     assert (
-        runners.point_estimate_path(TreeInferenceMethod.PCH_ASTRAL3, out, "sim_0_1_1")
-        == out / variant / "trees" / "sim_0_1_1.tree"
+        runner.point_estimate_path(out, "sim_0_1_1")
+        == out / ASTRAL_VARIANT / "trees" / "sim_0_1_1.tree"
     )
+    assert runner.group_estimate_path(out, "sim_0_1_1") is None
+    assert runner.consensus_method() is None
     assert (
-        runners.group_estimate_path(TreeInferenceMethod.PCH_ASTRAL3, out, "sim_0_1_1")
-        is None
-    )
-    assert runners.consensus_method(TreeInferenceMethod.PCH_ASTRAL3) is None
-    assert (
-        runners.log_path(TreeInferenceMethod.PCH_ASTRAL3, out, "sim_0_1_1")
-        == out / variant / "logs" / "sim_0_1_1.log"
+        runner.log_path(out, "sim_0_1_1")
+        == out / ASTRAL_VARIANT / "logs" / "sim_0_1_1.log"
     )
 
 
 def test_missing_prerequisites_none_for_mp_and_ga():
     out = Path("out/high_0.1_4_320")
     assert (
-        runners.missing_prerequisites(
-            TreeInferenceMethod.MP, MP4Config(), out, "sim_0_1_1"
+        RUNNERS[TreeInferenceMethod.MP].missing_prerequisites(
+            MP4Config(), out, "sim_0_1_1"
         )
         == []
     )
     assert (
-        runners.missing_prerequisites(
-            TreeInferenceMethod.GA, GAConfig(), out, "sim_0_1_1"
+        RUNNERS[TreeInferenceMethod.GA].missing_prerequisites(
+            GAConfig(), out, "sim_0_1_1"
         )
         == []
     )
@@ -168,22 +161,16 @@ def test_missing_prerequisites_none_for_mp_and_ga():
 def test_missing_prerequisites_astral3_exact_is_empty():
     out = Path("out/high_0.1_4_320")
     assert (
-        runners.missing_prerequisites(
-            TreeInferenceMethod.PCH_ASTRAL3,
-            ASTRAL3Config(is_exact=True),
-            out,
-            "sim_0_1_1",
+        RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].missing_prerequisites(
+            ASTRAL3Config(is_exact=True), out, "sim_0_1_1"
         )
         == []
     )
 
 
 def test_missing_prerequisites_astral3_heuristic_lists_absent_files(tmp_path: Path):
-    missing = runners.missing_prerequisites(
-        TreeInferenceMethod.PCH_ASTRAL3,
-        ASTRAL3Config(is_exact=False),
-        tmp_path,
-        "sim_0_1_1",
+    missing = RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].missing_prerequisites(
+        ASTRAL3Config(is_exact=False), tmp_path, "sim_0_1_1"
     )
     assert missing == [
         tmp_path / "MP4" / "trees" / "sim_0_1_1.trees",
@@ -197,19 +184,15 @@ def test_missing_prerequisites_astral3_heuristic_empty_when_present(tmp_path: Pa
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text("(a,(b,c));\n")
     assert (
-        runners.missing_prerequisites(
-            TreeInferenceMethod.PCH_ASTRAL3,
-            ASTRAL3Config(is_exact=False),
-            tmp_path,
-            "sim_0_1_1",
+        RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].missing_prerequisites(
+            ASTRAL3Config(is_exact=False), tmp_path, "sim_0_1_1"
         )
         == []
     )
 
 
 def test_build_wastral_argv():
-    argv = runners.build_argv(
-        TreeInferenceMethod.PCH_WASTRAL,
+    argv = RUNNERS[TreeInferenceMethod.PCH_WASTRAL].build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
         name="sim_0_1_1",
@@ -231,8 +214,7 @@ def test_build_wastral_argv():
 
 
 def test_build_tree_qmc_argv_has_norm():
-    argv = runners.build_argv(
-        TreeInferenceMethod.PCH_W_TREE_QMC,
+    argv = RUNNERS[TreeInferenceMethod.PCH_W_TREE_QMC].build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
         name="sim_0_1_1",
@@ -258,7 +240,7 @@ def test_build_tree_qmc_argv_has_norm():
 def test_wastral_point_estimate_path():
     out = Path("out/high_0.1_4_320")
     assert (
-        runners.point_estimate_path(TreeInferenceMethod.PCH_WASTRAL, out, "sim_0_1_1")
+        RUNNERS[TreeInferenceMethod.PCH_WASTRAL].point_estimate_path(out, "sim_0_1_1")
         == out / "WASTRAL" / "trees" / "sim_0_1_1.tree"
     )
 
@@ -266,8 +248,8 @@ def test_wastral_point_estimate_path():
 def test_tree_qmc_point_estimate_path():
     out = Path("out/high_0.1_4_320")
     assert (
-        runners.point_estimate_path(
-            TreeInferenceMethod.PCH_W_TREE_QMC, out, "sim_0_1_1"
+        RUNNERS[TreeInferenceMethod.PCH_W_TREE_QMC].point_estimate_path(
+            out, "sim_0_1_1"
         )
         == out / "TREEQMC" / "trees" / "sim_0_1_1.tree"
     )
@@ -276,17 +258,14 @@ def test_tree_qmc_point_estimate_path():
 def test_missing_prerequisites_empty_for_quartet_methods():
     out = Path("out/high_0.1_4_320")
     assert (
-        runners.missing_prerequisites(
-            TreeInferenceMethod.PCH_WASTRAL, WeightedASTRALConfig(), out, "sim_0_1_1"
+        RUNNERS[TreeInferenceMethod.PCH_WASTRAL].missing_prerequisites(
+            WeightedASTRALConfig(), out, "sim_0_1_1"
         )
         == []
     )
     assert (
-        runners.missing_prerequisites(
-            TreeInferenceMethod.PCH_W_TREE_QMC,
-            WeightedTreeQMCConfig(normalisation_strategy="n2"),
-            out,
-            "sim_0_1_1",
+        RUNNERS[TreeInferenceMethod.PCH_W_TREE_QMC].missing_prerequisites(
+            WeightedTreeQMCConfig(normalisation_strategy="n2"), out, "sim_0_1_1"
         )
         == []
     )

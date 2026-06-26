@@ -11,9 +11,9 @@ from scripts.lib.experiment import (
 from scripts.lib.inference import api
 from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod
 from scripts.lib.types import Polymorphism
-import scripts.py.cli.handle_inference as hi
+import scripts.lib.inference.pipeline as hi
 from scripts.lib.inference.scoring import ScoreResult
-from scripts.py.cli.handle_inference import (
+from scripts.lib.inference.pipeline import (
     handle_inference,
     pipeline_config,
     select_methods,
