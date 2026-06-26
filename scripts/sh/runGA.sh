@@ -45,14 +45,17 @@ if [[ -z "$RUNID" || -z "$INPUT" ]]; then
     exit 1
 fi
 
+PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
+mkdir -p "$PCH_SCRATCH"
+
 mkdir -p $TREEOUTPUT/GA/trees
 mkdir -p $TREEOUTPUT/GA/trees1
 mkdir -p $TREEOUTPUT/GA/scores
 
->~/scratch/tmp_mb_$RUNID.nex
-Rscript scripts/R/commandLineNex.R -H $RUNID -f $INPUT -o ~/scratch/tmp_mb_$RUNID.nex --resolve-poly 4 --morph-weight 1.0
+>"$PCH_SCRATCH"/tmp_mb_$RUNID.nex
+Rscript scripts/R/commandLineNex.R -H $RUNID -f $INPUT -o "$PCH_SCRATCH"/tmp_mb_$RUNID.nex --resolve-poly 4 --morph-weight 1.0
 echo "✅ GA nexus files"
-$MB_EXEC ~/scratch/tmp_mb_$RUNID.nex # > tmp_mb_out_$RUNID.txt 2> tmp_mb_log_$RUNID.txt
+$MB_EXEC "$PCH_SCRATCH"/tmp_mb_$RUNID.nex # > tmp_mb_out_$RUNID.txt 2> tmp_mb_log_$RUNID.txt
 
 
     

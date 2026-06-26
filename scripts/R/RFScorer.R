@@ -98,7 +98,7 @@ calculateMapTree <- function (trees, do_print=FALSE) {
   assert({length(trees) > 100}) # doesnt really matter but just to make sure not feeding it 1 tree or something
   counts = list()
   for (i in 1:length(trees)) {
-    if (do_print && i %% 50 == 0) print(i)
+    if (do_print && i %% 50 == 0) message(i)
     tree_i = trees[[i]]
     assert(!is.rooted(tree_i))
     found_tree=FALSE
@@ -174,7 +174,7 @@ if (length(trees) > 1) trees <- returnTreeSetForMultiple(trees, resolve_multiple
 fn_rates = c()
 fp_rates = c()
 for (i in 1:length(trees)) {
-  if (i %% 100 == 0 && do_print == '1') print(i)
+  if (i %% 100 == 0 && do_print == '1') message(i)
   tree=trees[[i]]
   score <- computeFnFpRate(tree, ref_tree)
   fn_rates <- c(fn_rates, score[1])
