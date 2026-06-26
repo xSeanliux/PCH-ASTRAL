@@ -1,23 +1,22 @@
-echo "Installing ASTER"
-if [ $(uname) == "Darwin" ]; then
-    if [ $(uname -m) == "arm64" ]; then 
-        WASTRAL_URL="https://github.com/chaoszhang/ASTER/archive/refs/heads/MacOS.zip"
-        echo "darwin (osx) arm64 detected"
-    elif [ $(uname -m) == "x86_64"]; then
-        WASTRAL_URL="https://github.com/chaoszhang/ASTER/archive/refs/heads/MacOSx86.zip"
-        echo "darwin (osx) x86"
-    fi; 
-else 
-    WASTRAL_URL="https://github.com/chaoszhang/ASTER/archive/refs/heads/Linux.zip"
-    echo "linux"
-fi;
+#!/bin/bash
+# Build ASTER (wastral + astral4) FROM SOURCE rather than downloading prebuilts.
+# The upstream MacOS/Linux prebuilts are compiled with a recent deployment target
+# (e.g. minos 15.0), so they fail to load on older OSes (dyld: Symbol not found).
+# Building locally produces a binary matching this machine's OS/arch.
+# See https://github.com/chaoszhang/ASTER/blob/master/tutorial/wastral.md
+set -e
+echo "Building ASTER from source"
 
-curl -o bin/aster.zip $WASTRAL_URL -L &&
-    unzip -o bin/aster.zip -d bin/ > /dev/null &&
-    rm bin/aster.zip && 
-    echo "ASTER downloaded"
+rm -rf bin/ASTER
+git clone --depth 1 https://github.com/chaoszhang/ASTER.git bin/ASTER --quiet
+echo "Cloned ASTER"
 
-cp bin/ASTER*/bin/{astral4,../../}
-cp bin/ASTER*/bin/{wastral,../../}
+# Makefile targets: `wastral` -> bin/wastral, `astral` -> bin/astral4.
+# Each g++ line falls back from `-march=native -Ofast` to `-std=c++17 -O2`.
+make -C bin/ASTER wastral astral
+echo "ASTER built"
 
-rm -rf bin/ASTER*
+cp bin/ASTER/bin/wastral bin/wastral
+cp bin/ASTER/bin/astral4 bin/astral4
+rm -rf bin/ASTER
+echo "Installed bin/wastral and bin/astral4"

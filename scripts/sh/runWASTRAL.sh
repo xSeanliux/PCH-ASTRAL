@@ -1,7 +1,12 @@
 #!/bin/bash
-# wASTRAL (ASTER) wrapper. BEST-EFFORT: bin/wastral does not run in dev
-# (built for newer macOS). The binary invocation + quartet input formatting
-# below need live verification on the cluster — see # ponytail marks.
+# wASTRAL (ASTER) wrapper. Verified to RUN (after build-from-source): wastral
+# takes each PCH quartet as a 4-taxon gene tree via -i and per-tree weights via
+# --treeweights, and emits a species tree.
+# ponytail: OPEN QUESTION — passing the PCH quartet multiplicities via
+# --treeweights produced output identical to unweighted on test data, so the
+# correct way to weight PCH quartets in wASTRAL is unresolved (--treeweights vs
+# repeating each quartet `weight` times vs branch support). Validate against the
+# PCH methodology before trusting weighted results.
 RUNID=""
 INPUT=""
 NAME=""
@@ -37,11 +42,10 @@ python3 -m scripts.py.printQuartets -i "$INPUT" -w \
     > "$QFILE" 2> "$WFILE"
 echo "✅ wASTRAL quartet generation, $(wc -l "$QFILE" | awk '{ print $1 }') quartets"
 
-# ponytail: best-effort wASTRAL input. ASTER's weighted-ASTRAL takes a gene-tree
-# / quartet file via -i and writes the tree via -o. The exact way weighted
-# quartets (weights file) feed wastral is unverified — passing the bare quartet
-# file here. Needs live verification on the cluster (weight flag, -i format).
-bin/wastral -i "$QFILE" -o "$TREEOUTPUT/WASTRAL/trees/$NAME.tree" \
+# Each quartet line is a 4-taxon gene tree (-i); weights go via --treeweights
+# (see the OPEN QUESTION at the top re: whether this applies as intended).
+bin/wastral -i "$QFILE" --treeweights "$WFILE" \
+    -o "$TREEOUTPUT/WASTRAL/trees/$NAME.tree" \
     2> "$TREEOUTPUT/WASTRAL/trees/$NAME.log"
 
 echo "✅ wASTRAL tree inference -> $TREEOUTPUT/WASTRAL/trees/$NAME.tree"
