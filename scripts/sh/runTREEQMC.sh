@@ -1,8 +1,6 @@
 #!/bin/bash
-# TREE-QMC wrapper. CLI confirmed (bin/TREE-QMC/tree-qmc --help runs); but the
-# binary itself does NOT run in dev (case-insensitive FS path collision). The
-# quartet-format adaptation from printQuartets -w to "((A,B),(C,D));weight" is
-# the uncertain part — see # ponytail. Needs live verification on the cluster.
+# TREE-QMC wrapper. CLI + quartet format VERIFIED end-to-end (bin/TREE-QMC/tree-qmc
+# --quartets accepts "((A,B),(C,D));weight" and emits a species tree).
 RUNID=""
 INPUT=""
 NAME=""
@@ -39,12 +37,12 @@ WFILE="$PCH_SCRATCH/tmp_qmcweight_$RUNID.txt"
 python3 -m scripts.py.printQuartets -i "$INPUT" -w \
     > "$QFILE" 2> "$WFILE"
 
-# ponytail: tree-qmc quartet input wants "((A,B),(C,D));weight" per line. The -w
-# quartets carry a trailing ';'; strip it and append ';weight' from the aligned
-# weights file. Exact delimiter/whitespace tolerance unverified on the binary.
+# tree-qmc quartet input is "((A,B),(C,D));weight" per line. The -w quartets carry
+# a trailing ';'; strip it and append ';weight' from the line-aligned weights file.
+# awk, not `paste -d''` — BSD paste (macOS) mishandles the empty delimiter.
 QMCFILE="$PCH_SCRATCH/tmp_qmcinput_$RUNID.txt"
-paste -d'' <(sed 's/;[[:space:]]*$//' "$QFILE") \
-           <(sed 's/^/;/' "$WFILE") > "$QMCFILE"
+awk 'NR==FNR{q[NR]=$0; next} {sub(/;[ \t]*$/,"",q[FNR]); print q[FNR] ";" $0}' \
+    "$QFILE" "$WFILE" > "$QMCFILE"
 echo "✅ TREE-QMC quartet generation, $(wc -l "$QMCFILE" | awk '{ print $1 }') quartets"
 
 bin/TREE-QMC/tree-qmc --quartets -i "$QMCFILE" \

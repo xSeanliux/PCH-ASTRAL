@@ -62,7 +62,7 @@ class Dataset:
         names = cols[3:]
         chrs: list[Character] = []
         for row in df.iter_rows(named=True):
-            weight = int(row["weight"])
+            weight = int(float(row["weight"]))  # weights may be float strings ("50.0")
             features = {
                 k: str(v).split("/")
                 for k, v in row.items()

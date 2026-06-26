@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Initialize variables
-MB_EXEC=bin/bin/mb # CHANGE ME to where your MrBayes is!!!!
+MB_EXEC="${MB_EXEC:-bin/mb}" # MrBayes; install-bins puts it at bin/mb. Override via env.
 if [[ -z "$MB_EXEC" ]]; then
   echo "Error: MB_EXEC is not set" >&2
   exit 1
