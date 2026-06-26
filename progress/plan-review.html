@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCH-ASTRAL Inference Plan — Review Dashboard</title>
+<style>
+  :root{
+    --bg:#0e1116;--panel:#161b22;--panel2:#1c2430;--line:#2a3340;--ink:#e6edf3;--dim:#8b97a6;
+    --blue:#58a6ff;--green:#3fb950;--amber:#d29922;--red:#f85149;--purple:#bc8cff;--pink:#f778ba;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+  header{padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel);}
+  h1{font-size:15px;margin:0 0 8px;}
+  .sub{color:var(--dim);font-size:12px;margin-bottom:10px;}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .stats{display:flex;gap:14px;font-size:12px;}
+  .stat b{font-size:15px;}
+  .s-pending b{color:var(--amber);} .s-appr b{color:var(--green);} .s-flag b{color:var(--red);}
+  .tabs{display:flex;gap:6px;}
+  .tab{padding:5px 11px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+    cursor:pointer;font-size:12px;}
+  .tab.on{background:var(--blue);color:#06101f;border-color:var(--blue);font-weight:600;}
+  .cats{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto;}
+  .cat{padding:4px 9px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--line);
+    background:var(--panel2);color:var(--ink);opacity:.55;}
+  .cat.on{opacity:1;}
+
+  main{flex:1;overflow-y:auto;padding:18px 20px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--dim);border-radius:9px;
+    padding:13px 15px;margin-bottom:12px;}
+  .card.pending{border-left-color:var(--amber);}
+  .card.approved{border-left-color:var(--green);}
+  .card.flagged{border-left-color:var(--red);}
+  .card.hide{display:none;}
+  .chead{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+  .badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;text-transform:uppercase;letter-spacing:.4px;}
+  .tag{font-family:var(--mono);font-size:10.5px;color:var(--dim);background:var(--panel2);padding:2px 6px;border-radius:4px;}
+  .ctitle{font-weight:600;font-size:14px;flex:1;min-width:200px;}
+  .cstatus{font-size:10.5px;font-weight:700;text-transform:uppercase;}
+  .cstatus.pending{color:var(--amber);} .cstatus.approved{color:var(--green);} .cstatus.flagged{color:var(--red);}
+  .cdetail{color:#c9d3de;font-size:13px;line-height:1.55;margin:4px 0 10px;}
+  .cdetail code{font-family:var(--mono);font-size:11.5px;background:var(--panel2);padding:1px 5px;border-radius:4px;color:#b9e6c4;}
+  .cdetail strong{color:var(--ink);}
+  .actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;}
+  .actions button{padding:5px 12px;border-radius:6px;border:1px solid var(--line);cursor:pointer;font-size:12px;background:var(--panel2);color:var(--ink);}
+  .actions .appr{border-color:var(--green);color:var(--green);} .actions .appr:hover{background:var(--green);color:#04130a;}
+  .actions .flag{border-color:var(--red);color:var(--red);} .actions .flag:hover{background:var(--red);color:#1a0606;}
+  .actions .cmt{border-color:var(--blue);color:var(--blue);}
+  .actions .reset{color:var(--dim);}
+  textarea{display:none;width:100%;margin-top:9px;background:var(--bg);border:1px solid var(--line);border-radius:7px;
+    color:var(--ink);padding:8px;font-family:inherit;font-size:12.5px;resize:vertical;min-height:54px;}
+  textarea.show{display:block;}
+  .hascmt{color:var(--blue);font-size:11px;margin-left:4px;}
+
+  footer{border-top:1px solid var(--line);background:var(--panel);padding:12px 20px;}
+  .fhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+  .fhead h2{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);margin:0;}
+  .copy{padding:6px 15px;background:var(--green);color:#04130a;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;}
+  .copy.done{background:var(--blue);color:#06101f;}
+  #prompt{font-family:var(--mono);font-size:11.5px;line-height:1.5;background:var(--bg);border:1px solid var(--line);
+    border-radius:7px;padding:10px 12px;max-height:150px;overflow:auto;white-space:pre-wrap;color:var(--ink);}
+</style>
+</head>
+<body>
+<header>
+  <h1>PCH-ASTRAL Inference CLI Plan — Review</h1>
+  <div class="sub">Every decision from our discussion, in detail. Approve what's right, flag what needs changing, add notes. The prompt at the bottom collects your verdicts — paste it back to revise <code>progress/plans/2026-06-22-inference-cli-migration.md</code>.</div>
+  <div class="bar">
+    <div class="stats">
+      <span class="stat s-pending">Pending <b id="nPending">0</b></span>
+      <span class="stat s-appr">Approved <b id="nAppr">0</b></span>
+      <span class="stat s-flag">Flagged <b id="nFlag">0</b></span>
+    </div>
+    <div class="tabs">
+      <div class="tab on" data-f="all" onclick="setFilter('all')">All</div>
+      <div class="tab" data-f="pending" onclick="setFilter('pending')">Pending</div>
+      <div class="tab" data-f="approved" onclick="setFilter('approved')">Approved</div>
+      <div class="tab" data-f="flagged" onclick="setFilter('flagged')">Flagged</div>
+    </div>
+    <div class="cats" id="cats"></div>
+  </div>
+</header>
+
+<main id="list"></main>
+
+<footer>
+  <div class="fhead">
+    <h2>Revision prompt — paste back to Claude</h2>
+    <button class="copy" id="copyBtn" onclick="copyPrompt()">Copy prompt</button>
+  </div>
+  <div id="prompt"></div>
+</footer>
+
+<script>
+const CAT = {
+  arch:{label:'Architecture',color:'#58a6ff'},
+  config:{label:'Method config',color:'#bc8cff'},
+  output:{label:'Output/API',color:'#3fb950'},
+  artifacts:{label:'Artifacts',color:'#f778ba'},
+  concurrency:{label:'Concurrency',color:'#d29922'},
+  validation:{label:'Validation',color:'#58a6ff'},
+  docs:{label:'Docs',color:'#8b97a6'},
+  scope:{label:'Scope/Milestones',color:'#f85149'},
+};
+// Everything we discussed, as reviewable decisions.
+const DECISIONS = [
+  {id:1,cat:'arch',tag:'M1 · §Architecture',title:'Two-layer CLI: atomic commands + pipeline commands',
+   detail:'<strong>Atomic</strong> (<code>pch infer/score/summarize</code>) operate on explicit input/output paths. <strong>Pipeline</strong> (<code>pch experiment inference &lt;yaml&gt;</code>) reads the YAML and fans out. SLURM/local executor lives on the pipeline; sbatch bodies just call the atomic commands.'},
+  {id:2,cat:'arch',tag:'§Architecture',title:'Three layers: Typer CLI → Python API → hardened scripts',
+   detail:'The <strong>Python API is the source of truth</strong> (<code>infer→InferenceResult</code>, <code>score→ScoreResult</code>). CLI is a thin renderer (text / <code>--json</code>). The pipeline calls the API <strong>in-process and never parses CLI stdout</strong>. Scripts stay the robust primitives underneath.'},
+  {id:3,cat:'arch',tag:'§Goal',title:'Real datasets are registry-free / path-based',
+   detail:'Atomic commands take only paths + method params — no registry needed. <code>pch infer --method ga --input data/real/ielex.csv --output results/</code> works identically on real and simulated data; experiments just wrap the same atomic calls.'},
+  {id:4,cat:'config',tag:'M1 · §Method config',title:'Method config via existing Pydantic models',
+   detail:'A <code>METHOD_CONFIG</code> registry maps each method to its config class (<code>ASTRAL3Config</code>, …). Three input paths converge on one validated instance: experiment YAML <code>methods:</code> block, atomic <code>--method-config &lt;yaml&gt;</code>, or atomic flags. Merge order: <strong>flags &gt; file &gt; model defaults</strong>. YAML and CLI can\'t drift — same model validates both.'},
+  {id:5,cat:'output',tag:'§Constraints',title:'API returns typed objects; everything else renders them',
+   detail:'<code>score()</code> returns a <code>ScoreResult</code>, not a printed line. stdout (text/<code>--json</code>) and the registry CSV are <em>renderings</em>. The one untyped seam — parsing subprocess stdout — is sealed inside a single API function that returns a typed object.'},
+  {id:6,cat:'arch',tag:'M0 · §Constraints',title:'Wrap, don\'t reimplement; harden scripts first',
+   detail:'Keep PAUP/MrBayes/ASTRAL/R orchestration in the existing <code>run*.sh</code>/<code>*.R</code> scripts. <strong>M0</strong> pins each an I/O contract (inputs, outputs, stdout shape, exit codes), fixes the stale <code>printQuartets.py -q</code> call, and removes hardcoded <code>~/scratch</code>. No Python until the primitives are robust.'},
+  {id:7,cat:'artifacts',tag:'§Artifact model',title:'Single joinable registry — one row per run',
+   detail:'<code>inference_data/inference_registry.csv</code>: one row per <code>(dataset, method, replica)</code>, columns = sim join keys + method + <code>fn_rate</code>/<code>fp_rate</code>/<code>runtime</code> + inline point estimate. <strong>Joinable to the simulation registry</strong> — this is the difference from log-scraping.'},
+  {id:8,cat:'artifacts',tag:'§Artifact model',title:'No per-replica bloat: point estimate inline, heavy artifacts consolidated',
+   detail:'The point estimate is one Newick string → a <strong>column</strong> (<code>point_estimate_newick</code>), no per-run file. Only variable/large artifacts are files: tree sets grouped per <code>{method}__{condition}.trees</code> (hundreds, not 50k), logs consolidated or failure-only.'},
+  {id:9,cat:'artifacts',tag:'§Artifact model',title:'Self-contained & timestamped experiment folder',
+   detail:'Everything under <code>experiment_folder/</code>: config, sim data, inference data, logs. <code>manifest.json</code> records <code>created_at</code>/<code>completed_at</code>/git sha/CLI version; per-row <code>ran_at</code> records when each run computed. Folder name stays human-meaningful (not timestamp-named).'},
+  {id:10,cat:'concurrency',tag:'M1/M5 · §Artifact model',title:'Concurrency-safe idempotent writes — .parts + compact, no mutex',
+   detail:'SLURM\'s 4h cap means jobs time out and rerun in parallel. Each run writes only its own <code>.parts/{run_key}.json</code> (idempotent — a killed job\'s partial part is replaced on rerun). <code>pch experiment compact</code> merges parts → registry (last-writer-wins by <code>run_key</code>/<code>ran_at</code>). <strong>No two jobs write the same file → no lock needed</strong>, sidestepping flaky <code>flock</code> over NFS/Lustre.'},
+  {id:11,cat:'artifacts',tag:'M1/M2 · §Artifact model',title:'CLI interacts with artifacts: status / query / get / compact',
+   detail:'<code>pch experiment status</code> (counts, % complete, failures, timestamps); <code>query</code> (filter + join sim⨝inference — "FN/FP for ASTRAL3 across high-poly conditions" with zero log scraping); <code>get</code> (pull a run\'s point estimate / tree set / log). The payoff of joinability.'},
+  {id:12,cat:'artifacts',tag:'decision',title:'Registry index format: CSV',
+   detail:'CSV, matching the existing <code>simulated_data_registry.csv</code> — human-inspectable, greppable, opens anywhere. Inline Newick is quoted; ~20MB at 50k rows is fine. (Parquet considered and declined for consistency.)'},
+  {id:13,cat:'validation',tag:'§Validation',title:'Unit-test the logic, mock the seam, smoke-test scripts with skip',
+   detail:'<strong>Unit:</strong> config-merge precedence, argv/path construction, row⇔schema equality, and the <code>compact</code> merge (riskiest — concurrency). <strong>Mock</strong> <code>subprocess.run</code> at the seam. <strong>Smoke</strong> one tiny real run per script, <code>skipif(binary missing)</code> so CI passes without PAUP/ASTRAL. <strong>Not tested:</strong> tool correctness, live SLURM submission.'},
+  {id:14,cat:'validation',tag:'§Validation',title:'Static typing (ty) + Pydantic are complementary',
+   detail:'<strong>ty</strong> checks the typed API end-to-end. <strong>Pydantic</strong> does runtime validation of external input (YAML + flags) at the trust boundary. <code>make py-static</code> + <code>make py-test</code> gate every commit.'},
+  {id:15,cat:'docs',tag:'§Documentation',title:'Run manual for humans + agents, per-milestone',
+   detail:'<code>docs/RUNNING_INFERENCE.md</code> — task-oriented walkthrough for humans + precise command/contract/invariant reference for agents. A doc-ownership table prevents duplication. <strong>Docs ship per-milestone</strong> (each milestone\'s DoD updates the manual + CLAUDE.md index) — never a stale final phase.'},
+  {id:16,cat:'scope',tag:'§Roadmap',title:'Milestone sequence M0 → M5',
+   detail:'<strong>M0</strong> script hardening → <strong>M1</strong> API + atomic infer + MP4 + pipeline slice → <strong>M2</strong> score/summarize object API → <strong>M3</strong> GA + ASTRAL3 → <strong>M4</strong> wASTRAL + TREE-QMC → <strong>M5</strong> executor + SLURM. Each ships working software on its own.'},
+  {id:17,cat:'scope',tag:'M1',title:'M1 fully task-decomposed; Tasks 1–3 TDD, 4–7 interface-level',
+   detail:'Tasks 1–3 (fix <code>InferenceResult</code> crash, registry schema, MP4 runner) have full TDD code. Tasks 4–7 (config registry, <code>api.infer</code>, pipeline, CLI wiring) are spec\'d at the interface level — their TDD steps written at execution to avoid pre-lock rework.'},
+  {id:18,cat:'scope',tag:'M3 · constraint',title:'ASTRAL3 is order-dependent (needs MP4/GA first)',
+   detail:'ASTRAL III\'s <code>mp4_trees</code>/<code>ga_trees</code> bipartition strategies require those methods\' outputs to exist. The pipeline must run all datasets through prerequisite methods before ASTRAL3; SLURM encodes this as <code>--dependency</code> chains.'},
+];
+
+const state = {filter:'all', cats:Object.fromEntries(Object.keys(CAT).map(k=>[k,true])),
+  status:Object.fromEntries(DECISIONS.map(d=>[d.id,'pending'])), comments:Object.fromEntries(DECISIONS.map(d=>[d.id,'']))};
+
+const listEl=document.getElementById('list');
+function buildCats(){
+  const w=document.getElementById('cats');
+  w.innerHTML='';
+  Object.entries(CAT).forEach(([k,c])=>{
+    const el=document.createElement('div'); el.className='cat on'; el.style.borderColor=c.color; el.style.color=c.color;
+    el.textContent=c.label; el.dataset.k=k;
+    el.onclick=()=>{state.cats[k]=!state.cats[k]; el.classList.toggle('on',state.cats[k]); render();};
+    w.appendChild(el);
+  });
+}
+function visible(d){
+  if(!state.cats[d.cat]) return false;
+  if(state.filter==='all') return true;
+  return state.status[d.id]===state.filter;
+}
+function render(){
+  listEl.innerHTML='';
+  DECISIONS.forEach(d=>{
+    if(!visible(d)) return;
+    const st=state.status[d.id], c=CAT[d.cat];
+    const card=document.createElement('div'); card.className=`card ${st}`;
+    const hasC=state.comments[d.id].trim().length>0;
+    card.innerHTML=`
+      <div class="chead">
+        <span class="badge" style="background:${c.color}22;color:${c.color}">${c.label}</span>
+        <span class="tag">${d.tag}</span>
+        <span class="ctitle">${d.title}</span>
+        <span class="cstatus ${st}">${st}${hasC?' <span class="hascmt">✎ noted</span>':''}</span>
+      </div>
+      <div class="cdetail">${d.detail}</div>
+      <div class="actions">
+        <button class="appr" data-a="approved">Approve</button>
+        <button class="flag" data-a="flagged">Flag for change</button>
+        <button class="cmt">Comment</button>
+        <button class="reset" data-a="pending">Reset</button>
+      </div>
+      <textarea class="${hasC?'show':''}" placeholder="What should change? (a flag + note becomes a revision instruction)">${state.comments[d.id]}</textarea>`;
+    card.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{state.status[d.id]=b.dataset.a; render();});
+    const ta=card.querySelector('textarea');
+    card.querySelector('.cmt').onclick=()=>{ta.classList.toggle('show'); if(ta.classList.contains('show'))ta.focus();};
+    ta.oninput=()=>{state.comments[d.id]=ta.value; updateStats(); updatePrompt();};
+    listEl.appendChild(card);
+  });
+  updateStats(); updatePrompt();
+}
+function updateStats(){
+  const v=Object.values(state.status);
+  document.getElementById('nPending').textContent=v.filter(s=>s==='pending').length;
+  document.getElementById('nAppr').textContent=v.filter(s=>s==='approved').length;
+  document.getElementById('nFlag').textContent=v.filter(s=>s==='flagged').length;
+}
+function setFilter(f){state.filter=f; document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.f===f)); render();}
+
+function updatePrompt(){
+  const flagged=DECISIONS.filter(d=>state.status[d.id]==='flagged');
+  const noted=DECISIONS.filter(d=>state.status[d.id]!=='flagged' && state.comments[d.id].trim());
+  const approved=DECISIONS.filter(d=>state.status[d.id]==='approved');
+  if(!flagged.length && !noted.length){
+    document.getElementById('prompt').textContent='Review the plan decisions above. Flag any that need changing (with a note) — your verdicts will appear here as a revision prompt.';
+    return;
+  }
+  const txt=d=>d.title.replace(/<[^>]+>/g,'');
+  const p=['Revise progress/plans/2026-06-22-inference-cli-migration.md.\n'];
+  if(flagged.length){
+    p.push('CHANGE these decisions:');
+    flagged.forEach(d=>{ p.push(`\n• [${CAT[d.cat].label}] ${txt(d)}`); if(state.comments[d.id].trim()) p.push(`  → ${state.comments[d.id].trim()}`); });
+  }
+  if(noted.length){
+    p.push('\n\nNOTES (keep, but consider):');
+    noted.forEach(d=>p.push(`\n• [${CAT[d.cat].label}] ${txt(d)}: ${state.comments[d.id].trim()}`));
+  }
+  if(approved.length) p.push(`\n\nApproved as-is: ${approved.length}/${DECISIONS.length} decisions.`);
+  document.getElementById('prompt').textContent=p.join('\n').replace(/\n\n\n+/g,'\n\n');
+}
+function copyPrompt(){navigator.clipboard.writeText(document.getElementById('prompt').textContent).then(()=>{
+  const b=document.getElementById('copyBtn'); b.textContent='Copied!'; b.classList.add('done');
+  setTimeout(()=>{b.textContent='Copy prompt'; b.classList.remove('done');},1400);});}
+
+buildCats(); render();
+</script>
+</body>
+</html>
