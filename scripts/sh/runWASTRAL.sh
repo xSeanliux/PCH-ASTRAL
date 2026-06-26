@@ -1,12 +1,10 @@
 #!/bin/bash
-# wASTRAL (ASTER) wrapper. Verified to RUN (after build-from-source): wastral
-# takes each PCH quartet as a 4-taxon gene tree via -i and per-tree weights via
-# --treeweights, and emits a species tree.
-# ponytail: OPEN QUESTION — passing the PCH quartet multiplicities via
-# --treeweights produced output identical to unweighted on test data, so the
-# correct way to weight PCH quartets in wASTRAL is unresolved (--treeweights vs
-# repeating each quartet `weight` times vs branch support). Validate against the
-# PCH methodology before trusting weighted results.
+# wASTRAL (ASTER) wrapper. VERIFIED end-to-end (build-from-source binary):
+# each PCH quartet is a 4-taxon gene tree (-i); the per-quartet multiplicities are
+# the gene-tree weights (--treeweights). MUST use --mode 4 (unweighted): the
+# default hybrid mode (1) weights by branch support/length on the gene trees —
+# which quartets don't have — and ignores --treeweights. Mode 4 applies the
+# per-tree weights, and the weighted tree verifiably differs from the uniform one.
 RUNID=""
 INPUT=""
 NAME=""
@@ -42,9 +40,9 @@ python3 -m scripts.py.printQuartets -i "$INPUT" -w \
     > "$QFILE" 2> "$WFILE"
 echo "✅ wASTRAL quartet generation, $(wc -l "$QFILE" | awk '{ print $1 }') quartets"
 
-# Each quartet line is a 4-taxon gene tree (-i); weights go via --treeweights
-# (see the OPEN QUESTION at the top re: whether this applies as intended).
-bin/wastral -i "$QFILE" --treeweights "$WFILE" \
+# --mode 4 (unweighted) so the PCH quartet weights in --treeweights are applied
+# (hybrid mode would weight by support/length the quartets lack, ignoring them).
+bin/wastral --mode 4 -i "$QFILE" --treeweights "$WFILE" \
     -o "$TREEOUTPUT/WASTRAL/trees/$NAME.tree" \
     2> "$TREEOUTPUT/WASTRAL/trees/$NAME.log"
 
