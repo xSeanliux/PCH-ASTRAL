@@ -12,6 +12,11 @@ class TreeInferenceMethod(StrEnum):
     GA = "ga"
 
 
+class RunStatus(StrEnum):
+    OK = "ok"  # the inference command exited 0
+    FAILED = "failed"  # non-zero exit
+
+
 class RegistryRow(TypedDict):
     """One inference_registry.csv row. Sim-key names match the simulation registry."""
 
@@ -47,7 +52,7 @@ class InferenceResult:
     method_config_json: str
     point_estimate_newick: str
     runtime_seconds: float
-    status: str
+    status: RunStatus
     ran_at: str
 
     # Simulation join keys — None when not from the simulation pipeline.
@@ -87,7 +92,7 @@ class InferenceResult:
             "consensus_method": self.consensus_method,
             "fn_rate": self.fn_rate,
             "fp_rate": self.fp_rate,
-            "status": self.status,
+            "status": str(self.status),
             "ran_at": self.ran_at,
             "log_path": self.log_path,
         }

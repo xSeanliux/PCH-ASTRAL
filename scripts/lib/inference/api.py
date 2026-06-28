@@ -9,7 +9,11 @@ import shortuuid
 from pydantic import BaseModel
 
 from scripts.lib.inference import method_config
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod
+from scripts.lib.inference.inference import (
+    InferenceResult,
+    RunStatus,
+    TreeInferenceMethod,
+)
 from scripts.lib.inference.runners import RUNNERS
 
 
@@ -35,12 +39,12 @@ def infer(
             argv, check=False, stdout=log_file, stderr=subprocess.STDOUT
         )
     elapsed = time.monotonic() - start
-    status = "ok" if proc.returncode == 0 else "failed"
+    status = RunStatus.OK if proc.returncode == 0 else RunStatus.FAILED
 
     point_estimate = runner.point_estimate_path(output_dir, name)
     newick = (
         point_estimate.read_text().strip()
-        if status == "ok" and point_estimate.exists()
+        if status is RunStatus.OK and point_estimate.exists()
         else ""
     )
 
