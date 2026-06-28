@@ -34,11 +34,15 @@ def simulation(config_path: Path):
 def infer(
     input: Path,
     output: Path,
-    method: TreeInferenceMethod = TreeInferenceMethod.MP,
+    method: TreeInferenceMethod = typer.Option(..., "--method"),
     method_config: Path | None = None,
     json_: bool = typer.Option(False, "--json"),
 ):
-    """Atomic inference on one dataset; renders the InferenceResult."""
+    """Atomic inference on one dataset; renders the InferenceResult.
+
+    Works on any CSV, simulated or not: the simulation join keys are left None
+    for atomic runs (they're only stamped by the experiment pipeline).
+    """
     result = api.infer(input, output, method, resolve_config(method, method_config))
     if json_:
         print(json.dumps(result.to_registry_row()))

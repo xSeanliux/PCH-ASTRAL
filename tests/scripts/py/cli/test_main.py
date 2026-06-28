@@ -31,10 +31,17 @@ def test_infer_command_invokes_api(tmp_path: Path, monkeypatch):
         return _result()
 
     monkeypatch.setattr(api, "infer", fake_infer)
-    res = runner.invoke(main.app, ["infer", "in.csv", str(tmp_path), "--json"])
+    res = runner.invoke(
+        main.app, ["infer", "in.csv", str(tmp_path), "--method", "mp", "--json"]
+    )
     assert res.exit_code == 0, res.output
     assert calls["method"] == TreeInferenceMethod.MP
     assert '"method": "mp"' in res.output
+
+
+def test_infer_requires_method(tmp_path: Path):
+    res = runner.invoke(main.app, ["infer", "in.csv", str(tmp_path)])
+    assert res.exit_code != 0  # --method is required
 
 
 def test_experiment_inference_invokes_handler(monkeypatch):

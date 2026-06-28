@@ -31,3 +31,6 @@ def test_infer_ok(tmp_path: Path, monkeypatch) -> None:
     assert result.tree_inference_method == "mp"
     assert result.point_estimate_newick == "(a,(b,c));"
     assert result.runtime_seconds >= 0
+    # Non-simulated input: sim join keys are None (only the pipeline stamps them).
+    assert result.poly is None and result.homoplasy_factor is None
+    assert result.to_registry_row()["poly_level"] is None
