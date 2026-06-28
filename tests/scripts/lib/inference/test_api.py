@@ -1,8 +1,9 @@
 from pathlib import Path
 
-from scripts.lib.inference import api, runners
+from scripts.lib.inference import api
 from scripts.lib.inference.inference import TreeInferenceMethod
 from scripts.lib.inference.method_config import resolve_config
+from scripts.lib.inference.runners import RUNNERS
 
 
 def test_infer_ok(tmp_path: Path, monkeypatch) -> None:
@@ -13,7 +14,7 @@ def test_infer_ok(tmp_path: Path, monkeypatch) -> None:
 
     def fake_run(argv, **kwargs):
         # Script success: write the expected point estimate.
-        est = runners.point_estimate_path(method, out, csv.stem)
+        est = RUNNERS[method].point_estimate_path(out, csv.stem)
         est.parent.mkdir(parents=True, exist_ok=True)
         est.write_text("(a,(b,c));\n")
 

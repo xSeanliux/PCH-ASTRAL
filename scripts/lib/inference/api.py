@@ -8,8 +8,9 @@ from pathlib import Path
 import shortuuid
 from pydantic import BaseModel
 
-from scripts.lib.inference import method_config, runners
+from scripts.lib.inference import method_config
 from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod
+from scripts.lib.inference.runners import RUNNERS
 
 
 def infer(
@@ -22,9 +23,10 @@ def infer(
 ) -> InferenceResult:
     name = name or input_csv.stem
     runid = shortuuid.uuid()
+    runner = RUNNERS[method]
 
-    argv = runners.build_argv(method, runid, input_csv, name, output_dir)
-    log = runners.log_path(method, output_dir, name)
+    argv = runner.build_argv(runid, input_csv, name, output_dir)
+    log = runner.log_path(output_dir, name)
     log.parent.mkdir(parents=True, exist_ok=True)
 
     start = time.monotonic()
@@ -35,7 +37,7 @@ def infer(
     elapsed = time.monotonic() - start
     status = "ok" if proc.returncode == 0 else "failed"
 
-    point_estimate = runners.point_estimate_path(method, output_dir, name)
+    point_estimate = runner.point_estimate_path(output_dir, name)
     newick = (
         point_estimate.read_text().strip()
         if status == "ok" and point_estimate.exists()
@@ -51,7 +53,7 @@ def infer(
         runtime_seconds=elapsed,
         status=status,
         ran_at=datetime.now(timezone.utc).isoformat(),
-        tree_set_path=str(runners.group_estimate_path(method, output_dir, name)),
-        consensus_method=runners.consensus_method(method),
+        tree_set_path=str(runner.group_estimate_path(output_dir, name)),
+        consensus_method=runner.consensus_method(),
         log_path=str(log),
     )

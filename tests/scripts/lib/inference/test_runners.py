@@ -1,14 +1,12 @@
 from pathlib import Path
 
-import pytest
-
-from scripts.lib.inference import runners
+from scripts.lib.inference.runners import RUNNERS
 from scripts.lib.inference.inference import TreeInferenceMethod
 
 
-def test_build_mp4_argv():
-    argv = runners.build_argv(
-        TreeInferenceMethod.MP,
+def test_mp4_runner_build_argv():
+    runner = RUNNERS[TreeInferenceMethod.MP]
+    argv = runner.build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
         name="sim_0_1_1",
@@ -28,31 +26,21 @@ def test_build_mp4_argv():
     ]
 
 
-def test_mp4_artifact_paths():
+def test_mp4_runner_artifact_paths():
+    runner = RUNNERS[TreeInferenceMethod.MP]
     out = Path("out/high_0.1_4_320")
     assert (
-        runners.point_estimate_path(TreeInferenceMethod.MP, out, "sim_0_1_1")
+        runner.point_estimate_path(out, "sim_0_1_1")
         == out / "MP4" / "trees" / "sim_0_1_1-maj.tree"
     )
     assert (
-        runners.group_estimate_path(TreeInferenceMethod.MP, out, "sim_0_1_1")
+        runner.group_estimate_path(out, "sim_0_1_1")
         == out / "MP4" / "trees" / "sim_0_1_1.trees"
     )
-    assert runners.consensus_method(TreeInferenceMethod.MP) == "majority"
-    assert (
-        runners.log_path(TreeInferenceMethod.MP, out, "sim_0_1_1")
-        == out / "MP4" / "logs" / "sim_0_1_1.log"
-    )
+    assert runner.consensus_method() == "majority"
+    assert runner.log_path(out, "sim_0_1_1") == out / "MP4" / "logs" / "sim_0_1_1.log"
 
 
-def test_unimplemented_method_raises():
-    with pytest.raises(NotImplementedError):
-        runners.build_argv(TreeInferenceMethod.GA, "x", Path("a.csv"), "a", Path("o"))
-    with pytest.raises(NotImplementedError):
-        runners.point_estimate_path(TreeInferenceMethod.GA, Path("o"), "a")
-    with pytest.raises(NotImplementedError):
-        runners.group_estimate_path(TreeInferenceMethod.GA, Path("o"), "a")
-    with pytest.raises(NotImplementedError):
-        runners.consensus_method(TreeInferenceMethod.GA)
-    with pytest.raises(NotImplementedError):
-        runners.log_path(TreeInferenceMethod.GA, Path("o"), "a")
+def test_registry_has_mp4():
+    # M1 wires MP4 only; later milestones add GA/ASTRAL3/wASTRAL/TREE-QMC.
+    assert TreeInferenceMethod.MP in RUNNERS
