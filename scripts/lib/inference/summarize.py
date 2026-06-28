@@ -19,5 +19,11 @@ def summarize(trees_path: Path, out_path: Path, *, mode: int, discard: int = 0) 
     ]
     if discard > 0:
         argv += ["-d", str(discard)]
-    subprocess.run(argv, check=True)
+    proc = subprocess.run(argv, capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"consensusTree.R failed (exit {proc.returncode}): {proc.stderr}"
+        )
+    if not out_path.exists():
+        raise RuntimeError(f"consensusTree.R exited 0 but wrote no output: {out_path}")
     return out_path

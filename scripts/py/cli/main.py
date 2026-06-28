@@ -66,8 +66,8 @@ def infer(
 
 @app.command(name="score")
 def score_(
-    estimate: Path = typer.Option(..., "--estimate"),
-    reference: Path = typer.Option(..., "--reference"),
+    estimate: Path = typer.Option(..., "--estimate", exists=True, dir_okay=False),
+    reference: Path = typer.Option(..., "--reference", exists=True, dir_okay=False),
     json_: bool = typer.Option(False, "--json"),
 ):
     """RF-score one estimate against a reference Newick."""
@@ -90,7 +90,12 @@ def summarize_(
     discard: int = typer.Option(0, "--discard"),
 ):
     """Consensus-summarize a tree set to a single Newick."""
-    out = summarize(trees, output, mode=_CONSENSUS_MODES[consensus], discard=discard)
+    mode = _CONSENSUS_MODES.get(consensus)
+    if mode is None:
+        raise typer.BadParameter(
+            f"--consensus must be one of {sorted(_CONSENSUS_MODES)}"
+        )
+    out = summarize(trees, output, mode=mode, discard=discard)
     typer.echo(out)
 
 

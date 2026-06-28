@@ -1,4 +1,5 @@
 import shutil
+import types
 from pathlib import Path
 
 import pytest
@@ -13,33 +14,43 @@ NEXUS = (
 )
 
 
+def test_summarize_argv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    trees = tmp_path / "trees.nex"
+    trees.write_text(NEXUS)
+    out = tmp_path / "consensus.tree"
+
+    calls: list[list[str]] = []
+
+    def fake_run(argv, **kw):
+        calls.append(argv)
+        out.write_text(";\n")
+        return types.SimpleNamespace(returncode=0, stderr="")
+
+    monkeypatch.setattr(summarize.subprocess, "run", fake_run)
+
+    result = summarize.summarize(trees, out, mode=2)
+    assert result == out
+    assert calls[0] == [
+        "Rscript",
+        "scripts/R/consensusTree.R",
+        "-i",
+        str(trees),
+        "-m",
+        "2",
+        "-p",
+        "0",
+        "-o",
+        str(out),
+    ]
+
+
 @pytest.mark.skipif(shutil.which("Rscript") is None, reason="Rscript missing")
 def test_summarize_live(tmp_path: Path) -> None:
     trees = tmp_path / "trees.nex"
     trees.write_text(NEXUS)
     out = tmp_path / "consensus.tree"
 
-    try:
-        result = summarize.summarize(trees, out, mode=2)
-    except Exception:
-        # R consensus dependency unavailable — fall back to argv assertion.
-        calls: list[list[str]] = []
-        summarize.subprocess.run = lambda argv, **kw: calls.append(argv) or None  # type: ignore[assignment]
-        summarize.summarize(trees, out, mode=2)
-        assert calls[0] == [
-            "Rscript",
-            "scripts/R/consensusTree.R",
-            "-i",
-            str(trees),
-            "-m",
-            "2",
-            "-p",
-            "0",
-            "-o",
-            str(out),
-        ]
-        return
-
+    result = summarize.summarize(trees, out, mode=2)
     assert result == out
     assert out.exists()
     assert ";" in out.read_text()

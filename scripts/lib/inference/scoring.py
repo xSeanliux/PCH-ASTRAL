@@ -1,5 +1,6 @@
 """RF scoring via scripts/R/RFScorer.R — the only scoring subprocess site."""
 
+import functools
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -16,6 +17,8 @@ class ScoreResult:
     fp_rate: float
 
 
+# ponytail: cache per-run; CSV parsed once per distinct (folder, model_tree). One CLI process = one run, so unbounded is fine.
+@functools.lru_cache(maxsize=None)
 def resolve_reference_newick(experiment_folder: Path, model_tree: int) -> str:
     """Newick of the BASE TREE (horizontal_edges==0) a network is scored against."""
     reg = experiment_folder / "simulation_data" / "model_graph_registry.csv"
@@ -30,9 +33,6 @@ def resolve_reference_newick(experiment_folder: Path, model_tree: int) -> str:
 def score(
     estimate_newick: str,
     reference_newick: str,
-    *,
-    fmt: str = "newick",
-    prune: str | None = None,
 ) -> ScoreResult:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".tree", delete=False) as f:
         f.write(estimate_newick)
@@ -44,7 +44,7 @@ def score(
             "-i",
             str(tmp),
             "-f",
-            fmt,
+            "newick",
             "-r",
             reference_newick,
             "-m",
@@ -52,8 +52,6 @@ def score(
             "-p",
             "0",
         ]
-        if prune is not None:
-            argv += ["-x", prune]
         proc = subprocess.run(argv, capture_output=True, text=True, check=False)
         if proc.returncode != 0:
             raise RuntimeError(
