@@ -1,6 +1,5 @@
 import hashlib
 from pathlib import Path
-from typing import cast
 
 import yaml
 from pydantic import BaseModel
@@ -19,9 +18,7 @@ MethodConfigT = (
     ASTRAL3Config | WeightedASTRALConfig | WeightedTreeQMCConfig | MP4Config | GAConfig
 )
 
-# Value typed as type[BaseModel] (not type[MethodConfigT]) so cls() type-checks —
-# default-construction is only valid for the all-default configs (MP4/GA).
-METHOD_CONFIG: dict[TreeInferenceMethod, type[BaseModel]] = {
+METHOD_CONFIG: dict[TreeInferenceMethod, type[MethodConfigT]] = {
     TreeInferenceMethod.PCH_ASTRAL3: ASTRAL3Config,
     TreeInferenceMethod.PCH_WASTRAL: WeightedASTRALConfig,
     TreeInferenceMethod.PCH_W_TREE_QMC: WeightedTreeQMCConfig,
@@ -33,12 +30,14 @@ METHOD_CONFIG: dict[TreeInferenceMethod, type[BaseModel]] = {
 def resolve_config(
     method: TreeInferenceMethod, config_file: Path | None
 ) -> MethodConfigT:
-    cls = METHOD_CONFIG[method]
-    if config_file is not None:
-        loaded = cls.model_validate(yaml.safe_load(config_file.read_text()))
-        return cast(MethodConfigT, loaded)
-    # cls() only works for all-default configs (MP4Config/GAConfig in M1).
-    return cast(MethodConfigT, cls())
+    """Validate the method's config from YAML (or defaults when no file).
+
+    `model_validate` returns the concrete config type (no cast needed). Configs
+    with required fields and no `config_file` raise `pydantic.ValidationError`;
+    the CLI turns that into a clean `--method-config required` error.
+    """
+    data = yaml.safe_load(config_file.read_text()) if config_file is not None else {}
+    return METHOD_CONFIG[method].model_validate(data)
 
 
 def config_hash(config: BaseModel) -> str:

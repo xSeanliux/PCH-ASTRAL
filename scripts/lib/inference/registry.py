@@ -34,9 +34,24 @@ _KEY_COLUMNS = [
 ]
 
 
+def _keyval(v: object) -> str:
+    # Stable across read paths: floats via repr so 1.0 doesn't become "1".
+    if v is None:
+        return ""
+    if isinstance(v, float):
+        return repr(v)
+    return str(v)
+
+
 def run_key(row: Mapping[str, object]) -> str:
     """Readable dedup key: the join keys + method + config_hash, '|'-joined."""
-    return "|".join("" if row.get(c) is None else str(row.get(c)) for c in _KEY_COLUMNS)
+    return "|".join(_keyval(row.get(c)) for c in _KEY_COLUMNS)
+
+
+def _ran_at(row: Mapping[str, object]) -> datetime:
+    # Parse the ISO8601 timestamp so the tie-break is correct across offsets,
+    # not a lexical string compare that assumes everyone emits +00:00.
+    return datetime.fromisoformat(str(row["ran_at"]))
 
 
 def current_shard_id() -> str:
@@ -88,8 +103,7 @@ def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
             row: dict[str, object] = json.loads(line)
             k = run_key(row)
             prev = by_key.get(k)
-            # ran_at is ISO8601 → lexical compare == chronological.
-            if prev is None or str(row["ran_at"]) >= str(prev["ran_at"]):
+            if prev is None or _ran_at(row) >= _ran_at(prev):
                 by_key[k] = row
 
     inference_dir.mkdir(parents=True, exist_ok=True)

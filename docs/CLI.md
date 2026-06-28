@@ -12,11 +12,11 @@ python3 -m scripts.py.cli.main --help     # or `pch --help` once installed (pypr
 Run one inference method on one dataset CSV; returns the result.
 
 ```bash
-pch infer DATASET.csv OUTPUT_DIR --method mp [--method-config cfg.yaml] [--json] [--output-json result.json]
+pch infer DATASET.csv OUTPUT_DIR --method mp [--method-config cfg.yaml] [--json]
 ```
-- `--method` — `mp`, `ga`, `pch_astral3`, `pch_wastral`, `pch_w_tree_qmc`.
-- `--method-config` — YAML validated against the method's Pydantic model (file values over defaults). No per-method flags.
-- output: the tree(s) under `OUTPUT_DIR`; the `InferenceResult` is printed (human), `--json` (one JSON line, pipeable), or `--output-json PATH` (written to a file).
+- `--method` — required; one of `mp`, `ga`, `pch_astral3`, `pch_wastral`, `pch_w_tree_qmc`.
+- `--method-config` — YAML validated against the method's Pydantic model (required for methods with no all-default config, e.g. `pch_astral3`). No per-method flags.
+- output: the tree(s) under `OUTPUT_DIR`; the `InferenceResult` is printed (human) or `--json` (one JSON line, pipe/redirect to a file).
 
 ## Pipeline commands (`pch experiment …`, read the experiment YAML)
 

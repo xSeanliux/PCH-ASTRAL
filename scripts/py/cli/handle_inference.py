@@ -10,6 +10,7 @@ from scripts.lib.inference import api, registry
 from scripts.lib.inference.inference import TreeInferenceMethod
 from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.types import Polymorphism
+from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 
 def select_methods(methods: MethodConfig) -> list[TreeInferenceMethod]:
@@ -25,12 +26,18 @@ def handle_inference(config: ExperimentConfig) -> Path:
     )
 
     methods = select_methods(config.methods)
+    assert methods, (
+        "No runnable inference methods selected — the config enables none that this "
+        "milestone supports (M1 wires only MP4). Nothing to do."
+    )
     inference_dir = experiment_folder / "inference_data"
 
     registry.init_manifest(experiment_folder, [m.value for m in methods])
 
     n_runs = 0
-    rows = pl.read_csv(sim_registry).iter_rows(named=True)
+    rows = pl.read_csv(sim_registry, schema=SIMULATED_DATA_REGISTRY_SCHEMA).iter_rows(
+        named=True
+    )
     for row in rows:
         for method in methods:
             out_dir = inference_dir / Path(row["path"]).parent.name

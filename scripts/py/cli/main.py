@@ -3,6 +3,7 @@ from pathlib import Path
 
 import typer
 import yaml
+from pydantic import ValidationError
 from rich import print
 
 from scripts.lib.experiment import ExperimentConfig
@@ -43,12 +44,20 @@ def infer(
     Works on any CSV, simulated or not: the simulation join keys are left None
     for atomic runs (they're only stamped by the experiment pipeline).
     """
-    result = api.infer(input, output, method, resolve_config(method, method_config))
+    try:
+        config = resolve_config(method, method_config)
+    except ValidationError as e:
+        raise typer.BadParameter(
+            f"--method-config is required for method '{method.value}': {e}"
+        ) from e
+    result = api.infer(input, output, method, config)
+    # typer.echo (not rich print): no markup parsing / soft-wrap, so [ok]/[failed]
+    # survive and --json stays a single pipeable line.
     if json_:
-        print(json.dumps(result.to_registry_row()))
+        typer.echo(json.dumps(result.to_registry_row()))
     else:
-        print(
-            f"[{result.status}] {result.tree_inference_method.value} "
+        typer.echo(
+            f"[{result.status.value}] {result.tree_inference_method.value} "
             f"in {result.runtime_seconds:.2f}s -> {result.point_estimate_newick or '(no tree)'}"
         )
 
