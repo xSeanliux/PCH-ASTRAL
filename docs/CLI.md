@@ -2,9 +2,14 @@
 
 The config-driven CLI. Two layers: **atomic** commands (one dataset, one op) and **pipeline** commands (whole experiment from a YAML).
 
+## Install
+
 ```bash
-python3 -m scripts.py.cli.main --help     # or `pch --help` once installed (pyproject [project.scripts])
+make setup          # install uv + `uv sync` (installs deps and the `pch` entry point)
+make install-bins   # external binaries into bin/ (PAUP, MrBayes, ASTER, TREE-QMC)
+uv run pch --help   # or: python3 -m scripts.py.cli.main --help
 ```
+`pch` is the console script (`pyproject.toml [project.scripts]`); run it via `uv run pch …` (or activate the venv).
 
 ## Atomic commands (path-based; work on simulated or real data)
 
@@ -16,7 +21,7 @@ pch infer DATASET.csv OUTPUT_DIR --method mp [--method-config cfg.yaml] [--json]
 ```
 - `--method` — required; one of `mp`, `ga`, `pch_astral3`, `pch_wastral`, `pch_w_tree_qmc`.
 - `--method-config` — YAML validated against the method's Pydantic model (required for methods with no all-default config, e.g. `pch_astral3`). No per-method flags.
-- output: the tree(s) under `OUTPUT_DIR`; the `InferenceResult` is printed (human) or `--json` (one JSON line, pipe/redirect to a file).
+- output: the tree(s) under `OUTPUT_DIR`; the `InferenceResult` is printed (human) or `--json` (one plain JSON line — pipe it, e.g. `pch infer d.csv out --method mp --json | jq` or `| bat`).
 
 ## Pipeline commands (`pch experiment …`, read the experiment YAML)
 
