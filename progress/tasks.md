@@ -17,8 +17,26 @@ Task tracking for PCH-ASTRAL.
 
 **Docs are a per-milestone deliverable** — each milestone updates `docs/RUNNING_INFERENCE.md` (the human+agent run manual) and the `CLAUDE.md` docs index for what it shipped.
 
+## Followups (from PR #18 review)
+
+- [ ] Model `consensus_method` as a StrEnum (left as a plain string for now, per review).
+- [ ] Tiny end-to-end integration test (run every method through `pch experiment inference` vs a reference; cache binary install; compare FN/FP + registry shape). Surfaced earlier; would catch the bugs live-testing found.
+- [ ] Reconcile downstream stack (#19–#22) with the M1 changes (rebase) when ready.
+
 ## Done
 
 - [x] Document inference methods in `docs/KEYS.md`.
 - [x] Catalogue legacy bash scripts in `docs/HOW_TO_RUN.md`.
 - [x] Add `docs/` index to `CLAUDE.md`.
+
+### PR #18 (M1) review — every comment addressed in-PR
+
+- Schema in `scripts/py/cli/schemata.py`; reusable `CONFIG_KEY`/`MODEL_NETWORK_KEY` groups → sim/config/dataset/inference CSVs joinable. Row is a `RegistryRow` TypedDict (was `dict[str, object]`).
+- Runners modeled as classes: `Runner` Protocol + `MP4Runner` (static, stateless methods) + `RUNNERS` registry; `api.infer` dispatches via `RUNNERS[method]`.
+- Registry concurrency: shard-per-SLURM-job (one `.jsonl` writer per job, lock-free; flock rejected for NFS/Lustre) + `compact` (merges, dedups last-writer-wins, seeds from existing registry, deletes shards). `run_key` human-readable; sha256 only (no sha1).
+- `status` → `RunStatus` StrEnum (`ok`|`failed`); `to_registry_row` emits `.value`.
+- `ran_at` ISO8601 (no bare nanos); `log_path` = merged stdout+stderr.
+- `resolve_config` returns `MethodConfigT` union (was `BaseModel`).
+- `methods.py` → `method_config.py`.
+- Removed `--output-json` (redirect `--json` instead); `pch experiment inference` prints the registry path.
+- Operations doc: `docs/CLI.md`.

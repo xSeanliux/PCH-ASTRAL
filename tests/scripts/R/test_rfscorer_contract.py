@@ -14,9 +14,18 @@ def test_rfscorer_stdout_is_single_fn_fp_line(tmp_path):
     est.write_text("((t1,t2),(t3,t4),t5);\n")
     out = subprocess.run(
         [
-            "Rscript", "scripts/R/RFScorer.R",
-            "-i", str(est), "-f", "newick",
-            "-r", "((t1,t2),(t3,t4),t5);", "-m", "1", "-p", "0",
+            "Rscript",
+            "scripts/R/RFScorer.R",
+            "-i",
+            str(est),
+            "-f",
+            "newick",
+            "-r",
+            "((t1,t2),(t3,t4),t5);",
+            "-m",
+            "1",
+            "-p",
+            "0",
         ],
         cwd=ROOT,
         capture_output=True,
