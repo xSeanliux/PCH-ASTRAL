@@ -4,7 +4,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod
+from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
 from scripts.py.cli import main
 
 runner = CliRunner()
@@ -18,7 +18,7 @@ def _result() -> InferenceResult:
         method_config_json="{}",
         point_estimate_newick="(A,B);",
         runtime_seconds=1.0,
-        status="ok",
+        status=RunStatus.OK,
         ran_at=datetime.now(timezone.utc).isoformat(),
     )
 

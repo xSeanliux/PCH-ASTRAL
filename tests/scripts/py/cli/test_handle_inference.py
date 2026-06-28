@@ -5,7 +5,7 @@ import polars as pl
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod
+from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
 from scripts.lib.types import Polymorphism
 from scripts.py.cli.handle_inference import handle_inference, select_methods
 
@@ -60,7 +60,7 @@ def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):
             method_config_json="{}",
             point_estimate_newick="(A,B);",
             runtime_seconds=1.0,
-            status="ok",
+            status=RunStatus.OK,
             ran_at=datetime.now(timezone.utc).isoformat(),
         )
 

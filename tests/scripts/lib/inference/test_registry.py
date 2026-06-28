@@ -3,7 +3,7 @@ from pathlib import Path
 
 import polars as pl
 
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod
+from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
 from scripts.lib.inference.registry import (
     compact,
     finalize_manifest,
@@ -23,7 +23,7 @@ def _result(
         method_config_json="{}",
         point_estimate_newick="(a,b);",
         runtime_seconds=1.0,
-        status="ok",
+        status=RunStatus.OK,
         ran_at=ran_at,
         homoplasy_factor=0.1,
         tree_height=4,

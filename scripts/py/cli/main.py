@@ -37,14 +37,10 @@ def infer(
     method: TreeInferenceMethod = TreeInferenceMethod.MP,
     method_config: Path | None = None,
     json_: bool = typer.Option(False, "--json"),
-    output_json: Path | None = typer.Option(None, "--output-json"),
 ):
     """Atomic inference on one dataset; renders the InferenceResult."""
     result = api.infer(input, output, method, resolve_config(method, method_config))
-    if output_json is not None:
-        output_json.write_text(json.dumps(result.to_registry_row()))
-        print(f"Wrote result to [green]{output_json}[/green].")
-    elif json_:
+    if json_:
         print(json.dumps(result.to_registry_row()))
     else:
         print(
@@ -55,7 +51,8 @@ def infer(
 
 @experiment.command()
 def inference(config_path: Path):
-    handle_inference(_get_experiment_config(config_path))
+    out = handle_inference(_get_experiment_config(config_path))
+    print(f"Results in [green]{out}[/green] (join to simulated_data_registry.csv).")
 
 
 @experiment.command()

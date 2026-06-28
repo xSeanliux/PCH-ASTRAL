@@ -1,5 +1,5 @@
 import polars as pl
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod
+from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
 from scripts.lib.types import Polymorphism
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
@@ -13,7 +13,7 @@ def _result() -> InferenceResult:
         method_config_json="{}",
         point_estimate_newick="(a,b);",
         runtime_seconds=1.5,
-        status="ok",
+        status=RunStatus.OK,
         ran_at="2026-06-24T00:00:00",
     )
 
@@ -37,7 +37,7 @@ def test_row_builds_dataframe():
         method_config_json="{}",
         point_estimate_newick="(a,b);",
         runtime_seconds=1.5,
-        status="ok",
+        status=RunStatus.OK,
         ran_at="2026-06-24T00:00:00",
         poly=Polymorphism.HIGH,
         homoplasy_factor=0.1,

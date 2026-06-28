@@ -21,8 +21,10 @@ class Runner(Protocol):
 
 
 class MP4Runner:
+    # Stateless — methods are static; the registry holds a singleton instance.
+    @staticmethod
     def build_argv(
-        self, runid: str, input_csv: Path, name: str, output_dir: Path
+        runid: str, input_csv: Path, name: str, output_dir: Path
     ) -> list[str]:
         return [
             "bash",
@@ -37,16 +39,20 @@ class MP4Runner:
             str(output_dir),
         ]
 
-    def point_estimate_path(self, output_dir: Path, name: str) -> Path:
+    @staticmethod
+    def point_estimate_path(output_dir: Path, name: str) -> Path:
         return output_dir / "MP4" / "trees" / f"{name}-maj.tree"
 
-    def group_estimate_path(self, output_dir: Path, name: str) -> Optional[Path]:
+    @staticmethod
+    def group_estimate_path(output_dir: Path, name: str) -> Optional[Path]:
         return output_dir / "MP4" / "trees" / f"{name}.trees"
 
-    def consensus_method(self) -> Optional[str]:
+    @staticmethod
+    def consensus_method() -> Optional[str]:
         return "majority"
 
-    def log_path(self, output_dir: Path, name: str) -> Path:
+    @staticmethod
+    def log_path(output_dir: Path, name: str) -> Path:
         return output_dir / "MP4" / "logs" / f"{name}.log"
 
 

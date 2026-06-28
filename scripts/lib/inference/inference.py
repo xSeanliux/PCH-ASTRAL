@@ -92,7 +92,7 @@ class InferenceResult:
             "consensus_method": self.consensus_method,
             "fn_rate": self.fn_rate,
             "fp_rate": self.fp_rate,
-            "status": str(self.status),
+            "status": self.status.value,
             "ran_at": self.ran_at,
             "log_path": self.log_path,
         }
