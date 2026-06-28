@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from scripts.lib.types import Polymorphism
-from typing import Optional
+from typing import Optional, TypedDict
 from enum import StrEnum
 
 
@@ -10,6 +10,31 @@ class TreeInferenceMethod(StrEnum):
     PCH_W_TREE_QMC = "pch_w_tree_qmc"
     MP = "mp"
     GA = "ga"
+
+
+class RegistryRow(TypedDict):
+    """One inference_registry.csv row. Sim-key names match the simulation registry."""
+
+    dataset_id: str
+    poly_level: Optional[str]
+    character_count: Optional[int]
+    min_tree_height: Optional[int]
+    homoplasy_factor: Optional[float]
+    horizontal_edges: Optional[int]
+    model_tree: Optional[int]
+    replica: Optional[int]
+    method: str
+    config_hash: str
+    method_config_json: str
+    runtime_seconds: float
+    point_estimate_newick: str
+    tree_set_path: Optional[str]
+    consensus_method: Optional[str]
+    fn_rate: Optional[float]
+    fp_rate: Optional[float]
+    status: str
+    ran_at: str
+    log_path: Optional[str]
 
 
 @dataclass
@@ -42,7 +67,7 @@ class InferenceResult:
     log_path: Optional[str] = None
     metadata: dict[str, str] = field(default_factory=dict)
 
-    def to_registry_row(self) -> dict[str, object]:
+    def to_registry_row(self) -> RegistryRow:
         """Keys match the simulation registry sim-key names so the CSVs join."""
         return {
             "dataset_id": self.dataset_id,

@@ -9,7 +9,7 @@ from scripts.lib.inference.registry import (
     finalize_manifest,
     init_manifest,
     run_key,
-    write_part,
+    write_result,
 )
 
 
@@ -34,52 +34,50 @@ def _result(
     )
 
 
-def test_write_part_same_key_overwrites_cleanly(tmp_path: Path):
-    parts = tmp_path / ".parts"
-    r1 = _result("2026-01-01T00:00:00+00:00")
-    r2 = _result("2026-01-02T00:00:00+00:00")
-    assert run_key(r1) == run_key(r2)
-
-    p1 = write_part(r1, parts)
-    p2 = write_part(r2, parts)
-
-    assert p1 == p2
-    assert list(parts.glob("*.json")) == [p1]
-    assert not list(parts.glob("*.tmp"))
-    row = json.loads(p2.read_text())
-    assert row["ran_at"] == "2026-01-02T00:00:00+00:00"
+def test_run_key_is_human_readable():
+    k = run_key(_result("2026-01-01T00:00:00+00:00").to_registry_row())
+    assert "ds1" in k and "mp" in k and "abc" in k  # readable, not an opaque hash
 
 
-def test_different_config_hash_distinct_keys(tmp_path: Path):
-    parts = tmp_path / ".parts"
-    write_part(_result("2026-01-01T00:00:00+00:00", config_hash="x"), parts)
-    write_part(_result("2026-01-01T00:00:00+00:00", config_hash="y"), parts)
-    assert len(list(parts.glob("*.json"))) == 2
+def test_write_result_appends_to_shard(tmp_path: Path):
+    write_result(_result("2026-01-01T00:00:00+00:00"), tmp_path)
+    write_result(_result("2026-01-02T00:00:00+00:00", replica=2), tmp_path)
+    shards = list((tmp_path / "inference_data" / "shards").glob("*.jsonl"))
+    assert len(shards) == 1  # one shard per process
+    assert len(shards[0].read_text().splitlines()) == 2
 
 
 def test_compact_dedups_keeping_newest_ran_at(tmp_path: Path):
-    parts = tmp_path / "inference_data" / ".parts"
-    write_part(_result("2026-01-01T00:00:00+00:00"), parts)
-    write_part(_result("2026-01-03T00:00:00+00:00"), parts)  # same key, newer
-    write_part(_result("2026-01-02T00:00:00+00:00", replica=2), parts)  # distinct
-
-    out = compact(tmp_path)
-    df = pl.read_csv(out)
+    write_result(_result("2026-01-01T00:00:00+00:00"), tmp_path)
+    write_result(_result("2026-01-03T00:00:00+00:00"), tmp_path)  # same key, newer
+    write_result(_result("2026-01-02T00:00:00+00:00", replica=2), tmp_path)  # distinct
+    df = pl.read_csv(compact(tmp_path))
     assert df.height == 2
-    newest = df.filter(pl.col("replica") == 1)["ran_at"].to_list()
-    assert newest == ["2026-01-03T00:00:00+00:00"]
+    assert df.filter(pl.col("replica") == 1)["ran_at"].to_list() == [
+        "2026-01-03T00:00:00+00:00"
+    ]
 
 
-def test_compact_idempotent(tmp_path: Path):
-    parts = tmp_path / "inference_data" / ".parts"
-    write_part(_result("2026-01-01T00:00:00+00:00"), parts)
+def test_different_config_hash_distinct(tmp_path: Path):
+    write_result(_result("2026-01-01T00:00:00+00:00", config_hash="x"), tmp_path)
+    write_result(_result("2026-01-01T00:00:00+00:00", config_hash="y"), tmp_path)
+    assert pl.read_csv(compact(tmp_path)).height == 2
 
-    out1 = compact(tmp_path)
-    rows1 = pl.read_csv(out1).height
-    # re-write same part + compact again
-    write_part(_result("2026-01-01T00:00:00+00:00"), parts)
-    out2 = compact(tmp_path)
-    assert pl.read_csv(out2).height == rows1 == 1
+
+def test_compact_cleans_up_shards(tmp_path: Path):
+    write_result(_result("2026-01-01T00:00:00+00:00"), tmp_path)
+    compact(tmp_path)
+    shards = tmp_path / "inference_data" / "shards"
+    assert not shards.exists() or not list(shards.glob("*.jsonl"))
+
+
+def test_compact_accumulates_across_cleanups(tmp_path: Path):
+    # Shards are deleted after each compact; the registry must still accumulate.
+    write_result(_result("2026-01-01T00:00:00+00:00", replica=1), tmp_path)
+    compact(tmp_path)
+    write_result(_result("2026-01-02T00:00:00+00:00", replica=2), tmp_path)
+    df = pl.read_csv(compact(tmp_path))
+    assert df.height == 2  # replica 1 from prior registry + replica 2 from new shard
 
 
 def test_manifest_roundtrip(tmp_path: Path):

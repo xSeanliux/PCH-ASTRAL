@@ -8,7 +8,7 @@ from rich import print
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
 from scripts.lib.inference.inference import TreeInferenceMethod
-from scripts.lib.inference.methods import resolve_config
+from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference import registry
 from scripts.py.cli.handle_inference import handle_inference
 from scripts.py.cli.handle_simulation import handle_simulation
@@ -37,10 +37,14 @@ def infer(
     method: TreeInferenceMethod = TreeInferenceMethod.MP,
     method_config: Path | None = None,
     json_: bool = typer.Option(False, "--json"),
+    output_json: Path | None = typer.Option(None, "--output-json"),
 ):
     """Atomic inference on one dataset; renders the InferenceResult."""
     result = api.infer(input, output, method, resolve_config(method, method_config))
-    if json_:
+    if output_json is not None:
+        output_json.write_text(json.dumps(result.to_registry_row()))
+        print(f"Wrote result to [green]{output_json}[/green].")
+    elif json_:
         print(json.dumps(result.to_registry_row()))
     else:
         print(

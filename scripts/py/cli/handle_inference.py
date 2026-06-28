@@ -8,7 +8,7 @@ from rich import print
 from scripts.lib.experiment import ExperimentConfig, MethodConfig
 from scripts.lib.inference import api, registry
 from scripts.lib.inference.inference import TreeInferenceMethod
-from scripts.lib.inference.methods import resolve_config
+from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.types import Polymorphism
 
 
@@ -26,8 +26,6 @@ def handle_inference(config: ExperimentConfig) -> Path:
 
     methods = select_methods(config.methods)
     inference_dir = experiment_folder / "inference_data"
-    parts_dir = inference_dir / ".parts"
-    parts_dir.mkdir(parents=True, exist_ok=True)
 
     registry.init_manifest(experiment_folder, [m.value for m in methods])
 
@@ -47,7 +45,7 @@ def handle_inference(config: ExperimentConfig) -> Path:
             result.ret_edges = row["horizontal_edges"]
             result.target_tree = row["model_tree"]
             result.replica = row["replica"]
-            registry.write_part(result, parts_dir)
+            registry.write_result(result, experiment_folder)
             n_runs += 1
 
     registry.finalize_manifest(experiment_folder, n_runs)

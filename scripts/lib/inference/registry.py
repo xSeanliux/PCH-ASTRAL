@@ -1,22 +1,27 @@
-"""Artifact-model mechanics: run_key, atomic .parts writes, compact, manifest.
+"""Per-job shard registry.
 
-The riskiest module — concurrency-safe idempotent registry writes.
+Each SLURM job (or local process) appends its run rows to its own shard file —
+one writer per shard, so no lock and no shared-file contention (flock is
+unreliable on NFS/Lustre). `compact` merges all shards into the single canonical
+inference_registry.csv (last-writer-wins by ran_at) and deletes the shards, so no
+junk files linger.
 """
 
 import json
 import os
+from collections.abc import Mapping
 from datetime import datetime, timezone
-from hashlib import sha1
 from pathlib import Path
-from uuid import uuid4
 
 import polars as pl
 
 from scripts.lib.inference.inference import InferenceResult
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
-# Row columns forming the natural run identity (sim keys + method + config_hash).
+# Human-readable dedup identity (no opaque hash filename). config_hash is the
+# only hashed term and is sha256 (see method_config.config_hash).
 _KEY_COLUMNS = [
+    "dataset_id",
     "poly_level",
     "character_count",
     "min_tree_height",
@@ -29,60 +34,72 @@ _KEY_COLUMNS = [
 ]
 
 
-def _run_key_from_row(row: dict[str, object]) -> str:
-    """Deterministic, filesystem-safe key from a registry row.
-
-    Sim keys are None for atomic runs → fall back to dataset_id.
-    """
-    sim_keys = [row[c] for c in _KEY_COLUMNS]
-    identity = (
-        sim_keys if any(k is not None for k in sim_keys[:7]) else [row["dataset_id"]]
-    )
-    identity = identity + [row["method"], row["config_hash"]]
-    canonical = "\x00".join("" if v is None else str(v) for v in identity)
-    return sha1(canonical.encode("utf-8")).hexdigest()
+def run_key(row: Mapping[str, object]) -> str:
+    """Readable dedup key: the join keys + method + config_hash, '|'-joined."""
+    return "|".join("" if row.get(c) is None else str(row.get(c)) for c in _KEY_COLUMNS)
 
 
-def run_key(result: InferenceResult) -> str:
-    return _run_key_from_row(result.to_registry_row())
+def current_shard_id() -> str:
+    """One shard per SLURM (array) job; per-process locally. One writer per shard."""
+    array_job = os.environ.get("SLURM_ARRAY_JOB_ID")
+    if array_job:
+        return f"{array_job}_{os.environ.get('SLURM_ARRAY_TASK_ID', '0')}"
+    return os.environ.get("SLURM_JOB_ID") or f"local-{os.getpid()}"
 
 
-def write_part(result: InferenceResult, parts_dir: Path) -> Path:
-    """Atomically stage one run's row at parts_dir/{run_key}.json.
-
-    Write a per-process temp file, then os.replace onto the target so concurrent
-    duplicate runs never tear it — last writer wins.
-    """
-    parts_dir.mkdir(parents=True, exist_ok=True)
-    key = run_key(result)
-    final = parts_dir / f"{key}.json"
-    tmp = parts_dir / f"{key}.{os.getpid()}.{uuid4().hex}.tmp"
-    tmp.write_text(json.dumps(result.to_registry_row()))
-    os.replace(tmp, final)
-    return final
+def _shards_dir(experiment_folder: Path) -> Path:
+    return experiment_folder / "inference_data" / "shards"
 
 
-def compact(experiment_folder: Path) -> Path:
-    """Merge inference_data/.parts/*.json → inference_registry.csv.
+def write_result(result: InferenceResult, experiment_folder: Path) -> Path:
+    """Append one run's row (JSON line) to this job's shard. Lock-free."""
+    shards = _shards_dir(experiment_folder)
+    shards.mkdir(parents=True, exist_ok=True)
+    shard = shards / f"{current_shard_id()}.jsonl"
+    with shard.open("a") as f:
+        f.write(json.dumps(result.to_registry_row()) + "\n")
+    return shard
 
-    Dedup by run_key keeping newest ran_at (last-writer-wins). Idempotent.
+
+def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
+    """Merge shards/*.jsonl -> inference_registry.csv (last-writer-wins by ran_at).
+
+    Idempotent. With cleanup=True (default) the shard files are removed after a
+    successful merge so no staging junk remains.
     """
     inference_dir = experiment_folder / "inference_data"
-    parts_dir = inference_dir / ".parts"
+    shards = _shards_dir(experiment_folder)
     out = inference_dir / "inference_registry.csv"
 
     by_key: dict[str, dict[str, object]] = {}
-    for part in sorted(parts_dir.glob("*.json")):
-        row = json.loads(part.read_text())
-        key = _run_key_from_row(row)
-        prev = by_key.get(key)
-        # ran_at is an ISO timestamp string → lexical compare matches chronological.
-        if prev is None or str(row["ran_at"]) >= str(prev["ran_at"]):
-            by_key[key] = row
+    # Seed from the existing registry so incremental compaction (with shard
+    # cleanup) accumulates instead of replacing prior rows.
+    if out.exists():
+        for prev_row in pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).iter_rows(
+            named=True
+        ):
+            by_key[run_key(prev_row)] = prev_row
+
+    shard_files = sorted(shards.glob("*.jsonl")) if shards.exists() else []
+    for sf in shard_files:
+        for line in sf.read_text().splitlines():
+            if not line.strip():
+                continue
+            row: dict[str, object] = json.loads(line)
+            k = run_key(row)
+            prev = by_key.get(k)
+            # ran_at is ISO8601 → lexical compare == chronological.
+            if prev is None or str(row["ran_at"]) >= str(prev["ran_at"]):
+                by_key[k] = row
 
     inference_dir.mkdir(parents=True, exist_ok=True)
-    df = pl.DataFrame(list(by_key.values()), schema=INFERENCE_REGISTRY_SCHEMA)
-    df.write_csv(out)
+    pl.DataFrame(list(by_key.values()), schema=INFERENCE_REGISTRY_SCHEMA).write_csv(out)
+
+    if cleanup:
+        for sf in shard_files:
+            sf.unlink()
+        if shards.exists() and not any(shards.iterdir()):
+            shards.rmdir()
     return out
 
 

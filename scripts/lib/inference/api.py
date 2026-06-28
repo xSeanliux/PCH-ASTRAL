@@ -8,7 +8,7 @@ from pathlib import Path
 import shortuuid
 from pydantic import BaseModel
 
-from scripts.lib.inference import methods, runners
+from scripts.lib.inference import method_config, runners
 from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod
 
 
@@ -45,7 +45,7 @@ def infer(
     return InferenceResult(
         dataset_id=name,
         tree_inference_method=method,
-        config_hash=methods.config_hash(config),
+        config_hash=method_config.config_hash(config),
         method_config_json=config.model_dump_json(),
         point_estimate_newick=newick,
         runtime_seconds=elapsed,

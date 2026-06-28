@@ -1,6 +1,6 @@
 from scripts.lib.experiment import MP4Config, WeightedTreeQMCConfig
 from scripts.lib.inference.inference import TreeInferenceMethod
-from scripts.lib.inference.methods import config_hash, resolve_config
+from scripts.lib.inference.method_config import config_hash, resolve_config
 
 
 def test_resolve_config_defaults() -> None:

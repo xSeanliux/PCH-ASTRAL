@@ -2,7 +2,7 @@ from pathlib import Path
 
 from scripts.lib.inference import api, runners
 from scripts.lib.inference.inference import TreeInferenceMethod
-from scripts.lib.inference.methods import resolve_config
+from scripts.lib.inference.method_config import resolve_config
 
 
 def test_infer_ok(tmp_path: Path, monkeypatch) -> None:
