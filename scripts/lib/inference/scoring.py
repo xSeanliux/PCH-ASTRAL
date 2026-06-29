@@ -17,7 +17,7 @@ class ScoreResult:
     fp_rate: float
 
 
-# ponytail: cache per-run; CSV parsed once per distinct (folder, model_tree). One CLI process = one run, so unbounded is fine.
+# cache per-run; CSV parsed once per distinct (folder, model_tree). One CLI process = one run, so unbounded is fine.
 @functools.lru_cache(maxsize=None)
 def resolve_reference_newick(experiment_folder: Path, model_tree: int) -> str:
     """Newick of the BASE TREE (horizontal_edges==0) a network is scored against."""
