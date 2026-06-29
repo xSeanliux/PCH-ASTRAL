@@ -81,7 +81,7 @@ def score_(
 
 
 class ConsensusMethod(StrEnum):
-    AVERAGE = auto()
+    PASSTHROUGH = auto()  # R calls this "average" (-m 1) but it returns all trees as-is
     MAJORITY = auto()
     MAP = auto()
     MCC = auto()
@@ -89,7 +89,7 @@ class ConsensusMethod(StrEnum):
 
 # ConsensusMethod -> consensusTree.R `-m` mode int.
 _CONSENSUS_MODES = {
-    ConsensusMethod.AVERAGE: 1,
+    ConsensusMethod.PASSTHROUGH: 1,
     ConsensusMethod.MAJORITY: 2,
     ConsensusMethod.MAP: 3,
     ConsensusMethod.MCC: 4,
