@@ -1,5 +1,5 @@
 import json
-from enum import StrEnum
+from enum import StrEnum, auto
 from pathlib import Path
 
 import typer
@@ -81,20 +81,19 @@ def score_(
 
 
 class ConsensusMethod(StrEnum):
-    """CLI choice name carrying its consensusTree.R `-m` mode int (`.mode`)."""
+    average = auto()
+    majority = auto()
+    map = auto()
+    mcc = auto()
 
-    mode: int
 
-    average = "average", 1
-    majority = "majority", 2
-    map = "map", 3
-    mcc = "mcc", 4
-
-    def __new__(cls, value: str, mode: int) -> "ConsensusMethod":
-        obj = str.__new__(cls, value)
-        obj._value_ = value
-        obj.mode = mode
-        return obj
+# ConsensusMethod -> consensusTree.R `-m` mode int.
+_CONSENSUS_MODES = {
+    ConsensusMethod.average: 1,
+    ConsensusMethod.majority: 2,
+    ConsensusMethod.map: 3,
+    ConsensusMethod.mcc: 4,
+}
 
 
 @app.command(name="summarize")
@@ -105,7 +104,7 @@ def summarize_(
     discard: int = typer.Option(0, "--discard"),
 ):
     """Consensus-summarize a tree set to a single Newick."""
-    out = summarize(trees, output, mode=consensus.mode, discard=discard)
+    out = summarize(trees, output, mode=_CONSENSUS_MODES[consensus], discard=discard)
     typer.echo(out)
 
 
