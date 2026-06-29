@@ -1,4 +1,5 @@
 import json
+from enum import StrEnum, auto
 from pathlib import Path
 
 import typer
@@ -11,6 +12,8 @@ from scripts.lib.inference import api
 from scripts.lib.inference.inference import TreeInferenceMethod
 from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference import registry
+from scripts.lib.inference.scoring import score
+from scripts.lib.inference.summarize import summarize
 from scripts.py.cli.handle_inference import handle_inference
 from scripts.py.cli.handle_simulation import handle_simulation
 
@@ -60,6 +63,49 @@ def infer(
             f"[{result.status.value}] {result.tree_inference_method.value} "
             f"in {result.runtime_seconds:.2f}s -> {result.point_estimate_newick or '(no tree)'}"
         )
+
+
+@app.command(name="score")
+def score_(
+    estimate: Path = typer.Option(..., "--estimate", exists=True, dir_okay=False),
+    reference: Path = typer.Option(..., "--reference", exists=True, dir_okay=False),
+    json_: bool = typer.Option(False, "--json"),
+):
+    """RF-score one estimate against a reference Newick."""
+    sr = score(estimate.read_text(), reference.read_text())
+    # typer.echo (not rich print): machine payload, no markup parsing / soft-wrap.
+    if json_:
+        typer.echo(json.dumps({"fn_rate": sr.fn_rate, "fp_rate": sr.fp_rate}))
+    else:
+        typer.echo(f"FN {sr.fn_rate}  FP {sr.fp_rate}")
+
+
+class ConsensusMethod(StrEnum):
+    PASSTHROUGH = auto()  # R calls this "average" (-m 1) but it returns all trees as-is
+    MAJORITY = auto()
+    MAP = auto()
+    MCC = auto()
+
+
+# ConsensusMethod -> consensusTree.R `-m` mode int.
+_CONSENSUS_MODES = {
+    ConsensusMethod.PASSTHROUGH: 1,
+    ConsensusMethod.MAJORITY: 2,
+    ConsensusMethod.MAP: 3,
+    ConsensusMethod.MCC: 4,
+}
+
+
+@app.command(name="summarize")
+def summarize_(
+    trees: Path = typer.Option(..., "--trees"),
+    output: Path = typer.Option(..., "--output"),
+    consensus: ConsensusMethod = typer.Option(..., "--consensus"),
+    discard: int = typer.Option(0, "--discard"),
+):
+    """Consensus-summarize a tree set to a single Newick."""
+    out = summarize(trees, output, mode=_CONSENSUS_MODES[consensus], discard=discard)
+    typer.echo(out)
 
 
 @experiment.command()
