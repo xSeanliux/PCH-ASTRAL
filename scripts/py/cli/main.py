@@ -81,18 +81,18 @@ def score_(
 
 
 class ConsensusMethod(StrEnum):
-    average = auto()
-    majority = auto()
-    map = auto()
-    mcc = auto()
+    AVERAGE = auto()
+    MAJORITY = auto()
+    MAP = auto()
+    MCC = auto()
 
 
 # ConsensusMethod -> consensusTree.R `-m` mode int.
 _CONSENSUS_MODES = {
-    ConsensusMethod.average: 1,
-    ConsensusMethod.majority: 2,
-    ConsensusMethod.map: 3,
-    ConsensusMethod.mcc: 4,
+    ConsensusMethod.AVERAGE: 1,
+    ConsensusMethod.MAJORITY: 2,
+    ConsensusMethod.MAP: 3,
+    ConsensusMethod.MCC: 4,
 }
 
 
