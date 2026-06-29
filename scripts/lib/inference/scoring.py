@@ -57,7 +57,10 @@ def score(
             raise RuntimeError(
                 f"RFScorer.R failed (exit {proc.returncode}): {proc.stderr}"
             )
-        fn, fp = proc.stdout.split()
+        parts = proc.stdout.split()
+        if len(parts) != 2:
+            raise RuntimeError(f"RFScorer.R: expected 'fn fp', got {proc.stdout!r}")
+        fn, fp = parts
         return ScoreResult(fn_rate=float(fn), fp_rate=float(fp))
     finally:
         tmp.unlink(missing_ok=True)

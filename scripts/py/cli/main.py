@@ -1,4 +1,5 @@
 import json
+from enum import StrEnum
 from pathlib import Path
 
 import typer
@@ -79,23 +80,30 @@ def score_(
         typer.echo(f"FN {sr.fn_rate}  FP {sr.fp_rate}")
 
 
-_CONSENSUS_MODES = {"average": 1, "majority": 2, "map": 3, "mcc": 4}
+class Consensus(StrEnum):
+    average = "average"
+    majority = "majority"
+    map = "map"
+    mcc = "mcc"
+
+
+_CONSENSUS_MODES = {
+    Consensus.average: 1,
+    Consensus.majority: 2,
+    Consensus.map: 3,
+    Consensus.mcc: 4,
+}
 
 
 @app.command(name="summarize")
 def summarize_(
     trees: Path = typer.Option(..., "--trees"),
     output: Path = typer.Option(..., "--output"),
-    consensus: str = typer.Option(..., "--consensus"),
+    consensus: Consensus = typer.Option(..., "--consensus"),
     discard: int = typer.Option(0, "--discard"),
 ):
     """Consensus-summarize a tree set to a single Newick."""
-    mode = _CONSENSUS_MODES.get(consensus)
-    if mode is None:
-        raise typer.BadParameter(
-            f"--consensus must be one of {sorted(_CONSENSUS_MODES)}"
-        )
-    out = summarize(trees, output, mode=mode, discard=discard)
+    out = summarize(trees, output, mode=_CONSENSUS_MODES[consensus], discard=discard)
     typer.echo(out)
 
 
