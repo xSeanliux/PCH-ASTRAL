@@ -5,8 +5,11 @@ from pydantic import BaseModel
 
 from scripts.lib.inference.inference import TreeInferenceMethod
 
-# runASTRAL.sh -q 11 -b 5 writes into a folder literally named "ASTRAL(11,5)".
-ASTRAL_VARIANT = "ASTRAL(11,5)"
+# Quartet/bipartition params are fixed for now; the suffix disambiguates folders
+# when they become configurable (M4+). runASTRAL3.sh writes into this folder.
+ASTRAL3_QUARTET = 11
+ASTRAL3_BIPARTITIONS = 5
+ASTRAL_VARIANT = f"PCH_ASTRAL_3({ASTRAL3_QUARTET},{ASTRAL3_BIPARTITIONS})"
 
 
 class Runner(Protocol):
@@ -122,11 +125,11 @@ class ASTRAL3Runner:
     def build_argv(
         runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel
     ) -> list[str]:
-        # ponytail: Q=11,B=5 fixed; heuristic mode uses MP4+GA bipartitions per
-        # the script. Map config.bipartition_strategies to runASTRAL params later.
+        # Q/B fixed; heuristic mode uses MP4+GA bipartitions per the script.
+        # Map config.bipartition_strategies to runASTRAL params later.
         argv = [
             "bash",
-            "scripts/sh/runASTRAL.sh",
+            "scripts/sh/runASTRAL3.sh",
             "-H",
             runid,
             "-i",
@@ -134,9 +137,9 @@ class ASTRAL3Runner:
             "-o",
             str(output_dir),
             "-q",
-            "11",
+            str(ASTRAL3_QUARTET),
             "-b",
-            "5",
+            str(ASTRAL3_BIPARTITIONS),
             "-n",
             name,
         ]

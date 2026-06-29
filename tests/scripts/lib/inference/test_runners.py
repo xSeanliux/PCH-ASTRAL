@@ -93,7 +93,7 @@ def test_astral3_runner_build_argv_exact():
     )
     assert argv == [
         "bash",
-        "scripts/sh/runASTRAL.sh",
+        "scripts/sh/runASTRAL3.sh",
         "-H",
         "abc123",
         "-i",
