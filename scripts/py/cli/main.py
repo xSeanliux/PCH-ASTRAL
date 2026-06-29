@@ -80,30 +80,32 @@ def score_(
         typer.echo(f"FN {sr.fn_rate}  FP {sr.fp_rate}")
 
 
-class Consensus(StrEnum):
-    average = "average"
-    majority = "majority"
-    map = "map"
-    mcc = "mcc"
+class ConsensusMethod(StrEnum):
+    """CLI choice name carrying its consensusTree.R `-m` mode int (`.mode`)."""
 
+    mode: int
 
-_CONSENSUS_MODES = {
-    Consensus.average: 1,
-    Consensus.majority: 2,
-    Consensus.map: 3,
-    Consensus.mcc: 4,
-}
+    average = "average", 1
+    majority = "majority", 2
+    map = "map", 3
+    mcc = "mcc", 4
+
+    def __new__(cls, value: str, mode: int) -> "ConsensusMethod":
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+        obj.mode = mode
+        return obj
 
 
 @app.command(name="summarize")
 def summarize_(
     trees: Path = typer.Option(..., "--trees"),
     output: Path = typer.Option(..., "--output"),
-    consensus: Consensus = typer.Option(..., "--consensus"),
+    consensus: ConsensusMethod = typer.Option(..., "--consensus"),
     discard: int = typer.Option(0, "--discard"),
 ):
     """Consensus-summarize a tree set to a single Newick."""
-    out = summarize(trees, output, mode=_CONSENSUS_MODES[consensus], discard=discard)
+    out = summarize(trees, output, mode=consensus.mode, discard=discard)
     typer.echo(out)
 
 
