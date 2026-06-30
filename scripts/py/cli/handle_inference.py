@@ -1,5 +1,6 @@
 """Inference pipeline: sim registry → api.infer per (dataset, method) → compact."""
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import polars as pl
@@ -8,33 +9,57 @@ from rich import print
 
 from scripts.lib.experiment import ExperimentConfig, MethodConfig
 from scripts.lib.inference import api, registry
-from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.inference.inference import (
+    InferenceResult,
+    RunStatus,
+    TreeInferenceMethod,
+)
 from scripts.lib.inference.scoring import resolve_reference_newick, score
 from scripts.lib.types import Polymorphism
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
+# Single source of truth: (method, MethodConfig attr) in dependency order —
+# MP4 and GA before ASTRAL3 (which needs their bipartitions).
+_METHOD_FIELDS: list[tuple[TreeInferenceMethod, str]] = [
+    (TreeInferenceMethod.MP, "mp4"),
+    (TreeInferenceMethod.GA, "gray_atkinson"),
+    (TreeInferenceMethod.PCH_ASTRAL3, "astral_3"),
+]
+
 
 def select_methods(methods: MethodConfig) -> list[TreeInferenceMethod]:
-    # Dependency order: MP4 and GA before ASTRAL3 (its bipartition prereqs).
-    selected: list[TreeInferenceMethod] = []
-    if methods.mp4 is not None:
-        selected.append(TreeInferenceMethod.MP)
-    if methods.gray_atkinson is not None:
-        selected.append(TreeInferenceMethod.GA)
-    if methods.astral_3 is not None:
-        selected.append(TreeInferenceMethod.PCH_ASTRAL3)
-    return selected
+    a3 = methods.astral_3
+    if (
+        a3 is not None
+        and not a3.is_exact
+        and (methods.mp4 is None or methods.gray_atkinson is None)
+    ):
+        raise ValueError(
+            "pch_astral3 (heuristic) requires mp4 and gray_atkinson enabled"
+        )
+    return [m for m, attr in _METHOD_FIELDS if getattr(methods, attr) is not None]
 
 
 def pipeline_config(methods: MethodConfig, m: TreeInferenceMethod) -> BaseModel:
-    # Non-None because select_methods only included enabled methods.
-    config = {
-        TreeInferenceMethod.MP: methods.mp4,
-        TreeInferenceMethod.GA: methods.gray_atkinson,
-        TreeInferenceMethod.PCH_ASTRAL3: methods.astral_3,
-    }[m]
-    assert config is not None
+    config = getattr(methods, dict(_METHOD_FIELDS)[m])
+    if config is None:  # select_methods only yields enabled methods — guard anyway.
+        raise ValueError(f"No config for selected method {m.value}")
     return config
+
+
+def _astral3_upstream_failed(
+    methods: MethodConfig,
+    method: TreeInferenceMethod,
+    statuses: dict[TreeInferenceMethod, RunStatus],
+) -> bool:
+    # Heuristic ASTRAL3 needs MP4 + GA bipartitions from THIS run (not stale files).
+    a3 = methods.astral_3
+    if method is not TreeInferenceMethod.PCH_ASTRAL3 or a3 is None or a3.is_exact:
+        return False
+    return (
+        statuses.get(TreeInferenceMethod.MP) is not RunStatus.OK
+        or statuses.get(TreeInferenceMethod.GA) is not RunStatus.OK
+    )
 
 
 def handle_inference(config: ExperimentConfig) -> Path:
@@ -58,14 +83,29 @@ def handle_inference(config: ExperimentConfig) -> Path:
         named=True
     )
     for row in rows:
+        statuses: dict[TreeInferenceMethod, RunStatus] = {}
         for method in methods:
             out_dir = inference_dir / Path(row["path"]).parent.name
-            result = api.infer(
-                Path(row["path"]),
-                out_dir,
-                method,
-                pipeline_config(config.methods, method),
-            )
+            if _astral3_upstream_failed(config.methods, method, statuses):
+                result = InferenceResult(
+                    dataset_id=Path(row["path"]).stem,
+                    tree_inference_method=method,
+                    config_hash="",
+                    method_config_json="",
+                    point_estimate_newick="",
+                    runtime_seconds=0.0,
+                    status=RunStatus.FAILED,
+                    ran_at=datetime.now(timezone.utc).isoformat(),
+                    metadata={"reason": "upstream MP4/GA failed or absent this run"},
+                )
+            else:
+                result = api.infer(
+                    Path(row["path"]),
+                    out_dir,
+                    method,
+                    pipeline_config(config.methods, method),
+                )
+            statuses[method] = result.status
             # Stamp the simulation join keys from the sim-registry row.
             result.poly = Polymorphism(row["poly_level"])
             result.homoplasy_factor = row["homoplasy_factor"]

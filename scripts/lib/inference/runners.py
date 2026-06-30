@@ -3,6 +3,7 @@ from typing import Optional, Protocol
 
 from pydantic import BaseModel
 
+from scripts.lib.experiment import ASTRAL3Config
 from scripts.lib.inference.inference import TreeInferenceMethod
 
 # Quartet/bipartition params are fixed for now; the suffix disambiguates folders
@@ -127,6 +128,8 @@ class ASTRAL3Runner:
     ) -> list[str]:
         # Q/B fixed; heuristic mode uses MP4+GA bipartitions per the script.
         # Map config.bipartition_strategies to runASTRAL params later.
+        assert isinstance(config, ASTRAL3Config)
+        # -V is the single source of truth for the output folder name.
         argv = [
             "bash",
             "scripts/sh/runASTRAL3.sh",
@@ -136,14 +139,12 @@ class ASTRAL3Runner:
             str(input_csv),
             "-o",
             str(output_dir),
-            "-q",
-            str(ASTRAL3_QUARTET),
-            "-b",
-            str(ASTRAL3_BIPARTITIONS),
+            "-V",
+            ASTRAL_VARIANT,
             "-n",
             name,
         ]
-        if getattr(config, "is_exact", False):
+        if config.is_exact:
             argv.append("-x")
         return argv
 
@@ -168,7 +169,8 @@ class ASTRAL3Runner:
         config: BaseModel, output_dir: Path, name: str
     ) -> list[Path]:
         """Heuristic ASTRAL reads MP4 + GA tree sets to build bipartitions."""
-        if getattr(config, "is_exact", False):
+        assert isinstance(config, ASTRAL3Config)
+        if config.is_exact:
             return []
         needed = [
             output_dir / "MP4" / "trees" / f"{name}.trees",

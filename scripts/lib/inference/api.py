@@ -31,16 +31,30 @@ def infer(
     if runner is None:
         raise ValueError(f"No runner registered for method {method.value!r}")
 
+    log = runner.log_path(output_dir, name)
+    log.parent.mkdir(parents=True, exist_ok=True)
+
+    # Missing prereqs => FAILED result (never raise: infer always returns one).
     missing = runner.missing_prerequisites(config, output_dir, name)
     if missing:
         joined = ", ".join(str(p) for p in missing)
-        raise FileNotFoundError(
-            f"{method} needs MP4/GA outputs first; missing: {joined}"
+        reason = f"{method} needs MP4/GA outputs first; missing: {joined}"
+        log.write_text(reason)
+        return InferenceResult(
+            dataset_id=name,
+            tree_inference_method=method,
+            config_hash=method_config.config_hash(config),
+            method_config_json=config.model_dump_json(),
+            point_estimate_newick="",
+            runtime_seconds=0.0,
+            status=RunStatus.FAILED,
+            ran_at=datetime.now(timezone.utc).isoformat(),
+            tree_set_path=None,
+            consensus_method=runner.consensus_method(),
+            log_path=str(log),
         )
 
     argv = runner.build_argv(runid, input_csv, name, output_dir, config)
-    log = runner.log_path(output_dir, name)
-    log.parent.mkdir(parents=True, exist_ok=True)
 
     start = time.monotonic()
     with log.open("w") as log_file:
