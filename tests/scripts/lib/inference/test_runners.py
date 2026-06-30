@@ -3,7 +3,7 @@ from pathlib import Path
 from scripts.lib.experiment import ASTRAL3Config, GAConfig, MP4Config
 from scripts.lib.inference import runners
 from scripts.lib.inference.runners import RUNNERS
-from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
 
 
 def test_mp4_runner_build_argv():
@@ -40,7 +40,7 @@ def test_mp4_runner_artifact_paths():
         runner.group_estimate_path(out, "sim_0_1_1")
         == out / "MP4" / "trees" / "sim_0_1_1.trees"
     )
-    assert runner.consensus_method() == "majority"
+    assert runner.consensus_method() == ConsensusMethod.MAJORITY
     assert runner.log_path(out, "sim_0_1_1") == out / "MP4" / "logs" / "sim_0_1_1.log"
 
 
@@ -78,7 +78,7 @@ def test_ga_runner_artifact_paths():
         runner.group_estimate_path(out, "sim_0_1_1")
         == out / "GA" / "trees1" / "sim_0_1_1.trees"
     )
-    assert runner.consensus_method() == "mcc"
+    assert runner.consensus_method() == ConsensusMethod.MCC
     assert runner.log_path(out, "sim_0_1_1") == out / "GA" / "logs" / "sim_0_1_1.log"
 
 
@@ -120,10 +120,36 @@ def test_astral3_runner_build_argv_heuristic_has_no_x():
     assert "-x" not in argv
 
 
+def _astral3_argv(config: ASTRAL3Config) -> list[str]:
+    return RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].build_argv(
+        runid="abc123",
+        input_csv=Path("data/sim_0_1_1.csv"),
+        name="sim_0_1_1",
+        output_dir=Path("out/high_0.1_4_320"),
+        config=config,
+    )
+
+
+def test_astral3_runner_build_argv_default_sources_mp4_ga():
+    argv = _astral3_argv(ASTRAL3Config(is_exact=False))
+    assert argv[argv.index("-S") + 1] == "mp4,ga"
+
+
+def test_astral3_runner_build_argv_ga_only_source():
+    argv = _astral3_argv(
+        ASTRAL3Config(is_exact=False, bipartition_strategies=["ga_trees"])
+    )
+    assert argv[argv.index("-S") + 1] == "ga"
+
+
+def test_astral3_runner_build_argv_exact_has_no_sources():
+    assert "-S" not in _astral3_argv(ASTRAL3Config(is_exact=True))
+
+
 def test_astral3_runner_artifact_paths():
     runner = RUNNERS[TreeInferenceMethod.PCH_ASTRAL3]
     out = Path("out/high_0.1_4_320")
-    variant = runners.ASTRAL_VARIANT
+    variant = runners.ASTRAL3Runner.VARIANT
     assert (
         runner.point_estimate_path(out, "sim_0_1_1")
         == out / variant / "trees" / "sim_0_1_1.tree"
@@ -167,6 +193,24 @@ def test_missing_prerequisites_astral3_heuristic_lists_absent_files(tmp_path: Pa
         tmp_path / "MP4" / "trees" / "sim_0_1_1.trees",
         tmp_path / "GA" / "trees1" / "sim_0_1_1.trees",
     ]
+
+
+def test_missing_prerequisites_astral3_ga_only_checks_ga(tmp_path: Path):
+    missing = RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].missing_prerequisites(
+        ASTRAL3Config(is_exact=False, bipartition_strategies=["ga_trees"]),
+        tmp_path,
+        "sim_0_1_1",
+    )
+    assert missing == [tmp_path / "GA" / "trees1" / "sim_0_1_1.trees"]
+
+
+def test_missing_prerequisites_astral3_mp4_only_checks_mp4(tmp_path: Path):
+    missing = RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].missing_prerequisites(
+        ASTRAL3Config(is_exact=False, bipartition_strategies=["mp4_trees"]),
+        tmp_path,
+        "sim_0_1_1",
+    )
+    assert missing == [tmp_path / "MP4" / "trees" / "sim_0_1_1.trees"]
 
 
 def test_missing_prerequisites_astral3_heuristic_empty_when_present(tmp_path: Path):

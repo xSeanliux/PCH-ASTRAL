@@ -1,7 +1,7 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from scripts.lib.types import Polymorphism
 from typing import Optional, TypedDict
-from enum import StrEnum
+from enum import StrEnum, auto
 
 
 class TreeInferenceMethod(StrEnum):
@@ -15,6 +15,13 @@ class TreeInferenceMethod(StrEnum):
 class RunStatus(StrEnum):
     OK = "ok"  # the inference command exited 0
     FAILED = "failed"  # non-zero exit
+
+
+class ConsensusMethod(StrEnum):
+    PASSTHROUGH = auto()  # R calls this "average" (-m 1) but it returns all trees as-is
+    MAJORITY = auto()
+    MAP = auto()
+    MCC = auto()
 
 
 class RegistryRow(TypedDict):
@@ -70,7 +77,6 @@ class InferenceResult:
     fn_rate: Optional[float] = None
     fp_rate: Optional[float] = None
     log_path: Optional[str] = None
-    metadata: dict[str, str] = field(default_factory=dict)
 
     def to_registry_row(self) -> RegistryRow:
         """Keys match the simulation registry sim-key names so the CSVs join."""

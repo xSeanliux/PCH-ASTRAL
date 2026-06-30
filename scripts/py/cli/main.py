@@ -1,5 +1,4 @@
 import json
-from enum import StrEnum, auto
 from pathlib import Path
 
 import typer
@@ -9,7 +8,7 @@ from rich import print
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
 from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference import registry
 from scripts.lib.inference.scoring import score
@@ -78,13 +77,6 @@ def score_(
         typer.echo(json.dumps({"fn_rate": sr.fn_rate, "fp_rate": sr.fp_rate}))
     else:
         typer.echo(f"FN {sr.fn_rate}  FP {sr.fp_rate}")
-
-
-class ConsensusMethod(StrEnum):
-    PASSTHROUGH = auto()  # R calls this "average" (-m 1) but it returns all trees as-is
-    MAJORITY = auto()
-    MAP = auto()
-    MCC = auto()
 
 
 # ConsensusMethod -> consensusTree.R `-m` mode int.

@@ -1,16 +1,14 @@
 """Inference pipeline: sim registry → api.infer per (dataset, method) → compact."""
 
-from datetime import datetime, timezone
 from pathlib import Path
 
 import polars as pl
 from pydantic import BaseModel
 from rich import print
 
-from scripts.lib.experiment import ExperimentConfig, MethodConfig
+from scripts.lib.experiment import ASTRAL3Config, ExperimentConfig, MethodConfig
 from scripts.lib.inference import api, registry
 from scripts.lib.inference.inference import (
-    InferenceResult,
     RunStatus,
     TreeInferenceMethod,
 )
@@ -27,16 +25,34 @@ _METHOD_FIELDS: list[tuple[TreeInferenceMethod, str]] = [
 ]
 
 
+# Heuristic ASTRAL3 bipartition strategy → the upstream method that produces it.
+_STRATEGY_METHOD = {
+    ASTRAL3Config.BipartitionStrategy.MP4_TREES: TreeInferenceMethod.MP,
+    ASTRAL3Config.BipartitionStrategy.GA_TREES: TreeInferenceMethod.GA,
+}
+
+
+def _astral3_required_methods(a3: ASTRAL3Config) -> set[TreeInferenceMethod]:
+    if a3.is_exact:
+        return set()
+    return {_STRATEGY_METHOD[s] for s in a3.effective_strategies}
+
+
 def select_methods(methods: MethodConfig) -> list[TreeInferenceMethod]:
     a3 = methods.astral_3
-    if (
-        a3 is not None
-        and not a3.is_exact
-        and (methods.mp4 is None or methods.gray_atkinson is None)
-    ):
-        raise ValueError(
-            "pch_astral3 (heuristic) requires mp4 and gray_atkinson enabled"
-        )
+    if a3 is not None:
+        attr_of = {m: attr for m, attr in _METHOD_FIELDS}
+        missing = [
+            attr_of[m]
+            for m in _astral3_required_methods(a3)
+            if getattr(methods, attr_of[m]) is None
+        ]
+        if missing:
+            strategies = [s.value for s in a3.effective_strategies]
+            raise ValueError(
+                f"pch_astral3 (heuristic, strategies={strategies}) requires: "
+                + ", ".join(sorted(missing))
+            )
     return [m for m, attr in _METHOD_FIELDS if getattr(methods, attr) is not None]
 
 
@@ -52,13 +68,12 @@ def _astral3_upstream_failed(
     method: TreeInferenceMethod,
     statuses: dict[TreeInferenceMethod, RunStatus],
 ) -> bool:
-    # Heuristic ASTRAL3 needs MP4 + GA bipartitions from THIS run (not stale files).
+    # Heuristic ASTRAL3 needs its selected bipartitions from THIS run (not stale files).
     a3 = methods.astral_3
-    if method is not TreeInferenceMethod.PCH_ASTRAL3 or a3 is None or a3.is_exact:
+    if method is not TreeInferenceMethod.PCH_ASTRAL3 or a3 is None:
         return False
-    return (
-        statuses.get(TreeInferenceMethod.MP) is not RunStatus.OK
-        or statuses.get(TreeInferenceMethod.GA) is not RunStatus.OK
+    return any(
+        statuses.get(m) is not RunStatus.OK for m in _astral3_required_methods(a3)
     )
 
 
@@ -87,16 +102,12 @@ def handle_inference(config: ExperimentConfig) -> Path:
         for method in methods:
             out_dir = inference_dir / Path(row["path"]).parent.name
             if _astral3_upstream_failed(config.methods, method, statuses):
-                result = InferenceResult(
-                    dataset_id=Path(row["path"]).stem,
-                    tree_inference_method=method,
-                    config_hash="",
-                    method_config_json="",
-                    point_estimate_newick="",
-                    runtime_seconds=0.0,
-                    status=RunStatus.FAILED,
-                    ran_at=datetime.now(timezone.utc).isoformat(),
-                    metadata={"reason": "upstream MP4/GA failed or absent this run"},
+                result = api.failed_result(
+                    Path(row["path"]).stem,
+                    out_dir,
+                    method,
+                    pipeline_config(config.methods, method),
+                    "upstream MP4/GA failed or absent this run",
                 )
             else:
                 result = api.infer(

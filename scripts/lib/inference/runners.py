@@ -4,13 +4,12 @@ from typing import Optional, Protocol
 from pydantic import BaseModel
 
 from scripts.lib.experiment import ASTRAL3Config
-from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
 
 # Quartet/bipartition params are fixed for now; the suffix disambiguates folders
 # when they become configurable (M4+). runASTRAL3.sh writes into this folder.
 ASTRAL3_QUARTET = 11
 ASTRAL3_BIPARTITIONS = 5
-ASTRAL_VARIANT = f"PCH_ASTRAL_3({ASTRAL3_QUARTET},{ASTRAL3_BIPARTITIONS})"
 
 
 class Runner(Protocol):
@@ -29,7 +28,7 @@ class Runner(Protocol):
 
     def group_estimate_path(self, output_dir: Path, name: str) -> Optional[Path]: ...
 
-    def consensus_method(self) -> Optional[str]: ...
+    def consensus_method(self) -> Optional[ConsensusMethod]: ...
 
     def log_path(self, output_dir: Path, name: str) -> Path: ...
 
@@ -38,7 +37,17 @@ class Runner(Protocol):
     ) -> list[Path]: ...
 
 
-class MP4Runner:
+class _BaseRunner:
+    """Shared defaults. Runners are stateless; methods are static."""
+
+    @staticmethod
+    def missing_prerequisites(
+        config: BaseModel, output_dir: Path, name: str
+    ) -> list[Path]:
+        return []  # most methods have no upstream artifacts
+
+
+class MP4Runner(_BaseRunner):
     # Stateless — methods are static; the registry holds a singleton instance.
     @staticmethod
     def build_argv(
@@ -66,21 +75,15 @@ class MP4Runner:
         return output_dir / "MP4" / "trees" / f"{name}.trees"
 
     @staticmethod
-    def consensus_method() -> Optional[str]:
-        return "majority"
+    def consensus_method() -> Optional[ConsensusMethod]:
+        return ConsensusMethod.MAJORITY
 
     @staticmethod
     def log_path(output_dir: Path, name: str) -> Path:
         return output_dir / "MP4" / "logs" / f"{name}.log"
 
-    @staticmethod
-    def missing_prerequisites(
-        config: BaseModel, output_dir: Path, name: str
-    ) -> list[Path]:
-        return []
 
-
-class GARunner:
+class GARunner(_BaseRunner):
     @staticmethod
     def build_argv(
         runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel
@@ -107,29 +110,29 @@ class GARunner:
         return output_dir / "GA" / "trees1" / f"{name}.trees"
 
     @staticmethod
-    def consensus_method() -> Optional[str]:
-        return "mcc"
+    def consensus_method() -> Optional[ConsensusMethod]:
+        return ConsensusMethod.MCC
 
     @staticmethod
     def log_path(output_dir: Path, name: str) -> Path:
         return output_dir / "GA" / "logs" / f"{name}.log"
 
-    @staticmethod
-    def missing_prerequisites(
-        config: BaseModel, output_dir: Path, name: str
-    ) -> list[Path]:
-        return []
 
+class ASTRAL3Runner(_BaseRunner):
+    VARIANT = f"PCH_ASTRAL_3({ASTRAL3_QUARTET},{ASTRAL3_BIPARTITIONS})"
 
-class ASTRAL3Runner:
+    # Strategy → (bipartition-source short name, .trees path parts under output_dir).
+    _STRATEGY_SOURCE = {
+        ASTRAL3Config.BipartitionStrategy.MP4_TREES: ("mp4", ("MP4", "trees")),
+        ASTRAL3Config.BipartitionStrategy.GA_TREES: ("ga", ("GA", "trees1")),
+    }
+
     @staticmethod
     def build_argv(
         runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel
     ) -> list[str]:
-        # Q/B fixed; heuristic mode uses MP4+GA bipartitions per the script.
-        # Map config.bipartition_strategies to runASTRAL params later.
+        # Q/B fixed. -V is the single source of truth for the output folder name.
         assert isinstance(config, ASTRAL3Config)
-        # -V is the single source of truth for the output folder name.
         argv = [
             "bash",
             "scripts/sh/runASTRAL3.sh",
@@ -140,41 +143,47 @@ class ASTRAL3Runner:
             "-o",
             str(output_dir),
             "-V",
-            ASTRAL_VARIANT,
+            ASTRAL3Runner.VARIANT,
             "-n",
             name,
         ]
         if config.is_exact:
             argv.append("-x")
+        else:
+            sources = ",".join(
+                ASTRAL3Runner._STRATEGY_SOURCE[s][0]
+                for s in config.effective_strategies
+            )
+            argv += ["-S", sources]
         return argv
 
     @staticmethod
     def point_estimate_path(output_dir: Path, name: str) -> Path:
-        return output_dir / ASTRAL_VARIANT / "trees" / f"{name}.tree"
+        return output_dir / ASTRAL3Runner.VARIANT / "trees" / f"{name}.tree"
 
     @staticmethod
     def group_estimate_path(output_dir: Path, name: str) -> Optional[Path]:
         return None
 
     @staticmethod
-    def consensus_method() -> Optional[str]:
+    def consensus_method() -> Optional[ConsensusMethod]:
         return None
 
     @staticmethod
     def log_path(output_dir: Path, name: str) -> Path:
-        return output_dir / ASTRAL_VARIANT / "logs" / f"{name}.log"
+        return output_dir / ASTRAL3Runner.VARIANT / "logs" / f"{name}.log"
 
     @staticmethod
     def missing_prerequisites(
         config: BaseModel, output_dir: Path, name: str
     ) -> list[Path]:
-        """Heuristic ASTRAL reads MP4 + GA tree sets to build bipartitions."""
+        """Heuristic ASTRAL reads the selected strategies' tree sets to build bipartitions."""
         assert isinstance(config, ASTRAL3Config)
         if config.is_exact:
             return []
         needed = [
-            output_dir / "MP4" / "trees" / f"{name}.trees",
-            output_dir / "GA" / "trees1" / f"{name}.trees",
+            output_dir.joinpath(*ASTRAL3Runner._STRATEGY_SOURCE[s][1], f"{name}.trees")
+            for s in config.effective_strategies
         ]
         return [p for p in needed if not p.exists()]
 

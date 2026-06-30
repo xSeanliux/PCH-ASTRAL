@@ -5,7 +5,6 @@ from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
 
 def _result() -> InferenceResult:
-    # Regression: a bare construction crashed when metadata used `= {}`.
     return InferenceResult(
         dataset_id="d1",
         tree_inference_method=TreeInferenceMethod.PCH_ASTRAL3,
@@ -16,12 +15,6 @@ def _result() -> InferenceResult:
         status=RunStatus.OK,
         ran_at="2026-06-24T00:00:00",
     )
-
-
-def test_construct_no_shared_mutable_default():
-    a, b = _result(), _result()
-    a.metadata["x"] = "1"
-    assert b.metadata == {}
 
 
 def test_registry_row_keys_match_schema():
