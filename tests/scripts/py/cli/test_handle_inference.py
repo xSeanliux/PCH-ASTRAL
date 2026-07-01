@@ -62,7 +62,7 @@ def test_select_methods_heuristic_astral3_requires_mp4_ga():
     cfg = ExperimentConfig.model_validate(
         _config(Path("x"), methods={"astral_3": {"is_exact": False}})
     )
-    with pytest.raises(ValueError, match="requires.*mp4"):
+    with pytest.raises(ValueError, match="pch_astral3 requires mp"):
         select_methods(cfg.methods)
 
 
@@ -70,7 +70,7 @@ def test_select_methods_default_strategies_missing_ga_raises():
     cfg = ExperimentConfig.model_validate(
         _config(Path("x"), methods={"mp4": {}, "astral_3": {"is_exact": False}})
     )
-    with pytest.raises(ValueError, match="gray_atkinson"):
+    with pytest.raises(ValueError, match="pch_astral3 requires ga"):
         select_methods(cfg.methods)
 
 
@@ -355,23 +355,14 @@ def test_handle_inference_astral3_runs_when_upstream_ok(tmp_path: Path, monkeypa
     assert TreeInferenceMethod.PCH_ASTRAL3 in calls
 
 
-def test_astral3_upstream_failed_only_gates_required_methods():
-    # strategies=[mp4_trees] → GA failure is irrelevant; only MP4 matters.
-    methods = MethodConfig(
-        mp4=MP4Config(),
-        astral_3=ASTRAL3Config(is_exact=False, bipartition_strategies=["mp4_trees"]),
-    )
-    statuses = {
-        TreeInferenceMethod.MP: RunStatus.OK,
-        TreeInferenceMethod.GA: RunStatus.FAILED,
-    }
-    assert not hi._astral3_upstream_failed(
-        methods, TreeInferenceMethod.PCH_ASTRAL3, statuses
-    )
-    statuses[TreeInferenceMethod.MP] = RunStatus.FAILED
-    assert hi._astral3_upstream_failed(
-        methods, TreeInferenceMethod.PCH_ASTRAL3, statuses
-    )
+def test_astral3_mp4_only_strategy_depends_on_mp_not_ga():
+    # strategies=[mp4_trees] → the gate only awaits MP4; GA is irrelevant.
+    from scripts.lib.inference.runners import RUNNERS
+
+    cfg = ASTRAL3Config(is_exact=False, bipartition_strategies=["mp4_trees"])
+    assert RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].dependencies(cfg) == [
+        TreeInferenceMethod.MP
+    ]
 
 
 def test_pipeline_config_maps_method_to_config_type():

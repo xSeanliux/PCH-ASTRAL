@@ -32,6 +32,8 @@ class Runner(Protocol):
 
     def log_path(self, output_dir: Path, name: str) -> Path: ...
 
+    def dependencies(self, config: BaseModel) -> list[TreeInferenceMethod]: ...
+
     def missing_prerequisites(
         self, config: BaseModel, output_dir: Path, name: str
     ) -> list[Path]: ...
@@ -41,10 +43,19 @@ class _BaseRunner:
     """Shared defaults. Runners are stateless; methods are static."""
 
     @staticmethod
+    def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
+        return []  # most methods stand alone
+
     def missing_prerequisites(
-        config: BaseModel, output_dir: Path, name: str
+        self, config: BaseModel, output_dir: Path, name: str
     ) -> list[Path]:
-        return []  # most methods have no upstream artifacts
+        # Generic: each dependency's group_estimate_path IS the prereq .trees file.
+        missing = []
+        for dep in self.dependencies(config):
+            p = RUNNERS[dep].group_estimate_path(output_dir, name)
+            if p is None or not p.exists():
+                missing.append(p)
+        return missing
 
 
 class MP4Runner(_BaseRunner):
@@ -127,6 +138,25 @@ class ASTRAL3Runner(_BaseRunner):
         ASTRAL3Config.BipartitionStrategy.GA_TREES: ("ga", ("GA", "trees1")),
     }
 
+    # Strategy → upstream method producing its bipartitions.
+    _STRATEGY_METHOD = {
+        ASTRAL3Config.BipartitionStrategy.MP4_TREES: TreeInferenceMethod.MP,
+        ASTRAL3Config.BipartitionStrategy.GA_TREES: TreeInferenceMethod.GA,
+    }
+
+    @staticmethod
+    def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
+        # Heuristic ASTRAL reads the selected strategies' tree sets; exact has none.
+        assert isinstance(config, ASTRAL3Config)
+        if config.is_exact:
+            return []
+        methods: list[TreeInferenceMethod] = []
+        for s in config.effective_strategies:  # preserve order, dedup
+            m = ASTRAL3Runner._STRATEGY_METHOD[s]
+            if m not in methods:
+                methods.append(m)
+        return methods
+
     @staticmethod
     def build_argv(
         runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel
@@ -172,20 +202,6 @@ class ASTRAL3Runner(_BaseRunner):
     @staticmethod
     def log_path(output_dir: Path, name: str) -> Path:
         return output_dir / ASTRAL3Runner.VARIANT / "logs" / f"{name}.log"
-
-    @staticmethod
-    def missing_prerequisites(
-        config: BaseModel, output_dir: Path, name: str
-    ) -> list[Path]:
-        """Heuristic ASTRAL reads the selected strategies' tree sets to build bipartitions."""
-        assert isinstance(config, ASTRAL3Config)
-        if config.is_exact:
-            return []
-        needed = [
-            output_dir.joinpath(*ASTRAL3Runner._STRATEGY_SOURCE[s][1], f"{name}.trees")
-            for s in config.effective_strategies
-        ]
-        return [p for p in needed if not p.exists()]
 
 
 # Method -> Runner. Later milestones add WASTRALRunner, etc.

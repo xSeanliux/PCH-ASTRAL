@@ -6,54 +6,24 @@ import polars as pl
 from pydantic import BaseModel
 from rich import print
 
-from scripts.lib.experiment import ASTRAL3Config, ExperimentConfig, MethodConfig
+from scripts.lib.experiment import ExperimentConfig, MethodConfig
 from scripts.lib.inference import api, registry
 from scripts.lib.inference.inference import (
     RunStatus,
     TreeInferenceMethod,
 )
+from scripts.lib.inference.runners import RUNNERS
 from scripts.lib.inference.scoring import resolve_reference_newick, score
 from scripts.lib.types import Polymorphism
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
-# Single source of truth: (method, MethodConfig attr) in dependency order —
-# MP4 and GA before ASTRAL3 (which needs their bipartitions).
+# Single source of truth: (method, MethodConfig attr). Order is the stable
+# tiebreak for the topological sort below; real ordering comes from dependencies().
 _METHOD_FIELDS: list[tuple[TreeInferenceMethod, str]] = [
     (TreeInferenceMethod.MP, "mp4"),
     (TreeInferenceMethod.GA, "gray_atkinson"),
     (TreeInferenceMethod.PCH_ASTRAL3, "astral_3"),
 ]
-
-
-# Heuristic ASTRAL3 bipartition strategy → the upstream method that produces it.
-_STRATEGY_METHOD = {
-    ASTRAL3Config.BipartitionStrategy.MP4_TREES: TreeInferenceMethod.MP,
-    ASTRAL3Config.BipartitionStrategy.GA_TREES: TreeInferenceMethod.GA,
-}
-
-
-def _astral3_required_methods(a3: ASTRAL3Config) -> set[TreeInferenceMethod]:
-    if a3.is_exact:
-        return set()
-    return {_STRATEGY_METHOD[s] for s in a3.effective_strategies}
-
-
-def select_methods(methods: MethodConfig) -> list[TreeInferenceMethod]:
-    a3 = methods.astral_3
-    if a3 is not None:
-        attr_of = {m: attr for m, attr in _METHOD_FIELDS}
-        missing = [
-            attr_of[m]
-            for m in _astral3_required_methods(a3)
-            if getattr(methods, attr_of[m]) is None
-        ]
-        if missing:
-            strategies = [s.value for s in a3.effective_strategies]
-            raise ValueError(
-                f"pch_astral3 (heuristic, strategies={strategies}) requires: "
-                + ", ".join(sorted(missing))
-            )
-    return [m for m, attr in _METHOD_FIELDS if getattr(methods, attr) is not None]
 
 
 def pipeline_config(methods: MethodConfig, m: TreeInferenceMethod) -> BaseModel:
@@ -63,18 +33,31 @@ def pipeline_config(methods: MethodConfig, m: TreeInferenceMethod) -> BaseModel:
     return config
 
 
-def _astral3_upstream_failed(
-    methods: MethodConfig,
-    method: TreeInferenceMethod,
-    statuses: dict[TreeInferenceMethod, RunStatus],
-) -> bool:
-    # Heuristic ASTRAL3 needs its selected bipartitions from THIS run (not stale files).
-    a3 = methods.astral_3
-    if method is not TreeInferenceMethod.PCH_ASTRAL3 or a3 is None:
-        return False
-    return any(
-        statuses.get(m) is not RunStatus.OK for m in _astral3_required_methods(a3)
-    )
+def _topological_order(
+    enabled: list[TreeInferenceMethod], methods: MethodConfig
+) -> list[TreeInferenceMethod]:
+    # Kahn-style; stable by _METHOD_FIELDS order. Deps already known enabled.
+    order = {m: i for i, (m, _) in enumerate(_METHOD_FIELDS)}
+    enabled = sorted(enabled, key=lambda m: order[m])
+    deps = {m: RUNNERS[m].dependencies(pipeline_config(methods, m)) for m in enabled}
+    result: list[TreeInferenceMethod] = []
+    while len(result) < len(enabled):
+        ready = [m for m in enabled if m not in result and all(d in result for d in deps[m])]
+        if not ready:
+            raise ValueError("dependency cycle among inference methods")
+        result.extend(ready)
+    return result
+
+
+def select_methods(methods: MethodConfig) -> list[TreeInferenceMethod]:
+    enabled = [m for m, attr in _METHOD_FIELDS if getattr(methods, attr) is not None]
+    enabled_set = set(enabled)
+    # Co-requisite: every dependency of an enabled method must also be enabled.
+    for m in enabled:
+        for dep in RUNNERS[m].dependencies(pipeline_config(methods, m)):
+            if dep not in enabled_set:
+                raise ValueError(f"{m.value} requires {dep.value} to be enabled")
+    return _topological_order(enabled, methods)
 
 
 def handle_inference(config: ExperimentConfig) -> Path:
@@ -101,21 +84,24 @@ def handle_inference(config: ExperimentConfig) -> Path:
         statuses: dict[TreeInferenceMethod, RunStatus] = {}
         for method in methods:
             out_dir = inference_dir / Path(row["path"]).parent.name
-            if _astral3_upstream_failed(config.methods, method, statuses):
+            cfg = pipeline_config(config.methods, method)
+            # Dependencies must have succeeded THIS run (not stale files). A SLURM
+            # launcher would instead await these deps — dependencies() is that hook.
+            unmet = [
+                d
+                for d in RUNNERS[method].dependencies(cfg)
+                if statuses.get(d) is not RunStatus.OK
+            ]
+            if unmet:
                 result = api.failed_result(
                     Path(row["path"]).stem,
                     out_dir,
                     method,
-                    pipeline_config(config.methods, method),
-                    "upstream MP4/GA failed or absent this run",
+                    cfg,
+                    f"unmet dependencies: {', '.join(d.value for d in unmet)}",
                 )
             else:
-                result = api.infer(
-                    Path(row["path"]),
-                    out_dir,
-                    method,
-                    pipeline_config(config.methods, method),
-                )
+                result = api.infer(Path(row["path"]), out_dir, method, cfg)
             statuses[method] = result.status
             # Stamp the simulation join keys from the sim-registry row.
             result.poly = Polymorphism(row["poly_level"])
