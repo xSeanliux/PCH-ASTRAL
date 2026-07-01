@@ -42,7 +42,9 @@ def _topological_order(
     deps = {m: RUNNERS[m].dependencies(pipeline_config(methods, m)) for m in enabled}
     result: list[TreeInferenceMethod] = []
     while len(result) < len(enabled):
-        ready = [m for m in enabled if m not in result and all(d in result for d in deps[m])]
+        ready = [
+            m for m in enabled if m not in result and all(d in result for d in deps[m])
+        ]
         if not ready:
             raise ValueError("dependency cycle among inference methods")
         result.extend(ready)
