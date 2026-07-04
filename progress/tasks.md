@@ -18,6 +18,7 @@ Migrate legacy bash inference to the config-driven CLI. **Plan:** [`progress/pla
 
 ## Followups
 
+- [ ] On-disk variant disambiguation: the ASTRAL3 output folder is a flat `PCH_W_ASTRAL3`, so two runs with different `bipartition_strategies` into the same `output_dir` collide (last-writer-wins on disk; the registry still keeps both rows via `config_hash`). Add a per-config identifier subfolder — but a raw sha256 `config_hash` isn't human-friendly. Instead require each config type to define a **human-readable label/slug** (e.g. `mp4-ga`) and use it in the path (`PCH_W_ASTRAL3/<label>/trees/…`). Left for when multi-variant runs are real; registry is the source of truth until then.
 - [ ] Tiny end-to-end integration test (run every method through `pch experiment inference` vs a reference; cache binary install; compare FN/FP + registry shape). Would catch the bugs live-testing found.
 - [ ] Deferred: inline `runASTRAL3.sh` (two Python steps + one `java`) into `ASTRAL3Runner` when the runner protocol grows a `run()` beyond `build_argv` (noted in `SCRIPT_CONTRACTS.md`).
 - [ ] Reconcile stale downstream branches M4 (#21) + refactor (#22) onto the final M1/M2/M3.
