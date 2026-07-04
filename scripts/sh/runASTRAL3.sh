@@ -1,6 +1,6 @@
 #!/bin/bash
 # CLI variant of runASTRAL.sh: writes into the folder named by -V (e.g.
-# PCH_ASTRAL_3(11,5)). The runner (scripts/lib/inference/runners.py) is the
+# PCH_W_ASTRAL3). The runner (scripts/lib/inference/runners.py) is the
 # single source of truth for that name. Legacy runASTRAL.sh is kept as-is for
 # the old bash pipeline.
 # Initialize variables with defaults
@@ -29,7 +29,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -i, --input           Input file or value"
             echo "  -o, --output          Output dir (required)"
             echo "  -n, --name            Dataset name"
-            echo "  -V, --variant         Output folder name (e.g. PCH_ASTRAL_3(11,5))"
+            echo "  -V, --variant         Output folder name (e.g. PCH_W_ASTRAL3)"
             echo ""
             echo "Optional:"
             echo "  -S, --sources         Heuristic bipartition sources, comma list (default mp4,ga)"

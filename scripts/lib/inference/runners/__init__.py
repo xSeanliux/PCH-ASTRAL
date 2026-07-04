@@ -1,9 +1,5 @@
 from scripts.lib.inference.inference import TreeInferenceMethod
-from scripts.lib.inference.runners.astral3 import (
-    ASTRAL3_BIPARTITIONS,
-    ASTRAL3_QUARTET,
-    ASTRAL3Runner,
-)
+from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
 from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
@@ -20,7 +16,5 @@ __all__ = [
     "MP4Runner",
     "GARunner",
     "ASTRAL3Runner",
-    "ASTRAL3_QUARTET",
-    "ASTRAL3_BIPARTITIONS",
     "RUNNERS",
 ]

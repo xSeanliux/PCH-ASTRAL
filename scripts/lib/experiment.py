@@ -36,15 +36,6 @@ class ASTRAL3Config(BaseModel):
     bipartition_strategies: list[BipartitionStrategy] = Field(list())
     is_exact: bool
 
-    @property
-    def effective_strategies(self) -> list["ASTRAL3Config.BipartitionStrategy"]:
-        """Heuristic bipartition sources; empty defaults to MP4+GA (today's behavior)."""
-        S = ASTRAL3Config.BipartitionStrategy
-        strategies = self.bipartition_strategies or [S.MP4_TREES, S.GA_TREES]
-        if S.BINARY_CHARACTER in strategies:
-            raise NotImplementedError("binary_character bipartitions not yet supported")
-        return strategies
-
 
 class WeightedASTRALConfig(BaseModel):
     model_config = ConfigDict(frozen=True)

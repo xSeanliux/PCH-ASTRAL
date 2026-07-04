@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from scripts.lib.experiment import ASTRAL3Config, GAConfig, MP4Config
 from scripts.lib.inference import runners
 from scripts.lib.inference.runners import RUNNERS
@@ -101,7 +103,7 @@ def test_astral3_runner_build_argv_exact():
         "-o",
         "out/high_0.1_4_320",
         "-V",
-        "PCH_ASTRAL_3(11,5)",
+        "PCH_W_ASTRAL3",
         "-n",
         "sim_0_1_1",
         "-x",
@@ -144,6 +146,13 @@ def test_astral3_runner_build_argv_ga_only_source():
 
 def test_astral3_runner_build_argv_exact_has_no_sources():
     assert "-S" not in _astral3_argv(ASTRAL3Config(is_exact=True))
+
+
+def test_astral3_runner_binary_character_not_implemented():
+    with pytest.raises(NotImplementedError):
+        _astral3_argv(
+            ASTRAL3Config(is_exact=False, bipartition_strategies=["binary_character"])
+        )
 
 
 def test_astral3_runner_artifact_paths():
