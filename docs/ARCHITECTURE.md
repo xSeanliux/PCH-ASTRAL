@@ -30,7 +30,7 @@ The registry holds **only successful results**, so a row for `(dataset, method)`
 
 1. **Enabled** = a config of the method's type (`METHOD_CONFIG[method]`) is present in `MethodConfig` (matched by class, no field-name table).
 2. **Order** — `topological_order` puts each method after the enabled deps it needs (deps enabled elsewhere / run separately are ignored here; the gate covers them). Cycles raise.
-3. Per `(dataset, method)`, the `Ledger` (seeded from the prior registry, updated as methods succeed this run) decides:
+3. Per `(dataset, method)`, `completed_runs` (the prior registry as `{dataset → {(method, config_hash)}}`, plus this run's successes) decides:
    - **skip** if `(dataset, method, config_hash)` is already recorded — *resume*, don't redo work;
    - **block** (log, no row) if a dependency has no successful result — counting this run **and** prior runs;
    - else **run** `api.infer`; **OK → a registry row**, **failed → log only**.

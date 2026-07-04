@@ -27,27 +27,29 @@ class ASTRAL3Runner:
 
     @staticmethod
     def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
-        # Heuristic ASTRAL reads the selected strategies' tree sets; exact has none.
+        # Heuristic ASTRAL reads the selected sources' tree sets; exact has none.
         assert isinstance(config, ASTRAL3Config)
         if config.is_exact:
             return []
-        methods: list[TreeInferenceMethod] = []
-        for s in ASTRAL3Runner._effective_strategies(config):  # order-preserving dedup
-            m = ASTRAL3Runner._STRATEGY_METHOD[s]
-            if m not in methods:
-                methods.append(m)
-        return methods
+        # order-preserving dedup of each source's upstream method
+        return list(
+            dict.fromkeys(
+                ASTRAL3Runner._STRATEGY_METHOD[s]
+                for s in ASTRAL3Runner._bipartition_sources(config)
+            )
+        )
 
     @staticmethod
-    def _effective_strategies(
+    def _bipartition_sources(
         config: ASTRAL3Config,
     ) -> list[ASTRAL3Config.BipartitionStrategy]:
-        """Heuristic bipartition sources; empty defaults to MP4+GA (today's behavior)."""
+        """Which tree sets feed the heuristic run's bipartitions; empty config
+        defaults to MP4 + GA (today's behavior)."""
         S = ASTRAL3Config.BipartitionStrategy
-        strategies = config.bipartition_strategies or [S.MP4_TREES, S.GA_TREES]
-        if S.BINARY_CHARACTER in strategies:
+        sources = config.bipartition_strategies or [S.MP4_TREES, S.GA_TREES]
+        if S.BINARY_CHARACTER in sources:
             raise NotImplementedError("binary_character bipartitions not yet supported")
-        return strategies
+        return sources
 
     @staticmethod
     def build_argv(
@@ -74,7 +76,7 @@ class ASTRAL3Runner:
         else:
             sources = ",".join(
                 ASTRAL3Runner._STRATEGY_SOURCE[s]
-                for s in ASTRAL3Runner._effective_strategies(config)
+                for s in ASTRAL3Runner._bipartition_sources(config)
             )
             argv += ["-S", sources]
         return argv

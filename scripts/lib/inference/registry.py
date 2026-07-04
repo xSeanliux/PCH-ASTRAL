@@ -18,9 +18,8 @@ import polars as pl
 from scripts.lib.inference.inference import InferenceResult
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
-# Human-readable dedup identity (no opaque hash filename). config_hash is the
-# only hashed term and is sha256 (see method_config.config_hash).
-_KEY_COLUMNS = [
+# The join keys that identify a dataset (the scheduler's ledger keys on these).
+DATASET_KEY_COLUMNS = [
     "dataset_id",
     "poly_level",
     "character_count",
@@ -29,9 +28,10 @@ _KEY_COLUMNS = [
     "horizontal_edges",
     "model_tree",
     "replica",
-    "method",
-    "config_hash",
 ]
+# Full human-readable dedup identity = dataset + which method + which config.
+# config_hash is the only hashed term (sha256; see method_config.config_hash).
+_KEY_COLUMNS = DATASET_KEY_COLUMNS + ["method", "config_hash"]
 
 
 def _keyval(v: object) -> str:
@@ -68,16 +68,6 @@ def _shards_dir(experiment_folder: Path) -> Path:
 
 def registry_path(experiment_folder: Path) -> Path:
     return experiment_folder / "inference_data" / "inference_registry.csv"
-
-
-def load_rows(experiment_folder: Path) -> list[dict[str, object]]:
-    """Rows in the compacted registry (all successful — the scheduler's ledger)."""
-    out = registry_path(experiment_folder)
-    if not out.exists():
-        return []
-    return list(
-        pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).iter_rows(named=True)
-    )
 
 
 def write_result(result: InferenceResult, experiment_folder: Path) -> Path:

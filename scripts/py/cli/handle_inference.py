@@ -26,26 +26,12 @@ def select_methods(methods: MethodConfig) -> list[TreeInferenceMethod]:
     # Ordered so dependencies run first; a dependency enabled elsewhere / in a
     # prior run is handled at run time by the scheduler's registry gate.
     enabled = [m for m in RUNNERS if config_for(methods, m) is not None]
-    deps_of = {}
+    deps_of: dict[TreeInferenceMethod, list[TreeInferenceMethod]] = {}
     for m in enabled:
         cfg = config_for(methods, m)
         assert cfg is not None  # enabled ⇒ present
         deps_of[m] = RUNNERS[m].dependencies(cfg)
     return scheduler.topological_order(enabled, deps_of)
-
-
-def _dataset_keys(row: dict[str, object]) -> dict[str, object]:
-    """The join-key columns for a sim-registry row (dataset_id from its path)."""
-    return {
-        "dataset_id": Path(str(row["path"])).stem,
-        "poly_level": row["poly_level"],
-        "character_count": row["character_count"],
-        "min_tree_height": row["min_tree_height"],
-        "homoplasy_factor": row["homoplasy_factor"],
-        "horizontal_edges": row["horizontal_edges"],
-        "model_tree": row["model_tree"],
-        "replica": row["replica"],
-    }
 
 
 def handle_inference(config: ExperimentConfig) -> Path:
@@ -63,29 +49,36 @@ def handle_inference(config: ExperimentConfig) -> Path:
     inference_dir = experiment_folder / "inference_data"
     registry.init_manifest(experiment_folder, [m.value for m in methods])
 
-    ledger = scheduler.Ledger(experiment_folder)
+    done = scheduler.completed_runs(experiment_folder)  # {dataset → {(method, cfg)}}
     tally = {"ok": 0, "skipped": 0, "blocked": 0, "failed": 0}
     rows = pl.read_csv(sim_registry, schema=SIMULATED_DATA_REGISTRY_SCHEMA).iter_rows(
         named=True
     )
     for row in rows:
-        keys = _dataset_keys(row)
-        dkey = scheduler.dataset_key(keys)
+        dataset_id = Path(str(row["path"])).stem
+        dkey = (dataset_id, *(row[c] for c in registry.DATASET_KEY_COLUMNS[1:]))
+        prior = done.get(dkey, set())
+        ok_methods = {m for m, _ in prior}  # this dataset's OK methods; grows below
         out_dir = inference_dir / Path(str(row["path"])).parent.name
+
         for method in methods:
             cfg = config_for(config.methods, method)
             assert cfg is not None  # select_methods only yields enabled methods
+            ch = config_hash(cfg)
 
-            if ledger.already_done(keys, method, config_hash(cfg)):
-                ledger.mark_ok(dkey, method)  # its dependents still see it satisfied
+            if (method.value, ch) in prior:  # resume: this exact unit already done
                 tally["skipped"] += 1
                 continue
 
-            unmet = ledger.unmet_dependencies(dkey, RUNNERS[method].dependencies(cfg))
+            unmet = [
+                d
+                for d in RUNNERS[method].dependencies(cfg)
+                if d.value not in ok_methods
+            ]
             if unmet:
                 need = ", ".join(d.value for d in unmet)
                 print(
-                    f"[yellow]{method.value} blocked on {keys['dataset_id']}: "
+                    f"[yellow]{method.value} blocked on {dataset_id}: "
                     f"missing {need}[/yellow]"
                 )
                 tally["blocked"] += 1
@@ -95,7 +88,7 @@ def handle_inference(config: ExperimentConfig) -> Path:
             if result.status is not RunStatus.OK:
                 # Not analyzable → not in the registry; the log has the details.
                 print(
-                    f"[yellow]{method.value} failed on {keys['dataset_id']} "
+                    f"[yellow]{method.value} failed on {dataset_id} "
                     f"(see {result.log_path})[/yellow]"
                 )
                 tally["failed"] += 1
@@ -109,7 +102,7 @@ def handle_inference(config: ExperimentConfig) -> Path:
             result.ret_edges = row["horizontal_edges"]
             result.target_tree = row["model_tree"]
             result.replica = row["replica"]
-            if result.target_tree is not None:
+            if result.target_tree is not None and result.point_estimate_newick:
                 try:
                     ref = resolve_reference_newick(
                         experiment_folder, result.target_tree
@@ -122,7 +115,7 @@ def handle_inference(config: ExperimentConfig) -> Path:
                         f"[yellow]Scoring failed for {result.dataset_id}: {e}[/yellow]"
                     )
             registry.write_result(result, experiment_folder)
-            ledger.mark_ok(dkey, method)
+            ok_methods.add(method.value)
             tally["ok"] += 1
 
     registry.finalize_manifest(experiment_folder, tally["ok"])

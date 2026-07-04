@@ -1,85 +1,81 @@
 """Dependency-aware scheduling for the inference pipeline.
 
-The registry holds ONLY successful results, so a row for `(dataset, method)`
-means that method produced usable output for that dataset. The scheduler builds
-on that ledger:
-
-- **skip** a method whose exact `(dataset, method, config_hash)` is already
-  recorded (resume — don't redo work);
-- **block** a method whose dependency has no successful result yet — counting
-  both prior runs (the registry) and methods that already succeeded this run;
-- otherwise **run** it.
-
-Failures and blocks are NOT written to the registry — they're logged by the
-caller. This module is pure/stateful-in-memory; it does no I/O beyond reading
-the registry once when the `Ledger` is built.
+The registry holds only successful results, so a `(dataset, method, config_hash)`
+row means that unit is done. `completed_runs` loads those into a lookup that
+drives both **resume** (skip an exact already-done unit) and the **dependency
+gate** (a method's output is available). Blocks/failures are logged by the
+caller, never recorded. See docs/ARCHITECTURE.md.
 """
 
-from collections import defaultdict
+from collections import defaultdict, deque
+from collections.abc import Mapping
 from pathlib import Path
 
+import polars as pl
+
 from scripts.lib.inference import registry
-from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.inference.inference import RunStatus, TreeInferenceMethod
+from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
-# A dataset's identity = the dedup run_key minus (method, config_hash).
-_DATASET_COLUMNS = registry._KEY_COLUMNS[:-2]
+# A registry/sim cell value, and a dataset's identity (its join-key values).
+Cell = str | int | float | None
+DatasetKey = tuple[Cell, ...]
 
 
-def dataset_key(row: dict[str, object]) -> tuple:
-    """Identity of a dataset from a registry/sim row (its join keys)."""
-    return tuple(row.get(c) for c in _DATASET_COLUMNS)
+def dataset_key(row: Mapping[str, Cell]) -> DatasetKey:
+    """A dataset's identity — its join-key values, in DATASET_KEY_COLUMNS order."""
+    return tuple(row[c] for c in registry.DATASET_KEY_COLUMNS)
+
+
+def completed_runs(experiment_folder: Path) -> dict[DatasetKey, set[tuple[str, str]]]:
+    """`{dataset → {(method, config_hash)}}` for successful prior runs.
+
+    `(method, config_hash)` present ⇒ that exact unit is done (resume skip);
+    the method present (any config) ⇒ its output is available (dependency gate).
+    """
+    out = registry.registry_path(experiment_folder)
+    if not out.exists():
+        return {}
+    done: dict[DatasetKey, set[tuple[str, str]]] = defaultdict(set)
+    for row in pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).iter_rows(named=True):
+        if row["status"] != RunStatus.OK.value:  # trust only successes
+            continue
+        done[dataset_key(row)].add((row["method"], row["config_hash"]))
+    return dict(done)
 
 
 def topological_order(
     enabled: list[TreeInferenceMethod],
-    deps_of: dict[TreeInferenceMethod, list[TreeInferenceMethod]],
+    deps_of: Mapping[TreeInferenceMethod, list[TreeInferenceMethod]],
 ) -> list[TreeInferenceMethod]:
-    """Order the enabled methods so each follows the enabled deps it needs.
+    """Order the enabled methods so each runs after its dependencies.
 
-    Dependencies not in `enabled` (e.g. run in a separate invocation) are ignored
-    here — the run-time gate handles them. Stable by input order; raises on a cycle.
+    `deps_of[x] == [a, b]` means **x depends on a and b** — a and b run before x.
+    Dependencies not in `enabled` (run in a separate invocation) are ignored; the
+    run-time gate handles them. Kahn's algorithm, O(V + E); stable by `enabled`
+    order; raises on a cycle.
     """
     in_run = set(enabled)
-    result: list[TreeInferenceMethod] = []
-    done: set[TreeInferenceMethod] = set()
-    pending = list(enabled)
-    while pending:
-        ready = [
-            m for m in pending if all(d in done for d in deps_of[m] if d in in_run)
-        ]
-        if not ready:
-            raise ValueError("dependency cycle among inference methods")
-        for m in ready:
-            result.append(m)
-            done.add(m)
-            pending.remove(m)
-    return result
+    indegree = {m: 0 for m in enabled}
+    dependents: dict[TreeInferenceMethod, list[TreeInferenceMethod]] = {
+        m: [] for m in enabled
+    }
+    for m in enabled:
+        for dep in deps_of.get(m, []):
+            if dep in in_run:
+                indegree[m] += 1
+                dependents[dep].append(m)
 
+    queue = deque(m for m in enabled if indegree[m] == 0)
+    order: list[TreeInferenceMethod] = []
+    while queue:
+        m = queue.popleft()
+        order.append(m)
+        for dependent in dependents[m]:
+            indegree[dependent] -= 1
+            if indegree[dependent] == 0:
+                queue.append(dependent)
 
-class Ledger:
-    """Which `(dataset, method)` pairs have succeeded — seeded from the registry
-    (prior runs), updated as methods succeed this run."""
-
-    def __init__(self, experiment_folder: Path) -> None:
-        self._done_keys: set[str] = set()  # full run_key → resume (exact config)
-        self._ok: dict[tuple, set[str]] = defaultdict(set)  # dataset → {method.value}
-        for row in registry.load_rows(experiment_folder):
-            self._done_keys.add(registry.run_key(row))
-            self._ok[dataset_key(row)].add(str(row["method"]))
-
-    def already_done(
-        self, keys: dict[str, object], method: TreeInferenceMethod, config_hash: str
-    ) -> bool:
-        """Same dataset + method + config already succeeded (resume → skip)."""
-        probe = {**keys, "method": method.value, "config_hash": config_hash}
-        return registry.run_key(probe) in self._done_keys
-
-    def unmet_dependencies(
-        self, dkey: tuple, deps: list[TreeInferenceMethod]
-    ) -> list[TreeInferenceMethod]:
-        """Deps with no successful result for this dataset (this run or prior)."""
-        ok = self._ok[dkey]
-        return [d for d in deps if d.value not in ok]
-
-    def mark_ok(self, dkey: tuple, method: TreeInferenceMethod) -> None:
-        self._ok[dkey].add(method.value)
+    if len(order) != len(enabled):
+        raise ValueError("dependency cycle among inference methods")
+    return order

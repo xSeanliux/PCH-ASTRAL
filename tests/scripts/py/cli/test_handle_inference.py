@@ -312,3 +312,37 @@ def test_handle_inference_omits_failed_from_registry(tmp_path: Path, monkeypatch
 
     assert calls == [TreeInferenceMethod.MP]  # it ran
     assert pl.read_csv(out).height == 0  # but failures aren't in the registry
+
+
+def test_handle_inference_astral3_runs_when_upstream_ok_same_run(tmp_path, monkeypatch):
+    # MP4 + GA succeed this run → heuristic ASTRAL3's gate passes → it IS invoked.
+    cfg = _setup(
+        tmp_path,
+        {"mp4": {}, "gray_atkinson": {}, "astral_3": {"is_exact": False}},
+    )
+    calls: list = []
+    monkeypatch.setattr(api, "infer", _ok_infer(calls))
+    monkeypatch.setattr(hi, "score", lambda est, ref: ScoreResult(0.25, 0.5))
+
+    handle_inference(cfg)
+
+    assert TreeInferenceMethod.PCH_ASTRAL3 in calls  # not blocked
+
+
+def test_handle_inference_astral3_runs_from_prior_registry(tmp_path, monkeypatch):
+    # Cross-invocation: run 1 populates MP4+GA; run 2 is heuristic ASTRAL3 ALONE,
+    # unblocked by the prior run's registry rows (the schema-alignment path).
+    calls: list = []
+    monkeypatch.setattr(api, "infer", _ok_infer(calls))
+    monkeypatch.setattr(hi, "score", lambda est, ref: ScoreResult(0.25, 0.5))
+
+    handle_inference(_setup(tmp_path, {"mp4": {}, "gray_atkinson": {}}))
+    assert set(calls) == {TreeInferenceMethod.MP, TreeInferenceMethod.GA}
+
+    calls.clear()
+    cfg2 = ExperimentConfig.model_validate(
+        _config(tmp_path, methods={"astral_3": {"is_exact": False}})
+    )
+    handle_inference(cfg2)
+
+    assert calls == [TreeInferenceMethod.PCH_ASTRAL3]  # deps satisfied by run 1
