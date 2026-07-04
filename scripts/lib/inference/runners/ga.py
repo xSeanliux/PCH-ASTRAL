@@ -4,10 +4,9 @@ from typing import Optional
 from pydantic import BaseModel
 
 from scripts.lib.inference.inference import ConsensusMethod
-from scripts.lib.inference.runners.base import _BaseRunner
 
 
-class GARunner(_BaseRunner):
+class GARunner:
     @staticmethod
     def build_argv(
         runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel

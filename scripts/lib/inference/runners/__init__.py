@@ -4,7 +4,7 @@ from scripts.lib.inference.runners.astral3 import (
     ASTRAL3_QUARTET,
     ASTRAL3Runner,
 )
-from scripts.lib.inference.runners.base import Runner, _BaseRunner
+from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
 
@@ -17,7 +17,6 @@ RUNNERS: dict[TreeInferenceMethod, Runner] = {
 
 __all__ = [
     "Runner",
-    "_BaseRunner",
     "MP4Runner",
     "GARunner",
     "ASTRAL3Runner",

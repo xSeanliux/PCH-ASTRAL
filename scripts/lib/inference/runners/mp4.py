@@ -4,10 +4,9 @@ from typing import Optional
 from pydantic import BaseModel
 
 from scripts.lib.inference.inference import ConsensusMethod
-from scripts.lib.inference.runners.base import _BaseRunner
 
 
-class MP4Runner(_BaseRunner):
+class MP4Runner:
     # Stateless — methods are static; the registry holds a singleton instance.
     @staticmethod
     def build_argv(
