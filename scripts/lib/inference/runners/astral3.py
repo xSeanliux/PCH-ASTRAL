@@ -4,13 +4,14 @@ from typing import Optional
 from pydantic import BaseModel
 
 from scripts.lib.experiment import ASTRAL3Config
-from scripts.lib.inference.inference import ConsensusMethod, QuartetScheme
+from scripts.lib.inference.inference import ConsensusMethod
+from scripts.lib.pch import PCH_W
 
 
 class ASTRAL3Runner:
     # runASTRAL3.sh generates quartets via PCH_W (scripts/py/printQuartets).
-    SCHEME = QuartetScheme.W
-    VARIANT = f"PCH_{SCHEME}_ASTRAL3"  # -> "PCH_W_ASTRAL3"
+    SCHEME = PCH_W
+    VARIANT = f"{SCHEME.__name__}_ASTRAL3"  # -> "PCH_W_ASTRAL3"
 
     # Strategy → bipartition-source short name passed to runASTRAL3.sh via -S.
     _STRATEGY_SOURCE = {

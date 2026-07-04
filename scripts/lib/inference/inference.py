@@ -12,13 +12,6 @@ class TreeInferenceMethod(StrEnum):
     GA = "ga"
 
 
-class QuartetScheme(StrEnum):
-    """PCH quartet-generation scheme — see scripts/lib/pch.py (PCH_O / PCH_W)."""
-
-    O = "O"
-    W = "W"
-
-
 class RunStatus(StrEnum):
     OK = "ok"  # the inference command exited 0
     FAILED = "failed"  # non-zero exit
