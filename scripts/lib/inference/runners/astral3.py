@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from scripts.lib.experiment import ASTRAL3Config
-from scripts.lib.inference.inference import ConsensusMethod
+from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
 from scripts.lib.pch import PCH_W
 
 
@@ -18,6 +18,25 @@ class ASTRAL3Runner:
         ASTRAL3Config.BipartitionStrategy.MP4_TREES: "mp4",
         ASTRAL3Config.BipartitionStrategy.GA_TREES: "ga",
     }
+
+    # Strategy → the upstream method that produces its bipartitions.
+    _STRATEGY_METHOD = {
+        ASTRAL3Config.BipartitionStrategy.MP4_TREES: TreeInferenceMethod.MP,
+        ASTRAL3Config.BipartitionStrategy.GA_TREES: TreeInferenceMethod.GA,
+    }
+
+    @staticmethod
+    def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
+        # Heuristic ASTRAL reads the selected strategies' tree sets; exact has none.
+        assert isinstance(config, ASTRAL3Config)
+        if config.is_exact:
+            return []
+        methods: list[TreeInferenceMethod] = []
+        for s in ASTRAL3Runner._effective_strategies(config):  # order-preserving dedup
+            m = ASTRAL3Runner._STRATEGY_METHOD[s]
+            if m not in methods:
+                methods.append(m)
+        return methods
 
     @staticmethod
     def _effective_strategies(

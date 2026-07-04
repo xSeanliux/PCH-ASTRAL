@@ -3,11 +3,15 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from scripts.lib.inference.inference import ConsensusMethod
+from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
 
 
 class MP4Runner:
     # Stateless — methods are static; the registry holds a singleton instance.
+    @staticmethod
+    def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
+        return []
+
     @staticmethod
     def build_argv(
         runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel

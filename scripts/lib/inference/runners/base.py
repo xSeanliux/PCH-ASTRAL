@@ -3,7 +3,7 @@ from typing import Optional, Protocol
 
 from pydantic import BaseModel
 
-from scripts.lib.inference.inference import ConsensusMethod
+from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
 
 
 class Runner(Protocol):
@@ -25,3 +25,8 @@ class Runner(Protocol):
     def consensus_method(self) -> Optional[ConsensusMethod]: ...
 
     def log_path(self, output_dir: Path, name: str) -> Path: ...
+
+    def dependencies(self, config: BaseModel) -> list[TreeInferenceMethod]:
+        """Upstream methods whose output this run consumes (the scheduler orders
+        + gates on these). Empty for standalone methods."""
+        ...

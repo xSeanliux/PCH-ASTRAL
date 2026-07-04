@@ -1,4 +1,10 @@
-"""Inference pipeline: sim registry → api.infer per (dataset, method) → compact."""
+"""Inference pipeline: sim registry → dependency-scheduled runs → registry.
+
+Each enabled method runs per dataset in dependency order. The registry records
+only SUCCESSFUL results (the analyzable ledger): already-done work is skipped
+(resume), runs blocked on a missing dependency are logged, failures are logged
+(their `log_path` has the details). See docs/ARCHITECTURE.md.
+"""
 
 from pathlib import Path
 
@@ -6,9 +12,9 @@ import polars as pl
 from rich import print
 
 from scripts.lib.experiment import ExperimentConfig, MethodConfig
-from scripts.lib.inference import api, registry
-from scripts.lib.inference.inference import TreeInferenceMethod
-from scripts.lib.inference.method_config import config_for
+from scripts.lib.inference import api, registry, scheduler
+from scripts.lib.inference.inference import RunStatus, TreeInferenceMethod
+from scripts.lib.inference.method_config import config_for, config_hash
 from scripts.lib.inference.runners import RUNNERS
 from scripts.lib.inference.scoring import resolve_reference_newick, score
 from scripts.lib.types import Polymorphism
@@ -16,12 +22,30 @@ from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 
 def select_methods(methods: MethodConfig) -> list[TreeInferenceMethod]:
-    # Enabled = a config of the method's type is present (matched by class, not a
-    # field name). Fixed RUNNERS order runs MP4/GA before ASTRAL3, so a combined
-    # run has ASTRAL3's inputs. Dependency scheduling across separate runs is a
-    # future PR; a missing input just fails the run (the script exits nonzero →
-    # api.infer records FAILED).
-    return [m for m in RUNNERS if config_for(methods, m) is not None]
+    # Enabled = a config of the method's type is present (matched by class).
+    # Ordered so dependencies run first; a dependency enabled elsewhere / in a
+    # prior run is handled at run time by the scheduler's registry gate.
+    enabled = [m for m in RUNNERS if config_for(methods, m) is not None]
+    deps_of = {}
+    for m in enabled:
+        cfg = config_for(methods, m)
+        assert cfg is not None  # enabled ⇒ present
+        deps_of[m] = RUNNERS[m].dependencies(cfg)
+    return scheduler.topological_order(enabled, deps_of)
+
+
+def _dataset_keys(row: dict[str, object]) -> dict[str, object]:
+    """The join-key columns for a sim-registry row (dataset_id from its path)."""
+    return {
+        "dataset_id": Path(str(row["path"])).stem,
+        "poly_level": row["poly_level"],
+        "character_count": row["character_count"],
+        "min_tree_height": row["min_tree_height"],
+        "homoplasy_factor": row["homoplasy_factor"],
+        "horizontal_edges": row["horizontal_edges"],
+        "model_tree": row["model_tree"],
+        "replica": row["replica"],
+    }
 
 
 def handle_inference(config: ExperimentConfig) -> Path:
@@ -34,31 +58,58 @@ def handle_inference(config: ExperimentConfig) -> Path:
     methods = select_methods(config.methods)
     assert methods, (
         "No runnable inference methods selected — the config enables none that this "
-        "milestone supports (M3 wires MP4/GA/ASTRAL3). Nothing to do."
+        "milestone supports (MP4/GA/ASTRAL3). Nothing to do."
     )
     inference_dir = experiment_folder / "inference_data"
-
     registry.init_manifest(experiment_folder, [m.value for m in methods])
 
-    n_runs = 0
+    ledger = scheduler.Ledger(experiment_folder)
+    tally = {"ok": 0, "skipped": 0, "blocked": 0, "failed": 0}
     rows = pl.read_csv(sim_registry, schema=SIMULATED_DATA_REGISTRY_SCHEMA).iter_rows(
         named=True
     )
     for row in rows:
+        keys = _dataset_keys(row)
+        dkey = scheduler.dataset_key(keys)
+        out_dir = inference_dir / Path(str(row["path"])).parent.name
         for method in methods:
-            out_dir = inference_dir / Path(row["path"]).parent.name
             cfg = config_for(config.methods, method)
             assert cfg is not None  # select_methods only yields enabled methods
-            result = api.infer(Path(row["path"]), out_dir, method, cfg)
-            # Stamp the simulation join keys from the sim-registry row.
-            result.poly = Polymorphism(row["poly_level"])
+
+            if ledger.already_done(keys, method, config_hash(cfg)):
+                ledger.mark_ok(dkey, method)  # its dependents still see it satisfied
+                tally["skipped"] += 1
+                continue
+
+            unmet = ledger.unmet_dependencies(dkey, RUNNERS[method].dependencies(cfg))
+            if unmet:
+                need = ", ".join(d.value for d in unmet)
+                print(
+                    f"[yellow]{method.value} blocked on {keys['dataset_id']}: "
+                    f"missing {need}[/yellow]"
+                )
+                tally["blocked"] += 1
+                continue
+
+            result = api.infer(Path(str(row["path"])), out_dir, method, cfg)
+            if result.status is not RunStatus.OK:
+                # Not analyzable → not in the registry; the log has the details.
+                print(
+                    f"[yellow]{method.value} failed on {keys['dataset_id']} "
+                    f"(see {result.log_path})[/yellow]"
+                )
+                tally["failed"] += 1
+                continue
+
+            # Success: stamp the sim join keys, RF-score, record.
+            result.poly = Polymorphism(str(row["poly_level"]))
             result.homoplasy_factor = row["homoplasy_factor"]
             result.tree_height = row["min_tree_height"]
             result.n_chars = row["character_count"]
             result.ret_edges = row["horizontal_edges"]
             result.target_tree = row["model_tree"]
             result.replica = row["replica"]
-            if result.target_tree is not None and result.point_estimate_newick:
+            if result.target_tree is not None:
                 try:
                     ref = resolve_reference_newick(
                         experiment_folder, result.target_tree
@@ -71,9 +122,13 @@ def handle_inference(config: ExperimentConfig) -> Path:
                         f"[yellow]Scoring failed for {result.dataset_id}: {e}[/yellow]"
                     )
             registry.write_result(result, experiment_folder)
-            n_runs += 1
+            ledger.mark_ok(dkey, method)
+            tally["ok"] += 1
 
-    registry.finalize_manifest(experiment_folder, n_runs)
+    registry.finalize_manifest(experiment_folder, tally["ok"])
     out = registry.compact(experiment_folder)
-    print(f"Wrote {n_runs} inference rows to [green]{out}[/green].")
+    print(
+        f"Inference: {tally['ok']} ok, {tally['skipped']} skipped, "
+        f"{tally['blocked']} blocked, {tally['failed']} failed → [green]{out}[/green]."
+    )
     return out

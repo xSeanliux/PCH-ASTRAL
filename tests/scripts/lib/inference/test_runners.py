@@ -168,6 +168,32 @@ def test_astral3_runner_artifact_paths():
     assert runner.log_path(out, "sim_0_1_1") == out / variant / "logs" / "sim_0_1_1.log"
 
 
+def test_dependencies_mp_and_ga_are_empty():
+    assert RUNNERS[TreeInferenceMethod.MP].dependencies(MP4Config()) == []
+    assert RUNNERS[TreeInferenceMethod.GA].dependencies(GAConfig()) == []
+
+
+def test_dependencies_astral3_exact_is_empty():
+    assert (
+        RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].dependencies(
+            ASTRAL3Config(is_exact=True)
+        )
+        == []
+    )
+
+
+def test_dependencies_astral3_heuristic_default_is_mp_ga():
+    assert RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].dependencies(
+        ASTRAL3Config(is_exact=False)
+    ) == [TreeInferenceMethod.MP, TreeInferenceMethod.GA]
+
+
+def test_dependencies_astral3_ga_only():
+    assert RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].dependencies(
+        ASTRAL3Config(is_exact=False, bipartition_strategies=["ga_trees"])
+    ) == [TreeInferenceMethod.GA]
+
+
 def test_registry_has_wired_methods():
     # M3 wires MP4/GA/ASTRAL3; later milestones add wASTRAL/TREE-QMC.
     assert TreeInferenceMethod.MP in RUNNERS

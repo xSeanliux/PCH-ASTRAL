@@ -66,6 +66,20 @@ def _shards_dir(experiment_folder: Path) -> Path:
     return experiment_folder / "inference_data" / "shards"
 
 
+def registry_path(experiment_folder: Path) -> Path:
+    return experiment_folder / "inference_data" / "inference_registry.csv"
+
+
+def load_rows(experiment_folder: Path) -> list[dict[str, object]]:
+    """Rows in the compacted registry (all successful — the scheduler's ledger)."""
+    out = registry_path(experiment_folder)
+    if not out.exists():
+        return []
+    return list(
+        pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).iter_rows(named=True)
+    )
+
+
 def write_result(result: InferenceResult, experiment_folder: Path) -> Path:
     """Append one run's row (JSON line) to this job's shard. Lock-free."""
     shards = _shards_dir(experiment_folder)
