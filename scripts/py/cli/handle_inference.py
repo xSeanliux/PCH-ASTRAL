@@ -118,7 +118,7 @@ def handle_inference(config: ExperimentConfig) -> Path:
             ok_methods.add(method.value)
             tally["ok"] += 1
 
-    registry.finalize_manifest(experiment_folder, tally["ok"])
+    registry.finalize_manifest(experiment_folder, tally)
     out = registry.compact(experiment_folder)
     print(
         f"Inference: {tally['ok']} ok, {tally['skipped']} skipped, "

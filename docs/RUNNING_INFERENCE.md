@@ -48,7 +48,7 @@ experiments/my_run/
   inference_data/
     inference_registry.csv            # THE joinable index (one row per dataset×method)
     shards/{job}.jsonl                # transient per-job staging; removed by compact
-    manifest.json                     # created_at, completed_at, methods, n_runs
+    manifest.json                     # created_at, completed_at, methods, tally
 ```
 Everything lives under `experiment_folder/` — self-contained and portable. The point estimate is stored **inline** in the CSV (`point_estimate_newick`), not as a per-run file.
 

@@ -82,8 +82,16 @@ def test_compact_accumulates_across_cleanups(tmp_path: Path):
 
 def test_manifest_roundtrip(tmp_path: Path):
     init_manifest(tmp_path, ["mp"])
-    finalize_manifest(tmp_path, 5)
+    finalize_manifest(tmp_path, {"ok": 5, "skipped": 0, "blocked": 0, "failed": 0})
     m = json.loads((tmp_path / "inference_data" / "manifest.json").read_text())
     assert m["methods"] == ["mp"]
-    assert m["n_runs"] == 5
+    assert m["tally"]["ok"] == 5
     assert m["created_at"] and m["completed_at"]
+
+
+def test_manifest_preserves_created_at_on_rerun(tmp_path: Path):
+    init_manifest(tmp_path, ["mp"])
+    first = json.loads((tmp_path / "inference_data" / "manifest.json").read_text())
+    init_manifest(tmp_path, ["mp"])  # re-run
+    second = json.loads((tmp_path / "inference_data" / "manifest.json").read_text())
+    assert second["created_at"] == first["created_at"]
