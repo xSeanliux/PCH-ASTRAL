@@ -6,6 +6,7 @@ from scripts.lib.pch import (
 from scripts.lib.types import Dataset
 
 import argparse
+from pathlib import Path
 
 
 def main():
@@ -29,7 +30,7 @@ def main():
     args = parser.parse_args()
 
     # Print out the results
-    dataset = Dataset.from_path(args.i)
+    dataset = Dataset.from_path(Path(args.i))
     quartets = PCH_W.get_quartets(dataset)
     if args.waster:
         print_quartets_for_wastral(quartets)

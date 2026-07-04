@@ -211,3 +211,7 @@ figs/
 tmp*/
 Bayes_out* 
 CONS.tree
+
+# user-scope agent skills / plugin lockfile (not repo content)
+.agents/
+skills-lock.json

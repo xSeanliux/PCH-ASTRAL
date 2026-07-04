@@ -39,20 +39,23 @@ if [[ -z "$RUNID" || -z "$INPUT" ]]; then
     exit 1
 fi
 
+PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
+mkdir -p "$PCH_SCRATCH"
+
 mkdir -p $TREEOUTPUT/MP4/trees
 mkdir -p $TREEOUTPUT/MP4/scores
 mkdir -p $TREEOUTPUT/MP4/logs
->~/scratch/tmp_mp4_$RUNID.nex
+>"$PCH_SCRATCH"/tmp_mp4_$RUNID.nex
 Rscript scripts/R/commandLineNex.R\
     -H $RUNID\
     -f $INPUT\
-    -o ~/scratch/tmp_mp4_$RUNID.nex\
+    -o "$PCH_SCRATCH"/tmp_mp4_$RUNID.nex\
     -p 3 -m 1.0
 
 echo "✅ MP4 nexus files"
-$PAUP_PATH -n ~/scratch/tmp_mp4_$RUNID.nex 
-mv ~/scratch/paup_out_$RUNID.trees $TREEOUTPUT/MP4/trees/$NAME.trees # If we run lots of instances of this script in parallel, paup_out might be overwritten so we can't have that
-mv ~/scratch/paup_out_$RUNID.scores $TREEOUTPUT/MP4/scores/$NAME.scores
+$PAUP_PATH -n "$PCH_SCRATCH"/tmp_mp4_$RUNID.nex 
+mv "$PCH_SCRATCH"/paup_out_$RUNID.trees $TREEOUTPUT/MP4/trees/$NAME.trees # If we run lots of instances of this script in parallel, paup_out might be overwritten so we can't have that
+mv "$PCH_SCRATCH"/paup_out_$RUNID.scores $TREEOUTPUT/MP4/scores/$NAME.scores
 
 # maj consensus
 Rscript scripts/R/consensusTree.R\

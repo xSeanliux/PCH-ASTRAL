@@ -28,6 +28,10 @@ The **Python API is the source of truth for results**: `infer() → InferenceRes
 
 **`inference_data/inference_registry.csv`** — one row per run. A run is keyed by **`run_key` = the full dataset join keys (`poly_level, character_count, min_tree_height, homoplasy_factor, horizontal_edges, model_tree, replica`) + `method` + `config_hash`**. The dataset explodes over its keys (one per condition×replica×graph); the `config_hash` term means the *same* dataset+method run under two different sub-configs (e.g. ASTRAL3 with `mp4_trees` vs `ga_trees`; TREE-QMC `n0` vs `n2`) are **distinct rows that don't overwrite each other**. Columns: the join keys + `method` + `config_hash` + **`method_config_json`** (the Pydantic config serialized, so sub-configs are queryable, not just hashed) + `fn_rate`, `fp_rate`, `runtime_seconds`, **`point_estimate_newick`** (the inferred tree inline — no per-run file), `tree_set_path`, `status`, `ran_at`. Joinable to `simulated_data_registry.csv` on the dataset keys; ~20 MB at tens of thousands of rows.
 
+**Real datasets vs. the registry.** A real linguistic dataset has no simulation keys (`poly_level`, `model_tree`, `replica`, …). So every run also carries a universal **`dataset_id`** (input stem or label); the sim-key columns are nullable and populated only by the pipeline. Atomic `pch infer` on a real dataset just produces the point estimate and returns an `InferenceResult` (sim keys `None`); it does **not** write a registry — the registry/experiment machinery is pipeline-only. (Scoring real data needs a user-supplied reference, not `model_graph_registry.csv`.)
+
+**One config per method per experiment.** `MethodConfig` holds a single config per method (`astral_3: ASTRAL3Config | None`), so one experiment runs one config per method. The `config_hash` in `run_key` lets *different experiments* (or atomic runs) write into the same registry without collision; sweeping configs within one experiment (e.g. ASTRAL3 ×2 bipartition sets) would need `MethodConfig` fields to become lists — **deferred (YAGNI)** until a sweep is actually wanted.
+
 **No per-run metric/tree files** (the bloat trap). The point estimate is one Newick string → a column. Only variable/large artifacts are files, **consolidated, never per-replica**:
 - `inference_data/tree_sets/{method}__{condition}.trees` — multi-tree outputs (GA posterior, MP set), grouped per method×condition (hundreds of files, not 50k).
 - `inference_data/logs/` — consolidated per group, or kept only for `status=failed` runs.
@@ -97,38 +101,52 @@ Primitives to contract:
 
 ## File Structure (Milestone 1, three-layer)
 
-- **Modify** `scripts/lib/inference/inference.py` — fix the `metadata` mutable-default crash; add breadcrumb fields + `to_registry_row()`. *(Task 1)*
-- **Modify** `scripts/py/cli/schemata.py` — add `INFERENCE_REGISTRY_SCHEMA`. *(Task 2)*
-- **Create** `scripts/lib/inference/runners.py` — pure per-method argv + artifact-path construction over the hardened scripts (MP4 in M1). *(Task 3)*
-- **Create** `scripts/lib/inference/methods.py` — `METHOD_CONFIG` registry (method → Pydantic config class) + `resolve_config(method, config_file) -> BaseModel` (validates the YAML, or returns the model's defaults when `config_file is None`). *(Task 4)*
-- **Create** `scripts/lib/inference/api.py` — `infer(...) -> InferenceResult`: builds argv via `runners`, runs the hardened script, times it, assembles the result. The single point that touches `subprocess`. *(Task 5)*
-- **Modify** `scripts/py/cli/handle_inference.py` — pipeline: iterate the sim registry, call `api.infer(...)` per `(dataset, method)`, write `.parts`, compact. *(Task 6)*
-- **Modify** `scripts/py/cli/main.py` — wire **both** `pch infer` (atomic, renders `InferenceResult`; `--json`) and `pch experiment inference` (pipeline). *(Task 7)*
-- **Modify** `experiments/README.md`, `docs/CLI.md` — document the atomic + pipeline commands.
-- **Create** tests mirroring each module under `tests/`, incl. `test_methods.py` (config resolution) and `test_api.py` (stubbed subprocess → `InferenceResult`).
+- **Modify** `scripts/lib/inference/inference.py` — fix the `metadata` mutable-default crash; bring `InferenceResult` to the **final shape** (see *Final InferenceResult & registry columns* below) + `to_registry_row()`. *(Task 1)*
+- **Modify** `scripts/py/cli/schemata.py` — add `INFERENCE_REGISTRY_SCHEMA` (final columns). *(Task 2)*
+- **Create** `scripts/lib/inference/runners.py` — pure per-method argv + artifact-path construction over the M0 primitives (MP4 in M1). *(Task 3)*
+- **Create** `scripts/lib/inference/methods.py` — `METHOD_CONFIG` registry + `resolve_config(method, config_file) -> BaseModel` + `config_hash(config) -> str` (stable sha256 of `config.model_dump_json()`). *(Task 4)*
+- **Create** `scripts/lib/inference/registry.py` — **owns the artifact-model mechanics:** `run_key(result) -> str`, `write_part(result, parts_dir)` (temp-file + atomic `os.replace`), `compact(experiment_folder) -> Path` (merge parts → registry last-writer-wins, concat tree-set parts + set `tree_set_path`, clear parts), `init_manifest`/`finalize_manifest`. *(Task 5 — the riskiest module; most tests)*
+- **Create** `scripts/lib/inference/api.py` — `infer(...) -> InferenceResult`: builds argv via `runners`, runs the M0 primitive, reads the point estimate into `point_estimate_newick`, times it, sets `status`/`ran_at`. The single point that touches `subprocess`. *(Task 6)*
+- **Modify** `scripts/py/cli/handle_inference.py` — pipeline: iterate the sim registry, `api.infer` per `(dataset, method)`, `registry.write_part`, then `registry.compact`; init/finalize manifest. *(Task 7)*
+- **Modify** `scripts/py/cli/main.py` — wire `pch infer` (atomic; `--json`), `pch experiment inference` (pipeline), `pch experiment status`, `pch experiment compact`; add `[project.scripts] pch = "scripts.py.cli.main:app"` to `pyproject.toml` so `pch …` works. *(Task 8)*
+- **Modify** `experiments/README.md`, `docs/CLI.md` — document the commands.
+- **Create** tests mirroring each module under `tests/`, incl. `test_methods.py` (config resolution + `config_hash` stability), `test_registry.py` (run_key, atomic write, **compact last-writer-wins / idempotent reruns**), `test_api.py` (stubbed subprocess → `InferenceResult`).
 
 ### M1 task structure (three-layer) — authoritative list
 
 | # | Task | Detail | Key interface |
 |---|------|--------|---------------|
-| 1 | Fix `InferenceResult` + `to_registry_row()` | full TDD below | `InferenceResult.to_registry_row() -> dict` |
-| 2 | `INFERENCE_REGISTRY_SCHEMA` | full TDD below | Polars schema matching the row dict |
-| 3 | MP4 `runners.py` (argv + paths) | full TDD below | `build_argv(method, runid, input_csv, name, out) -> list[str]` |
-| 4 | `methods.py` config registry | TDD at execution | `resolve_config(method: TreeInferenceMethod, config_file: Path\|None) -> BaseModel`; `METHOD_CONFIG: dict[TreeInferenceMethod, type[BaseModel]]` |
-| 5 | `api.infer()` | TDD at execution | `infer(input_csv: Path, output_dir: Path, method: TreeInferenceMethod, config: BaseModel, *, name: str\|None=None) -> InferenceResult` |
-| 6 | `handle_inference` pipeline | TDD at execution | `handle_inference(config: ExperimentConfig) -> Path`; loops registry, calls `api.infer`, writes `.parts`, compacts |
-| 7 | Wire `pch infer` + `pch experiment inference` | TDD at execution | atomic command renders `InferenceResult` (text/`--json`); pipeline command calls `handle_inference` |
+| 1 | `InferenceResult` (final shape) + `to_registry_row()` | spec below | fields per *Final InferenceResult* |
+| 2 | `INFERENCE_REGISTRY_SCHEMA` (final columns) | spec below | matches `to_registry_row()` keys |
+| 3 | MP4 `runners.py` (argv + paths) | full TDD below (exemplar) | `build_argv(method, runid, input_csv, name, out) -> list[str]` |
+| 4 | `methods.py`: `METHOD_CONFIG` + `resolve_config` + `config_hash` | exec | `resolve_config(method, config_file: Path\|None) -> BaseModel`; `config_hash(config: BaseModel) -> str` |
+| 5 | `registry.py`: `run_key`, atomic `.parts` write, `compact`, manifest | exec | `run_key(result) -> str`; `write_part(result, dir)`; `compact(folder) -> Path` |
+| 6 | `api.infer()` | exec | `infer(input_csv, output_dir, method, config, *, name=None) -> InferenceResult` |
+| 7 | `handle_inference` pipeline | exec | `handle_inference(config: ExperimentConfig) -> Path`; loop registry → `api.infer` → `write_part` → `compact` + manifest |
+| 8 | Wire CLI (`infer`, `experiment inference/status/compact`) + `pch` entry point | exec | atomic renders `InferenceResult` (text/`--json`); pipeline calls `handle_inference` |
 
-Tasks 1–3 have full TDD steps below. Tasks 4–7 are specified at the interface level above; their TDD steps are written when M1 executes. Carry-over gotchas for Tasks 4–7:
+Task 3 has full TDD steps below as the **exemplar pattern**; Tasks 1–2 are specified just below (final shape); Tasks 4–8 at the interface level above. TDD steps for spec-only tasks are written at execution. Gotchas:
 - **Condition dir** = `dataset_csv.parent.name` (e.g. `high_0.1_4_320`) — derive from the path, not by reformatting floats.
-- **`subprocess` lives only in `api.infer`** (Task 5); reference it via the module so tests can monkeypatch. `handle_inference` (Task 6) writes each result to `.parts/{run_key}.json` then `compact`s — it does **not** write the registry row-by-row (artifact model).
+- **`subprocess` lives only in `api.infer`** (Task 6); reference it via the module so tests can monkeypatch.
 - **`select_methods(MethodConfig) -> [TreeInferenceMethod.MP]`** for M1 (only `mp4` wired).
+
+### Final `InferenceResult` & registry columns (authoritative — Tasks 1 & 2 build to this)
+
+The earlier artifact-model decisions (inline point estimate, `config_hash`/`run_key`, `status`/`ran_at`) supersede the simpler draft code shown in Tasks 1–2 below; build to **this** shape:
+
+- **Dataset identity:** `dataset_id: str` (always). Sim keys (nullable, pipeline only): `poly, homoplasy_factor, tree_height, n_chars, ret_edges, target_tree, replica`.
+- **Method + config:** `tree_inference_method`, `config_hash` (from Task 4), `method_config_json`.
+- **Result:** `point_estimate_newick` (read by `api.infer`), `tree_set_path: str|None` (set by `compact`), `consensus_method: str|None`.
+- **Metrics:** `runtime_seconds: float`; `fn_rate, fp_rate: float|None` (populated M2, columns nullable now).
+- **Status:** `status: str` (`ok|failed`), `ran_at: str` (ISO8601), `log_path: str|None` (failures).
+- `metadata: dict[str,str]`; `to_registry_row() -> dict` whose keys equal `INFERENCE_REGISTRY_SCHEMA` columns.
+- `run_key` (in `registry.py`) = stable hash of the sim keys (or `dataset_id`) + `method` + `config_hash`.
 
 ---
 
 ### Task 1: Fix `InferenceResult` and add registry serialization
 
-The dataclass currently crashes on import: `metadata: dict[str, str] = {}` raises `ValueError: mutable default <class 'dict'> for field metadata is not allowed`. Fix it, add the breadcrumb fields the spec asks for (log path, FN/FP metrics — nullable, populated in M2), and a method that converts a result into a registry row keyed to match the simulation registry.
+The dataclass currently crashes on import: `metadata: dict[str, str] = {}` raises `ValueError: mutable default <class 'dict'> for field metadata is not allowed`. Fix it and build to the **final shape** (*Final `InferenceResult` & registry columns* above — `dataset_id`, nullable sim keys, `config_hash`, `point_estimate_newick`, `status`, `ran_at`, …), with `to_registry_row()` keyed to the registry schema. The code block below is the pre-artifact-model draft, kept as a TDD-shape example — extend it to the final fields.
 
 **Files:**
 - Modify: `scripts/lib/inference/inference.py`
@@ -369,7 +387,7 @@ git add scripts/py/cli/schemata.py tests/scripts/py/cli/test_schemata.py
 git commit -m "feat: add INFERENCE_REGISTRY_SCHEMA joinable to simulation registry"
 ```
 
-> Note: when Task 5 (`api.infer`) lands the artifact model, this schema gains `config_hash`, `point_estimate_newick`, `tree_set_path`, `status`, `ran_at` and drops the per-run `*_path` columns that become inline/consolidated. Extend the test in lockstep.
+> **Build to the final shape, not this draft.** The schema/dataclass code in Tasks 1–2 predates the artifact model. The authoritative column set is *Final `InferenceResult` & registry columns* above: add `dataset_id`, `config_hash`, `method_config_json`, `point_estimate_newick`, `tree_set_path`, `status`, `ran_at`; make sim keys nullable; drop the per-run `*_path` columns. The draft code below is kept only as a TDD-shape example.
 
 ---
 
@@ -534,7 +552,8 @@ Scoped, not yet task-decomposed; each becomes its own plan and reviewer gate whe
 
 ### M2 — Atomic `score` + `summarize` (object API)
 - **Deliverable:** `score() → ScoreResult` and `summarize() → Path`, each with a thin `pch score` / `pch summarize` CLI (text + `--json`); pipeline populates `fn_rate`/`fp_rate` by calling `score()` in-process.
-- **Key files:** new `scripts/lib/inference/scoring.py` — `ScoreResult` dataclass + `score(estimate, reference, *, fmt, prune) -> ScoreResult` wrapping the hardened `RFScorer.R` (parses its one-line `fn fp` stdout, M0 contract); `summarize.py` wrapping `consensusTree.R`. `api.infer` / `handle_inference` gain the scoring call; true tree resolves from `model_graph_registry.csv` by `(horizontal_edges, model_tree)`.
+- **Key files:** new `scripts/lib/inference/scoring.py` — `ScoreResult` dataclass + `score(estimate, reference, *, fmt, prune) -> ScoreResult` wrapping the hardened `RFScorer.R` (parses its one-line `fn fp` stdout, M0 contract); `summarize.py` wrapping `consensusTree.R`. `api.infer` / `handle_inference` gain the scoring call.
+- **Reference resolution (gap-closed):** the scoring reference is always the **base binary tree** for the run's `model_tree` — i.e. the `horizontal_edges = 0` entry in `model_graph_registry.csv`, *not* the run's own graph. For networks (`ret_edges > 0`) the true graph is a reticulate network; RFScorer needs a binary tree, so we score against the underlying base tree (mirrors legacy `CURRENT_TREE = head -i trees.txt`). Look up `(0, model_tree)`, never `(horizontal_edges, model_tree)`.
 - **Caveat:** `RFScorer.R` format/prune flags differ per method (`newick` vs `nexus`; ASTRAL-IV `q=4` prunes the extra-root leaf — see `run_inference_sim.sh`). `score()` exposes these as params.
 
 ### M3 — GA + ASTRAL3 runners
@@ -592,5 +611,6 @@ The pipeline is mostly glue around external binaries, so split validation by wha
 ## Self-Review
 
 - **Spec coverage** (`specs/cli_specs/human_specs.md`): YAML source of truth, per-method Pydantic config, joinable registry, atomic commands on real+sim data → M1. FN/FP metrics → M2. Methods MP4/GA/ASTRAL3/wASTRAL/TREE-QMC → M1/M3/M4. SLURM + local executor → M5. Script robustness → M0. Artifact model (joinable, no bloat, self-contained, concurrency-safe) → *Pipeline artifact model*. Run manual → *Documentation*. All spec points map to a milestone.
-- **Placeholder scan:** M0 + Tasks 1–3 fully specified (code); Tasks 4–7 and M2–M5 at the interface level (signatures given) — flagged, not silent TBDs.
-- **Type consistency:** `to_registry_row()` keys (Task 1) ⇔ `INFERENCE_REGISTRY_SCHEMA` (Task 2). `resolve_config → BaseModel` (Task 4) feeds `api.infer(config) → InferenceResult` (Task 5), consumed by `handle_inference` (Task 6), rendered by the CLI (Task 7). `build_argv` (Task 3) called inside `api.infer`. `ScoreResult` (M2) is `score()`'s return — rendered, never parsed back.
+- **Placeholder scan:** M0 + Task 3 fully coded (exemplar); Tasks 1–2 pinned to the *Final InferenceResult & registry columns* spec; Tasks 4–8 + M2–M5 at the interface level (signatures given) — flagged, not silent TBDs.
+- **Type consistency:** `to_registry_row()` keys (Task 1) ⇔ `INFERENCE_REGISTRY_SCHEMA` (Task 2), both built to the final-columns spec. `config_hash` (Task 4) → `run_key` (Task 5) → `InferenceResult` (Task 6) → `write_part`/`compact` (Task 5) → registry, rendered by the CLI (Task 8). `build_argv` (Task 3) called inside `api.infer`. `ScoreResult` (M2) is `score()`'s return — rendered, never parsed back.
+- **Gap review (this pass):** closed inline — network scoring reference (base tree, not the network); real-data `dataset_id` + nullable sim keys; one-config-per-method limitation; `registry.py` owns `run_key`/atomic-write/`compact`/`manifest`; `config_hash` owner; `pch` entry point; final `InferenceResult` shape pinned. See the agent-team doc's gap table for the full inventory + residual decisions.
