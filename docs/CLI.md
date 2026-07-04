@@ -39,7 +39,7 @@ Generate the simulated datasets (see `experiments/README.md`).
 
 ## Artifact model (`experiment_folder/inference_data/`)
 
-- **`inference_registry.csv`** — one row per `(dataset, method)` run. Columns = the simulation join keys (`poly_level, character_count, min_tree_height, homoplasy_factor, horizontal_edges, model_tree, replica`) + `method, config_hash, method_config_json, runtime_seconds, point_estimate_newick, tree_set_path, consensus_method, fn_rate, fp_rate, status, ran_at, log_path`. `status` is a `RunStatus` enum (`ok` | `failed`); `ran_at` is ISO8601 UTC. Joins to `simulated_data_registry.csv` on the shared keys. Schema: `scripts/py/cli/schemata.py`.
+- **`inference_registry.csv`** — one row per **successful** `(dataset, method, config)` run (the ledger is success-only; failed/blocked runs are logged, not rows). Columns = the simulation join keys (`poly_level, character_count, min_tree_height, homoplasy_factor, horizontal_edges, model_tree, replica`) + `method, config_hash, method_config_json, runtime_seconds, point_estimate_newick, tree_set_path, consensus_method, fn_rate, fp_rate, status, ran_at, log_path`. `status` is always `ok` (the scheduler skips already-recorded runs and gates dependents on these rows); `ran_at` is ISO8601 UTC. Joins to `simulated_data_registry.csv` on the shared keys. Schema: `scripts/py/cli/schemata.py`.
 - **`shards/{job}.jsonl`** — transient per-job staging (one writer per SLURM job → lock-free); merged and removed by `compact`.
 - **`manifest.json`** — run context (`created_at`, `completed_at`, methods, counts).
 
