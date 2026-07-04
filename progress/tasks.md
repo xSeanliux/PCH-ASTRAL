@@ -6,13 +6,12 @@ Migrate legacy bash inference to the config-driven CLI. **Plan:** [`progress/pla
 
 ## In progress
 
-- **M3** (#20, `impl/m3-ga-astral3`) — GA + ASTRAL3 runners **present + runnable**. Scoped down: scheduling (dependency ordering/gating) split out to its own PR. Awaiting merge.
+- **Scheduler** (`impl/scheduler`, off main) — dependency-aware scheduling: `dependencies()` back on runners, topological order, and a registry-backed ledger (`scheduler.py`) that **skips** already-done `(dataset, method, config)`, **blocks** on missing upstreams (this run or prior), and records **only successful** results (blocks/failures logged, not in the registry). Works for combined *and* separate ordered invocations.
 
 ## To do
 
-- [ ] **Scheduling** (own PR — split out of M3) — cross-run dependency handling: when MP4/GA/ASTRAL3 run as separate invocations, order dependents after upstreams and gate on upstream success (check the registry). In SLURM, translate to `--dependency` between jobs. Removed from M3 as too complex (was: co-requisite check, in-memory status gate, `dependencies()` + `missing_prerequisites`, topo-sort). Re-derive cleanly here; today a missing input just fails the run.
 - [ ] **M4** — wASTRAL + TREE-QMC runners (binary-interface discovery). Adds `PCH_WASTRAL`/`PCH_W_TREE_QMC`. Wire ASTRAL3's `bipartition_strategies` further (implement the `BINARY_CHARACTER` source — currently raises `NotImplementedError`).
-- [ ] **M5** — Pipeline executor + SLURM, concurrency-safe reruns (replace `run_parallel_sim.sh`). Depends on **Scheduling**.
+- [ ] **M5 / SLURM** — Pipeline executor + SLURM, concurrency-safe reruns (replace `run_parallel_sim.sh`). Translate `runner.dependencies()` into SLURM `--dependency` between jobs (the scheduler's ledger already handles the local/rerun case).
 
 **Docs are a per-milestone deliverable** — each milestone updates `docs/ARCHITECTURE.md` + the relevant `docs/` file and the `CLAUDE.md` index for what it shipped.
 
@@ -25,6 +24,7 @@ Migrate legacy bash inference to the config-driven CLI. **Plan:** [`progress/pla
 
 ## Done
 
+- [x] **M3** (#20, merged to `main`) — GA + ASTRAL3 runners present + runnable; `runners/` package; config-class enablement; `PCH_W_ASTRAL3` folder; `bipartition_strategies` → `-S`. (Scheduling deliberately split out → the Scheduler PR.)
 - [x] **M0** — Script hardening + `docs/SCRIPT_CONTRACTS.md`.
 - [x] **M1** (#18) — Three-layer scaffolding: Python API (`infer → InferenceResult`), `method_config` registry, `Runner` Protocol + `RUNNERS`, atomic `pch infer`, shard→`compact`→joinable `inference_registry.csv` + `manifest.json`, `pch experiment status`. Review: every comment addressed in-PR (see below).
 - [x] **M2** (#19) — Atomic `score`/`summarize` object API (`ScoreResult`); FN/FP in the registry; `ConsensusMethod` StrEnum. (`query`/`get` deferred — CSV is directly joinable.)

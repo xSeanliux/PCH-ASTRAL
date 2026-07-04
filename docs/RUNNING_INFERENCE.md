@@ -48,15 +48,15 @@ experiments/my_run/
   inference_data/
     inference_registry.csv            # THE joinable index (one row per dataset×method)
     shards/{job}.jsonl                # transient per-job staging; removed by compact
-    manifest.json                     # created_at, completed_at, methods, n_runs
+    manifest.json                     # created_at, completed_at, methods, tally
 ```
 Everything lives under `experiment_folder/` — self-contained and portable. The point estimate is stored **inline** in the CSV (`point_estimate_newick`), not as a per-run file.
 
 ## Reading the registry
 
-One row per `(dataset, method, config)`. Columns: the seven sim join keys + `method, config_hash, method_config_json, runtime_seconds, point_estimate_newick, tree_set_path, consensus_method, fn_rate, fp_rate, status, ran_at, log_path`. Schema: `scripts/py/cli/schemata.py`.
+One row per **successful** `(dataset, method, config)`. Columns: the seven sim join keys + `method, config_hash, method_config_json, runtime_seconds, point_estimate_newick, tree_set_path, consensus_method, fn_rate, fp_rate, status, ran_at, log_path`. Schema: `scripts/py/cli/schemata.py`.
 
-- `status` is `ok` or `failed`. A run is **`ok` only if** the command exited 0 **and** the point-estimate file was produced; otherwise `failed` with the reason in `log_path`.
+- The registry is the ledger of **successful runs only** — a run is recorded **only if** the command exited 0 **and** produced its point estimate. Failed and dependency-blocked runs are **not** rows; their details are in the per-run `log_path`, and the run prints a tally (`N ok, N skipped, N blocked, N failed`). So `status` is always `ok`, and *absence* of a `(dataset, method)` row means "not successfully done" (failed, blocked, or not yet run).
 - `config_hash` is part of the row identity, so the same dataset+method under two configs are distinct rows — they don't overwrite each other.
 
 ## Reruns, failures, resuming
@@ -70,7 +70,9 @@ Jobs time out and rerun (SLURM 4h cap), often in parallel. The design absorbs th
 uv run pch experiment compact experiments/my_run
 ```
 
-Rerunning is safe and idempotent: a fresh run of the same `(dataset, method, config)` produces a newer `ran_at` and replaces the old row on compact. To find what's left, use `pch experiment status`.
+Rerunning is safe and **incremental**: a `(dataset, method, config)` already in the registry is **skipped** (not re-run); a method whose dependency has no successful row yet (this run or a prior one) is **blocked**. The run prints an `ok/skipped/blocked/failed` tally; the registry is the record of what's done (absence = not done).
+
+**Limitation:** resume/gating key on each method's *own* config. Changing an *upstream* method's config does **not** invalidate a downstream method that already succeeded — it keeps its prior row, built from the *old* upstream output. Clear the affected rows (or the registry) when you change an upstream config. (A provenance-aware invalidation is deferred to the SLURM pass.)
 
 ## Real (non-simulated) datasets
 
@@ -86,8 +88,8 @@ It returns/prints the `InferenceResult`; the sim join keys are left `None`. Ther
 ## Invariants (agents: respect these)
 
 - **The Python API returns objects; everything renders them.** `api.infer → InferenceResult`, `score → ScoreResult`. The CLI and the registry CSV are renderings. The pipeline calls the API in-process and **never parses CLI stdout**.
-- **`api.infer` never raises** — failures (nonzero exit, missing estimate, unmet prereqs) become `status=failed` rows via `failed_result` (real `config_hash`, so reruns dedup).
-- **Order dependency:** heuristic ASTRAL3 needs MP4/GA bipartitions first. Runners declare this via `dependencies()`; the pipeline topo-sorts. Don't hand-order methods.
+- **`api.infer` never raises** — a nonzero exit or missing estimate becomes a `status=failed` `InferenceResult` (never an exception). The pipeline records only successes; failures and dependency-blocks are logged, not written.
+- **Order dependency:** heuristic ASTRAL3 needs MP4/GA bipartitions first. Runners declare this via `dependencies()`; the scheduler topo-sorts and gates each run on its dependencies' success in the registry (this run or prior). Don't hand-order methods.
 - **Writes are shard-per-job then compact.** Never write `inference_registry.csv` directly from a run; append a shard and let `compact` merge.
 - **Config flows through the Pydantic model only** — never redefine a method's params outside its config class.
 

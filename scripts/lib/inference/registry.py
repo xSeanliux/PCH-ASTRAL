@@ -18,9 +18,8 @@ import polars as pl
 from scripts.lib.inference.inference import InferenceResult
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
-# Human-readable dedup identity (no opaque hash filename). config_hash is the
-# only hashed term and is sha256 (see method_config.config_hash).
-_KEY_COLUMNS = [
+# The join keys that identify a dataset (the scheduler's ledger keys on these).
+DATASET_KEY_COLUMNS = [
     "dataset_id",
     "poly_level",
     "character_count",
@@ -29,9 +28,10 @@ _KEY_COLUMNS = [
     "horizontal_edges",
     "model_tree",
     "replica",
-    "method",
-    "config_hash",
 ]
+# Full human-readable dedup identity = dataset + which method + which config.
+# config_hash is the only hashed term (sha256; see method_config.config_hash).
+_KEY_COLUMNS = DATASET_KEY_COLUMNS + ["method", "config_hash"]
 
 
 def _keyval(v: object) -> str:
@@ -64,6 +64,10 @@ def current_shard_id() -> str:
 
 def _shards_dir(experiment_folder: Path) -> Path:
     return experiment_folder / "inference_data" / "shards"
+
+
+def registry_path(experiment_folder: Path) -> Path:
+    return experiment_folder / "inference_data" / "inference_registry.csv"
 
 
 def write_result(result: InferenceResult, experiment_folder: Path) -> Path:
@@ -128,17 +132,22 @@ def _manifest_path(experiment_folder: Path) -> Path:
 def init_manifest(experiment_folder: Path, methods: list[str]) -> Path:
     path = _manifest_path(experiment_folder)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Preserve the first run's created_at across incremental re-runs.
+    created = _now()
+    if path.exists():
+        created = json.loads(path.read_text()).get("created_at", created)
     path.write_text(
-        json.dumps({"created_at": _now(), "completed_at": None, "methods": methods})
+        json.dumps({"created_at": created, "completed_at": None, "methods": methods})
     )
     return path
 
 
-def finalize_manifest(experiment_folder: Path, n_runs: int) -> Path:
+def finalize_manifest(experiment_folder: Path, tally: dict[str, int]) -> Path:
+    """Stamp completion + this run's tally (ok/skipped/blocked/failed)."""
     path = _manifest_path(experiment_folder)
     manifest = json.loads(path.read_text()) if path.exists() else {}
     manifest["completed_at"] = _now()
-    manifest["n_runs"] = n_runs
+    manifest["tally"] = tally
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest))
     return path

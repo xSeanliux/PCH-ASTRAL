@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from scripts.lib.experiment import ASTRAL3Config
-from scripts.lib.inference.inference import ConsensusMethod
+from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
 from scripts.lib.pch import PCH_W
 
 
@@ -19,16 +19,37 @@ class ASTRAL3Runner:
         ASTRAL3Config.BipartitionStrategy.GA_TREES: "ga",
     }
 
+    # Strategy → the upstream method that produces its bipartitions.
+    _STRATEGY_METHOD = {
+        ASTRAL3Config.BipartitionStrategy.MP4_TREES: TreeInferenceMethod.MP,
+        ASTRAL3Config.BipartitionStrategy.GA_TREES: TreeInferenceMethod.GA,
+    }
+
     @staticmethod
-    def _effective_strategies(
+    def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
+        # Heuristic ASTRAL reads the selected sources' tree sets; exact has none.
+        assert isinstance(config, ASTRAL3Config)
+        if config.is_exact:
+            return []
+        # order-preserving dedup of each source's upstream method
+        return list(
+            dict.fromkeys(
+                ASTRAL3Runner._STRATEGY_METHOD[s]
+                for s in ASTRAL3Runner._bipartition_sources(config)
+            )
+        )
+
+    @staticmethod
+    def _bipartition_sources(
         config: ASTRAL3Config,
     ) -> list[ASTRAL3Config.BipartitionStrategy]:
-        """Heuristic bipartition sources; empty defaults to MP4+GA (today's behavior)."""
+        """Which tree sets feed the heuristic run's bipartitions; empty config
+        defaults to MP4 + GA (today's behavior)."""
         S = ASTRAL3Config.BipartitionStrategy
-        strategies = config.bipartition_strategies or [S.MP4_TREES, S.GA_TREES]
-        if S.BINARY_CHARACTER in strategies:
+        sources = config.bipartition_strategies or [S.MP4_TREES, S.GA_TREES]
+        if S.BINARY_CHARACTER in sources:
             raise NotImplementedError("binary_character bipartitions not yet supported")
-        return strategies
+        return sources
 
     @staticmethod
     def build_argv(
@@ -55,7 +76,7 @@ class ASTRAL3Runner:
         else:
             sources = ",".join(
                 ASTRAL3Runner._STRATEGY_SOURCE[s]
-                for s in ASTRAL3Runner._effective_strategies(config)
+                for s in ASTRAL3Runner._bipartition_sources(config)
             )
             argv += ["-S", sources]
         return argv

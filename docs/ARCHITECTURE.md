@@ -12,7 +12,8 @@ Map of the config-driven inference pipeline (`scripts/lib/inference/` + `scripts
 | **Types** | `lib/inference/inference.py` | `InferenceResult`, `RegistryRow`, and the `StrEnum`s. |
 | **Registry** | `lib/inference/registry.py` | Shard-per-job JSONL → `compact` → joinable `inference_registry.csv`. |
 | **Scoring** | `lib/inference/scoring.py`, `summarize.py` | RF FN/FP scoring; consensus summarization (shell out to R). |
-| **Pipeline** | `py/cli/handle_inference.py` | Orchestrates sim-registry → `api.infer` per `(dataset, method)` → registry. |
+| **Scheduler** | `lib/inference/scheduler.py` | Dependency order (topo) + the registry-backed ledger (skip/gate). |
+| **Pipeline** | `py/cli/handle_inference.py` | Orchestrates sim-registry → schedule → `api.infer` → registry. |
 | **CLI** | `py/cli/main.py` | `pch infer / score / summarize / experiment {inference,status,compact}`. |
 
 ## Runners (`runners/` package)
@@ -21,24 +22,33 @@ Map of the config-driven inference pipeline (`scripts/lib/inference/` + `scripts
 - `mp4.py` / `ga.py` / `astral3.py` — one runner each (`MP4Runner`, `GARunner`, `ASTRAL3Runner`).
 - `__init__.py` — the `RUNNERS: dict[TreeInferenceMethod, Runner]` registry + public re-exports. **Import surface:** `from scripts.lib.inference.runners import RUNNERS` (etc). `_BaseRunner.missing_prerequisites` uses a function-local `import RUNNERS` to avoid the `__init__ ↔ base` cycle.
 
-Each runner is stateless (`@staticmethod` methods; the registry holds a singleton). A runner provides: `build_argv(runid, input_csv, name, output_dir, config)`, `point_estimate_path`, `group_estimate_path` (the tree *set*, or `None`), `consensus_method() -> Optional[ConsensusMethod]`, `log_path`.
+Each runner is stateless (`@staticmethod` methods; the registry holds a singleton). A runner provides: `build_argv(runid, input_csv, name, output_dir, config)`, `point_estimate_path`, `group_estimate_path` (the tree *set*, or `None`), `consensus_method() -> Optional[ConsensusMethod]`, `log_path`, and `dependencies(config) -> [TreeInferenceMethod]` (upstreams whose output it consumes; ASTRAL3 → MP/GA from its `bipartition_strategies`, `[]` when exact).
 
-## Method selection & order
+## Scheduling (`scheduler.py`)
 
-`select_methods` returns the enabled methods — enabled = a config of the method's type (`METHOD_CONFIG[method]`) is present in the experiment's `MethodConfig` (matched by class, no field-name table). They run in **fixed `RUNNERS` order** (MP4 → GA → ASTRAL3), so a combined run produces ASTRAL3's bipartition inputs before ASTRAL3 runs.
+The registry holds **only successful results**, so a row for `(dataset, method)` means that method produced usable output for that dataset. The scheduler builds on that ledger:
 
-There is deliberately **no dependency scheduler** here: running MP4/GA/ASTRAL3 as separate ordered invocations is valid (prior outputs live on disk), and a missing input just **fails that run** — heuristic ASTRAL3 without MP4/GA `.trees` makes `getResultBipartitions` exit nonzero → `api.infer` records `FAILED`. Cross-run dependency ordering / awaiting (SLURM `--dependency`) is a **separate future PR**.
+1. **Enabled** = a config of the method's type (`METHOD_CONFIG[method]`) is present in `MethodConfig` (matched by class, no field-name table).
+2. **Order** — `topological_order` puts each method after the enabled deps it needs (deps enabled elsewhere / run separately are ignored here; the gate covers them). Cycles raise.
+3. Per `(dataset, method)`, `completed_runs` (the prior registry as `{dataset → {(method, config_hash)}}`, plus this run's successes) decides:
+   - **skip** if `(dataset, method, config_hash)` is already recorded — *resume*, don't redo work;
+   - **block** (log, no row) if a dependency has no successful result — counting this run **and** prior runs;
+   - else **run** `api.infer`; **OK → a registry row**, **failed → log only**.
+
+So MP4/GA/ASTRAL3 work whether run together or as separate ordered invocations, and re-running an experiment only fills the gaps. A missing upstream is a *block* (never ran), distinct from a *failure* (ran, errored) — both stay out of the registry. SLURM will later translate `dependencies()` into `--dependency` between jobs.
 
 ## Data flow (`pch experiment inference`)
 
 ```
 simulation_data/simulated_data_registry.csv
-  └─ for each row (dataset) × each enabled method (fixed order):
-       handle_inference → api.infer(csv, out_dir, method, config)
-         → subprocess(runner.build_argv) → InferenceResult (FAILED if exit≠0
-           or no point estimate — e.g. ASTRAL3 with missing inputs)
-       → stamp sim join keys, RF-score point estimate (fn/fp)
-       → registry.write_result → inference_data/shards/{job}.jsonl
+  └─ for each row (dataset) × each enabled method (topological order):
+       already recorded (same config)?           → skip
+       a dependency has no success (this run/prior)? → block (log)
+       else api.infer(csv, out_dir, method, config)
+         → subprocess(runner.build_argv) → InferenceResult
+         → OK  → stamp sim keys, RF-score (fn/fp),
+                 registry.write_result → inference_data/shards/{job}.jsonl
+         → FAILED → log only (not in the registry)
   └─ registry.compact → inference_data/inference_registry.csv (+ manifest.json)
 ```
 
@@ -46,10 +56,11 @@ Analysis = join `inference_registry.csv` to `simulated_data_registry.csv` on the
 
 ## Key invariants
 
-- **`api.infer` always returns an `InferenceResult`** — a nonzero exit or a missing point estimate becomes `status=FAILED`, never an exception.
+- **The registry is the ledger of *successful* results only** — blocks and failures are logged, never written. So a row = analyzable data, and *presence* of `(dataset, method, config_hash)` means "done" (drives both resume and the dependency gate).
+- **`api.infer` always returns an `InferenceResult`** — a nonzero exit or a missing point estimate becomes `status=FAILED`, never an exception; the pipeline just doesn't record it.
 - A run is **OK only if** it exited 0 **and** the point-estimate file exists.
 - Registry dedup key (`run_key`) includes `config_hash`; `compact` is last-writer-wins (by `ran_at`), seeds from the existing registry, and deletes shards.
-- **Order:** heuristic ASTRAL3 needs MP4 + GA bipartitions, so it runs after them via the fixed `RUNNERS` order (not a scheduler).
+- **Order:** heuristic ASTRAL3 needs MP4 + GA bipartitions, so the scheduler topologically orders it after them (and gates on their success via the registry).
 
 ## Shell primitives
 
@@ -58,7 +69,7 @@ Analysis = join `inference_registry.csv` to `simulated_data_registry.csv` on the
 ## Adding a method
 
 1. Add the enum member to `TreeInferenceMethod` (`inference.py`) + its config to `MethodConfigT`/`METHOD_CONFIG` (`method_config.py`) and a field on `MethodConfig` (`experiment.py`).
-2. Add `runners/<method>.py` implementing the `Runner` protocol; register it in `runners/__init__.py` (its position sets run order).
+2. Add `runners/<method>.py` implementing the `Runner` protocol (incl. `dependencies(config)` if it has upstreams); register it in `runners/__init__.py`.
 3. Document its shell contract in `SCRIPT_CONTRACTS.md`; add tests mirroring `tests/scripts/lib/inference/`.
 
-Enablement is by config type (`config_for`), so there's no field-name table to update.
+Enablement is by config type (`config_for`) and order is topological from `dependencies()`, so there's no field-name table or hand-ordering to update.
