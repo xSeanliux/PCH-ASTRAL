@@ -14,6 +14,7 @@ from scripts.lib.inference import registry
 from scripts.lib.inference.scoring import score
 from scripts.lib.inference.summarize import summarize
 from scripts.py.cli.handle_inference import handle_inference
+from scripts.py.cli.handle_score import handle_score
 from scripts.py.cli.handle_simulation import handle_simulation
 
 app = typer.Typer()
@@ -43,8 +44,8 @@ def infer(
 ):
     """Atomic inference on one dataset; renders the InferenceResult.
 
-    Works on any CSV, simulated or not: the simulation join keys are left None
-    for atomic runs (they're only stamped by the experiment pipeline).
+    Works on any CSV, simulated or not: the entry is generic, keyed by
+    dataset_id = the input path. Sim metadata/FN-FP are joins/a separate step.
     """
     try:
         config = resolve_config(method, method_config)
@@ -104,6 +105,12 @@ def summarize_(
 def inference(config_path: Path):
     out = handle_inference(_get_experiment_config(config_path))
     print(f"Results in [green]{out}[/green] (join to simulated_data_registry.csv).")
+
+
+@experiment.command(name="score")
+def score_experiment(config_path: Path):
+    out = handle_score(_get_experiment_config(config_path))
+    print(f"Scores in [green]{out}[/green] (join to inference_registry.csv).")
 
 
 @experiment.command()

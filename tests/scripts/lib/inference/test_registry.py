@@ -14,10 +14,10 @@ from scripts.lib.inference.registry import (
 
 
 def _result(
-    ran_at: str, *, replica: int = 1, config_hash: str = "abc"
+    ran_at: str, *, dataset_id: str = "ds1", config_hash: str = "abc"
 ) -> InferenceResult:
     return InferenceResult(
-        dataset_id="ds1",
+        dataset_id=dataset_id,
         tree_inference_method=TreeInferenceMethod.MP,
         config_hash=config_hash,
         method_config_json="{}",
@@ -25,12 +25,6 @@ def _result(
         runtime_seconds=1.0,
         status=RunStatus.OK,
         ran_at=ran_at,
-        homoplasy_factor=0.1,
-        tree_height=4,
-        n_chars=320,
-        ret_edges=0,
-        target_tree=1,
-        replica=replica,
     )
 
 
@@ -41,7 +35,7 @@ def test_run_key_is_human_readable():
 
 def test_write_result_appends_to_shard(tmp_path: Path):
     write_result(_result("2026-01-01T00:00:00+00:00"), tmp_path)
-    write_result(_result("2026-01-02T00:00:00+00:00", replica=2), tmp_path)
+    write_result(_result("2026-01-02T00:00:00+00:00", dataset_id="ds2"), tmp_path)
     shards = list((tmp_path / "inference_data" / "shards").glob("*.jsonl"))
     assert len(shards) == 1  # one shard per process
     assert len(shards[0].read_text().splitlines()) == 2
@@ -50,10 +44,12 @@ def test_write_result_appends_to_shard(tmp_path: Path):
 def test_compact_dedups_keeping_newest_ran_at(tmp_path: Path):
     write_result(_result("2026-01-01T00:00:00+00:00"), tmp_path)
     write_result(_result("2026-01-03T00:00:00+00:00"), tmp_path)  # same key, newer
-    write_result(_result("2026-01-02T00:00:00+00:00", replica=2), tmp_path)  # distinct
+    write_result(
+        _result("2026-01-02T00:00:00+00:00", dataset_id="ds2"), tmp_path
+    )  # distinct
     df = pl.read_csv(compact(tmp_path))
     assert df.height == 2
-    assert df.filter(pl.col("replica") == 1)["ran_at"].to_list() == [
+    assert df.filter(pl.col("dataset_id") == "ds1")["ran_at"].to_list() == [
         "2026-01-03T00:00:00+00:00"
     ]
 
@@ -73,11 +69,11 @@ def test_compact_cleans_up_shards(tmp_path: Path):
 
 def test_compact_accumulates_across_cleanups(tmp_path: Path):
     # Shards are deleted after each compact; the registry must still accumulate.
-    write_result(_result("2026-01-01T00:00:00+00:00", replica=1), tmp_path)
+    write_result(_result("2026-01-01T00:00:00+00:00", dataset_id="ds1"), tmp_path)
     compact(tmp_path)
-    write_result(_result("2026-01-02T00:00:00+00:00", replica=2), tmp_path)
+    write_result(_result("2026-01-02T00:00:00+00:00", dataset_id="ds2"), tmp_path)
     df = pl.read_csv(compact(tmp_path))
-    assert df.height == 2  # replica 1 from prior registry + replica 2 from new shard
+    assert df.height == 2  # ds1 from prior registry + ds2 from new shard
 
 
 def test_manifest_roundtrip(tmp_path: Path):

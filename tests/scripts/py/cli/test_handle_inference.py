@@ -17,9 +17,6 @@ from scripts.lib.inference.inference import (
     RunStatus,
 )
 from scripts.lib.inference.method_config import config_for, config_hash
-from scripts.lib.types import Polymorphism
-import scripts.py.cli.handle_inference as hi
-from scripts.lib.inference.scoring import ScoreResult
 from scripts.py.cli.handle_inference import handle_inference, select_methods
 
 
@@ -126,7 +123,7 @@ def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):
 
     def fake_infer(input_csv, output_dir, method, config, *, name=None):
         return InferenceResult(
-            dataset_id=input_csv.stem,
+            dataset_id=str(input_csv),
             tree_inference_method=method,
             config_hash="hash",
             method_config_json="{}",
@@ -137,7 +134,6 @@ def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):
         )
 
     monkeypatch.setattr(api, "infer", fake_infer)
-    monkeypatch.setattr(hi, "score", lambda est, ref: ScoreResult(0.25, 0.5))
 
     cfg = ExperimentConfig.model_validate(_config(tmp_path))
     out = handle_inference(cfg)
@@ -147,13 +143,8 @@ def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):
     assert df.height == 1
     r = df.row(0, named=True)
     assert r["method"] == "mp"
-    assert r["poly_level"] == "high"
-    assert r["character_count"] == 320
-    assert r["model_tree"] == 1
-    assert r["replica"] == 1
-    assert r["fn_rate"] == 0.25
-    assert r["fp_rate"] == 0.5
-    assert Polymorphism(r["poly_level"]) is Polymorphism.HIGH
+    assert r["dataset_id"] == str(dataset)  # identity = the input path
+    assert "poly_level" not in r and "fn_rate" not in r  # sim keys/FN-FP not here
 
 
 def test_handle_inference_runs_methods_in_order(tmp_path: Path, monkeypatch):
@@ -187,7 +178,7 @@ def test_handle_inference_runs_methods_in_order(tmp_path: Path, monkeypatch):
     def fake_infer(input_csv, output_dir, method, config, *, name=None):
         calls.append(method)
         return InferenceResult(
-            dataset_id=input_csv.stem,
+            dataset_id=str(input_csv),
             tree_inference_method=method,
             config_hash="hash",
             method_config_json="{}",
@@ -198,7 +189,6 @@ def test_handle_inference_runs_methods_in_order(tmp_path: Path, monkeypatch):
         )
 
     monkeypatch.setattr(api, "infer", fake_infer)
-    monkeypatch.setattr(hi, "score", lambda est, ref: ScoreResult(0.25, 0.5))
 
     cfg = ExperimentConfig.model_validate(
         _config(
@@ -247,7 +237,7 @@ def _ok_infer(calls: list):
     def fake(input_csv, output_dir, method, config, *, name=None):
         calls.append(method)
         return InferenceResult(
-            dataset_id=input_csv.stem,
+            dataset_id=str(input_csv),
             tree_inference_method=method,
             config_hash=config_hash(config),
             method_config_json=config.model_dump_json(),
@@ -264,7 +254,6 @@ def test_handle_inference_skips_already_done(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path, {"mp4": {}})
     calls: list = []
     monkeypatch.setattr(api, "infer", _ok_infer(calls))
-    monkeypatch.setattr(hi, "score", lambda est, ref: ScoreResult(0.25, 0.5))
 
     handle_inference(cfg)  # first run: MP4 runs, one row
     handle_inference(cfg)  # second run: already in the registry → skipped
@@ -279,7 +268,6 @@ def test_handle_inference_blocks_astral3_without_upstream(tmp_path: Path, monkey
     cfg = _setup(tmp_path, {"astral_3": {"is_exact": False}})
     calls: list = []
     monkeypatch.setattr(api, "infer", _ok_infer(calls))
-    monkeypatch.setattr(hi, "score", lambda est, ref: ScoreResult(0.25, 0.5))
 
     out = handle_inference(cfg)
 
@@ -294,7 +282,7 @@ def test_handle_inference_omits_failed_from_registry(tmp_path: Path, monkeypatch
     def failed(input_csv, output_dir, method, config, *, name=None):
         calls.append(method)
         return InferenceResult(
-            dataset_id=input_csv.stem,
+            dataset_id=str(input_csv),
             tree_inference_method=method,
             config_hash=config_hash(config),
             method_config_json="{}",
@@ -306,7 +294,6 @@ def test_handle_inference_omits_failed_from_registry(tmp_path: Path, monkeypatch
         )
 
     monkeypatch.setattr(api, "infer", failed)
-    monkeypatch.setattr(hi, "score", lambda est, ref: ScoreResult(0.25, 0.5))
 
     out = handle_inference(cfg)
 
@@ -322,7 +309,6 @@ def test_handle_inference_astral3_runs_when_upstream_ok_same_run(tmp_path, monke
     )
     calls: list = []
     monkeypatch.setattr(api, "infer", _ok_infer(calls))
-    monkeypatch.setattr(hi, "score", lambda est, ref: ScoreResult(0.25, 0.5))
 
     handle_inference(cfg)
 
@@ -334,7 +320,6 @@ def test_handle_inference_astral3_runs_from_prior_registry(tmp_path, monkeypatch
     # unblocked by the prior run's registry rows (the schema-alignment path).
     calls: list = []
     monkeypatch.setattr(api, "infer", _ok_infer(calls))
-    monkeypatch.setattr(hi, "score", lambda est, ref: ScoreResult(0.25, 0.5))
 
     handle_inference(_setup(tmp_path, {"mp4": {}, "gray_atkinson": {}}))
     assert set(calls) == {TreeInferenceMethod.MP, TreeInferenceMethod.GA}

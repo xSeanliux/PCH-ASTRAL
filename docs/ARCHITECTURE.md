@@ -14,7 +14,8 @@ Map of the config-driven inference pipeline (`scripts/lib/inference/` + `scripts
 | **Scoring** | `lib/inference/scoring.py`, `summarize.py` | RF FN/FP scoring; consensus summarization (shell out to R). |
 | **Scheduler** | `lib/inference/scheduler.py` | Dependency order (topo) + the registry-backed ledger (skip/gate). |
 | **Pipeline** | `py/cli/handle_inference.py` | Orchestrates sim-registry → schedule → `api.infer` → registry. |
-| **CLI** | `py/cli/main.py` | `pch infer / score / summarize / experiment {inference,status,compact}`. |
+| **Scoring step** | `py/cli/handle_score.py` | `pch experiment score`: join registry→sim, RF-score → `scores.csv`. |
+| **CLI** | `py/cli/main.py` | `pch infer / score / summarize / experiment {inference,score,status,compact}`. |
 
 ## Runners (`runners/` package)
 
@@ -45,14 +46,17 @@ simulation_data/simulated_data_registry.csv
        already recorded (same config)?           → skip
        a dependency has no success (this run/prior)? → block (log)
        else api.infer(csv, out_dir, method, config)
-         → subprocess(runner.build_argv) → InferenceResult
-         → OK  → stamp sim keys, RF-score (fn/fp),
-                 registry.write_result → inference_data/shards/{job}.jsonl
+         → subprocess(runner.build_argv) → InferenceResult (dataset_id = input path)
+         → OK  → registry.write_result → inference_data/shards/{job}.jsonl
          → FAILED → log only (not in the registry)
   └─ registry.compact → inference_data/inference_registry.csv (+ manifest.json)
 ```
 
-Analysis = join `inference_registry.csv` to `simulated_data_registry.csv` on the shared sim keys (see `KEYS.md`).
+The registry is **generic** — keyed by `dataset_id` = the input CSV path, source-agnostic (a real CSV runs identically). Sim metadata and FN/FP are decoupled:
+- **sim keys** = a join to `simulated_data_registry.csv` on `dataset_id`==`path`.
+- **FN/FP** = `pch experiment score` (`handle_score.py`), a separate step that recovers `model_tree` via that join, resolves the base tree, RF-scores each point estimate, and writes `scores.csv` (`dataset_id, method, config_hash, fn_rate, fp_rate`).
+
+Analysis = `inference_registry.csv` ⨝ `simulated_data_registry.csv` (on `dataset_id`==`path`) ⨝ `scores.csv` (on `dataset_id, method, config_hash`). See `KEYS.md`.
 
 ## Key invariants
 

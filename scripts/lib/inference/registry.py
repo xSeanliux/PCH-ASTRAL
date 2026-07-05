@@ -18,17 +18,9 @@ import polars as pl
 from scripts.lib.inference.inference import InferenceResult
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
-# The join keys that identify a dataset (the scheduler's ledger keys on these).
-DATASET_KEY_COLUMNS = [
-    "dataset_id",
-    "poly_level",
-    "character_count",
-    "min_tree_height",
-    "homoplasy_factor",
-    "horizontal_edges",
-    "model_tree",
-    "replica",
-]
+# The key that identifies a dataset (the scheduler's ledger keys on this).
+# dataset_id = the input CSV path — unique per source, sim or real.
+DATASET_KEY_COLUMNS = ["dataset_id"]
 # Full human-readable dedup identity = dataset + which method + which config.
 # config_hash is the only hashed term (sha256; see method_config.config_hash).
 _KEY_COLUMNS = DATASET_KEY_COLUMNS + ["method", "config_hash"]

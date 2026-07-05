@@ -16,8 +16,6 @@ from scripts.lib.inference import api, registry, scheduler
 from scripts.lib.inference.inference import RunStatus, TreeInferenceMethod
 from scripts.lib.inference.method_config import config_for, config_hash
 from scripts.lib.inference.runners import RUNNERS
-from scripts.lib.inference.scoring import resolve_reference_newick, score
-from scripts.lib.types import Polymorphism
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 
@@ -55,11 +53,12 @@ def handle_inference(config: ExperimentConfig) -> Path:
         named=True
     )
     for row in rows:
-        dataset_id = Path(str(row["path"])).stem
-        dkey = (dataset_id, *(row[c] for c in registry.DATASET_KEY_COLUMNS[1:]))
+        input_path = Path(str(row["path"]))
+        dataset_id = str(input_path)  # identity = the input path
+        dkey = (dataset_id,)
         prior = done.get(dkey, set())
         ok_methods = {m for m, _ in prior}  # this dataset's OK methods; grows below
-        out_dir = inference_dir / Path(str(row["path"])).parent.name
+        out_dir = inference_dir / input_path.parent.name
 
         for method in methods:
             cfg = config_for(config.methods, method)
@@ -78,42 +77,22 @@ def handle_inference(config: ExperimentConfig) -> Path:
             if unmet:
                 need = ", ".join(d.value for d in unmet)
                 print(
-                    f"[yellow]{method.value} blocked on {dataset_id}: "
+                    f"[yellow]{method.value} blocked on {input_path.name}: "
                     f"missing {need}[/yellow]"
                 )
                 tally["blocked"] += 1
                 continue
 
-            result = api.infer(Path(str(row["path"])), out_dir, method, cfg)
+            result = api.infer(input_path, out_dir, method, cfg)
             if result.status is not RunStatus.OK:
                 # Not analyzable → not in the registry; the log has the details.
                 print(
-                    f"[yellow]{method.value} failed on {dataset_id} "
+                    f"[yellow]{method.value} failed on {input_path.name} "
                     f"(see {result.log_path})[/yellow]"
                 )
                 tally["failed"] += 1
                 continue
 
-            # Success: stamp the sim join keys, RF-score, record.
-            result.poly = Polymorphism(str(row["poly_level"]))
-            result.homoplasy_factor = row["homoplasy_factor"]
-            result.tree_height = row["min_tree_height"]
-            result.n_chars = row["character_count"]
-            result.ret_edges = row["horizontal_edges"]
-            result.target_tree = row["model_tree"]
-            result.replica = row["replica"]
-            if result.target_tree is not None and result.point_estimate_newick:
-                try:
-                    ref = resolve_reference_newick(
-                        experiment_folder, result.target_tree
-                    )
-                    sr = score(result.point_estimate_newick, ref)
-                    result.fn_rate = sr.fn_rate
-                    result.fp_rate = sr.fp_rate
-                except Exception as e:  # noqa: BLE001 — one bad score must not abort
-                    print(
-                        f"[yellow]Scoring failed for {result.dataset_id}: {e}[/yellow]"
-                    )
             registry.write_result(result, experiment_folder)
             ok_methods.add(method.value)
             tally["ok"] += 1
