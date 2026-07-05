@@ -6,12 +6,12 @@ Migrate legacy bash inference to the config-driven CLI. **Plan:** [`progress/pla
 
 ## In progress
 
-- **Scheduler** (`impl/scheduler`, off main) — dependency-aware scheduling: `dependencies()` back on runners, topological order, and a registry-backed ledger (`scheduler.py`) that **skips** already-done `(dataset, method, config)`, **blocks** on missing upstreams (this run or prior), and records **only successful** results (blocks/failures logged, not in the registry). Works for combined *and* separate ordered invocations.
+- **PR 1 — Decouple inference** (`impl/decouple-inference`) — **Plan:** [`progress/plans/2026-07-05-decouple-inference.md`](plans/2026-07-05-decouple-inference.md). Make inference a generic `(csv → entry keyed by dataset_id=path)` unit: drop the inline sim keys + FN/FP from the entry (sim keys become a join, scoring a separate `pch experiment score` step). Real (Indo-European) datasets stop being a special case. Prereq for the SLURM fan-out.
 
 ## To do
 
+- [ ] **PR 2 — SLURM fan-out** — **Plan:** [`progress/plans/2026-07-05-slurm-fanout.md`](plans/2026-07-05-slurm-fanout.md). Partition the dataset list into per-batch/condition jobs running `pch experiment inference --datasets …`, `afterany`-resubmit for the 4h cap, single final compact. Core code change: shard-aware + torn-line-tolerant `completed_runs`/`compact`. `pch experiment submit` (always-return) + `status` (expected vs done). Depends on PR 1.
 - [ ] **M4** — wASTRAL + TREE-QMC runners (binary-interface discovery). Adds `PCH_WASTRAL`/`PCH_W_TREE_QMC`. Wire ASTRAL3's `bipartition_strategies` further (implement the `BINARY_CHARACTER` source — currently raises `NotImplementedError`).
-- [ ] **M5 / SLURM** — Pipeline executor + SLURM, concurrency-safe reruns (replace `run_parallel_sim.sh`). Translate `runner.dependencies()` into SLURM `--dependency` between jobs (the scheduler's ledger already handles the local/rerun case).
 
 **Docs are a per-milestone deliverable** — each milestone updates `docs/ARCHITECTURE.md` + the relevant `docs/` file and the `CLAUDE.md` index for what it shipped.
 
@@ -24,6 +24,7 @@ Migrate legacy bash inference to the config-driven CLI. **Plan:** [`progress/pla
 
 ## Done
 
+- [x] **Scheduler** (#23, merged to `main`) — `dependencies()` on runners, topological order, `scheduler.completed_runs` ledger (skip already-done, block on missing upstreams, record only successes). OK-only registry; manifest keeps first `created_at` + a run tally.
 - [x] **M3** (#20, merged to `main`) — GA + ASTRAL3 runners present + runnable; `runners/` package; config-class enablement; `PCH_W_ASTRAL3` folder; `bipartition_strategies` → `-S`. (Scheduling deliberately split out → the Scheduler PR.)
 - [x] **M0** — Script hardening + `docs/SCRIPT_CONTRACTS.md`.
 - [x] **M1** (#18) — Three-layer scaffolding: Python API (`infer → InferenceResult`), `method_config` registry, `Runner` Protocol + `RUNNERS`, atomic `pch infer`, shard→`compact`→joinable `inference_registry.csv` + `manifest.json`, `pch experiment status`. Review: every comment addressed in-PR (see below).
