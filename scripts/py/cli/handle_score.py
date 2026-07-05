@@ -4,6 +4,9 @@ Separate from inference (which is source-agnostic): scoring needs the simulated
 model tree, which real datasets lack. Joins the inference registry to
 simulated_data_registry on dataset_id == path to recover model_tree, resolves the
 base tree, scores each point estimate, and writes inference_data/scores.csv.
+
+Incremental + idempotent: an already-scored (dataset_id, method, config_hash) is
+kept as-is, so re-running only scores new entries.
 """
 
 from pathlib import Path
@@ -29,16 +32,31 @@ def handle_score(config: ExperimentConfig) -> Path:
     )
     sim_csv = experiment_folder / "simulation_data" / "simulated_data_registry.csv"
     assert sim_csv.exists(), f"No simulation registry at {sim_csv}."
+    out = experiment_folder / "inference_data" / "scores.csv"
+
+    # Keep already-scored rows; only score the rest (resume, like inference).
+    existing = (
+        pl.read_csv(out, schema=SCORES_SCHEMA)
+        if out.exists()
+        else pl.DataFrame(schema=SCORES_SCHEMA)
+    )
+    already = {
+        (r["dataset_id"], r["method"], r["config_hash"])
+        for r in existing.iter_rows(named=True)
+    }
 
     inf = pl.read_csv(inf_csv, schema=INFERENCE_REGISTRY_SCHEMA)
-    sim = pl.read_csv(sim_csv, schema=SIMULATED_DATA_REGISTRY_SCHEMA)
-    joined = inf.join(
-        sim.select("path", "model_tree"), left_on="dataset_id", right_on="path"
+    # Canonicalize sim `path` to match the stored (canonical) dataset_id.
+    sim = pl.read_csv(sim_csv, schema=SIMULATED_DATA_REGISTRY_SCHEMA).select(
+        pl.col("path").map_elements(registry.canonical_path, return_dtype=pl.String),
+        "model_tree",
     )
+    joined = inf.join(sim, left_on="dataset_id", right_on="path")
 
-    scores: list[dict[str, object]] = []
+    new: list[dict[str, object]] = []
     for r in joined.iter_rows(named=True):
-        if not r["point_estimate_newick"] or r["model_tree"] is None:
+        key = (r["dataset_id"], r["method"], r["config_hash"])
+        if key in already or not r["point_estimate_newick"] or r["model_tree"] is None:
             continue
         try:
             ref = resolve_reference_newick(experiment_folder, r["model_tree"])
@@ -46,7 +64,7 @@ def handle_score(config: ExperimentConfig) -> Path:
         except Exception as e:  # noqa: BLE001 — one bad score must not abort the pass
             print(f"[yellow]Scoring failed for {r['dataset_id']}: {e}[/yellow]")
             continue
-        scores.append(
+        new.append(
             {
                 "dataset_id": r["dataset_id"],
                 "method": r["method"],
@@ -56,7 +74,6 @@ def handle_score(config: ExperimentConfig) -> Path:
             }
         )
 
-    out = experiment_folder / "inference_data" / "scores.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
-    pl.DataFrame(scores, schema=SCORES_SCHEMA).write_csv(out)
+    pl.concat([existing, pl.DataFrame(new, schema=SCORES_SCHEMA)]).write_csv(out)
     return out

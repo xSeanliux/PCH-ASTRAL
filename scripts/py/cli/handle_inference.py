@@ -54,7 +54,7 @@ def handle_inference(config: ExperimentConfig) -> Path:
     )
     for row in rows:
         input_path = Path(str(row["path"]))
-        dataset_id = str(input_path)  # identity = the input path
+        dataset_id = registry.canonical_path(input_path)  # identity = canonical path
         dkey = (dataset_id,)
         prior = done.get(dkey, set())
         ok_methods = {m for m, _ in prior}  # this dataset's OK methods; grows below

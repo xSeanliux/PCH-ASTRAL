@@ -70,3 +70,33 @@ def test_handle_score_writes_fn_fp(tmp_path: Path, monkeypatch):
     assert r["dataset_id"] == str(
         tmp_path / "simulation_data" / "simulated_data" / "high_0.1_4_320" / "sim_0_1_1.csv"
     )
+
+
+def test_handle_score_incremental(tmp_path: Path, monkeypatch):
+    # Re-running score does NOT re-score already-scored entries.
+    cfg = _setup(tmp_path)
+
+    def fake_infer(input_csv, output_dir, method, config, *, name=None):
+        return InferenceResult(
+            dataset_id=str(input_csv),
+            tree_inference_method=method,
+            config_hash="hash",
+            method_config_json="{}",
+            point_estimate_newick="(A,B);",
+            runtime_seconds=1.0,
+            status=RunStatus.OK,
+            ran_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    monkeypatch.setattr(api, "infer", fake_infer)
+    handle_inference(cfg)
+
+    calls: list = []
+    monkeypatch.setattr(
+        hs, "score", lambda est, ref: calls.append(1) or ScoreResult(0.25, 0.5)
+    )
+    handle_score(cfg)  # scores the one entry
+    handle_score(cfg)  # already scored → nothing new
+
+    assert len(calls) == 1  # scored once, not twice
+    assert pl.read_csv(tmp_path / "inference_data" / "scores.csv").height == 1

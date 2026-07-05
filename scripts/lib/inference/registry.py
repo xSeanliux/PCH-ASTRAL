@@ -58,6 +58,17 @@ def _shards_dir(experiment_folder: Path) -> Path:
     return experiment_folder / "inference_data" / "shards"
 
 
+def canonical_path(p: str | Path) -> str:
+    """Stable dataset identity from a path: expand `~`, collapse `..`/`//`/trailing
+    `/`. `dataset_id` (api.infer), the scheduler gate/resume, and the score join all
+    use this, so `~/x.csv`, `./a/../x.csv`, and `x.csv/` map to one string.
+
+    Note: it does not make the path absolute (that would depend on cwd); pipeline
+    paths all derive from the experiment folder, so they're already consistent.
+    """
+    return os.path.normpath(os.path.expanduser(str(p)))
+
+
 def registry_path(experiment_folder: Path) -> Path:
     return experiment_folder / "inference_data" / "inference_registry.csv"
 

@@ -91,3 +91,14 @@ def test_manifest_preserves_created_at_on_rerun(tmp_path: Path):
     init_manifest(tmp_path, ["mp"])  # re-run
     second = json.loads((tmp_path / "inference_data" / "manifest.json").read_text())
     assert second["created_at"] == first["created_at"]
+
+
+def test_canonical_path_normalizes():
+    import os
+
+    from scripts.lib.inference.registry import canonical_path
+
+    assert canonical_path("a/b/../x.csv") == os.path.join("a", "x.csv")
+    assert canonical_path("a//x.csv") == os.path.join("a", "x.csv")
+    assert canonical_path("dir/x.csv/") == os.path.join("dir", "x.csv")
+    assert canonical_path("~/x.csv") == os.path.join(os.path.expanduser("~"), "x.csv")
