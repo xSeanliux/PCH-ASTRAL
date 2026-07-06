@@ -8,7 +8,7 @@ from pathlib import Path
 import shortuuid
 from pydantic import BaseModel
 
-from scripts.lib.inference import method_config
+from scripts.lib.inference import method_config, registry
 from scripts.lib.inference.inference import (
     InferenceResult,
     RunStatus,
@@ -53,8 +53,10 @@ def infer(
     group = runner.group_estimate_path(output_dir, name)
     tree_set_path = str(group) if ok and group is not None and group.exists() else None
 
+    # dataset_id = the canonical input path (identity); `name` (stem) only names
+    # on-disk files.
     return InferenceResult(
-        dataset_id=name,
+        dataset_id=registry.canonical_path(input_csv),
         tree_inference_method=method,
         config_hash=method_config.config_hash(config),
         method_config_json=config.model_dump_json(),

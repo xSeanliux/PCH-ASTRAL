@@ -34,10 +34,7 @@ SIMULATED_DATA_REGISTRY_SCHEMA = pl.Schema(
 
 INFERENCE_REGISTRY_SCHEMA = pl.Schema(
     {
-        "dataset_id": String,
-        **CONFIG_KEY,
-        **MODEL_NETWORK_KEY,
-        "replica": Int64,
+        "dataset_id": String,  # the input CSV path — the generic identity
         "method": String,
         "config_hash": String,
         "method_config_json": String,
@@ -45,10 +42,19 @@ INFERENCE_REGISTRY_SCHEMA = pl.Schema(
         "point_estimate_newick": String,
         "tree_set_path": String,
         "consensus_method": String,
-        "fn_rate": Float64,
-        "fp_rate": Float64,
         "status": String,
         "ran_at": String,
         "log_path": String,
+    }
+)
+
+# FN/FP live here (from `pch experiment score`), joined back on dataset_id/method/config_hash.
+SCORES_SCHEMA = pl.Schema(
+    {
+        "dataset_id": String,
+        "method": String,
+        "config_hash": String,
+        "fn_rate": Float64,
+        "fp_rate": Float64,
     }
 )

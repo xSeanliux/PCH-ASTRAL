@@ -87,7 +87,7 @@ else
 fi
 
 # -Xmx default is 8g; override via PCH_ASTRAL_XMX env var (e.g. 64g) for large workloads.
-java -Xmx"$ASTRAL_XMX" -jar ASTRAL/Astral/astral.5.7.8.jar\
+java -Xmx"$ASTRAL_XMX" -jar bin/Astral/astral.5.7.8.jar\
     -o "$TREEOUTPUT/$ASTRAL_VARIANT/trees/$NAME.tree"\
     -f "$PCH_SCRATCH/tmp_bipartitions_$RUNID.bootstrap.trees"\
     -i "$PCH_SCRATCH/tmp_quartet_$RUNID.txt"\

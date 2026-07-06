@@ -1,6 +1,5 @@
 import polars as pl
 from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
-from scripts.lib.types import Polymorphism
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
 
@@ -24,7 +23,7 @@ def test_registry_row_keys_match_schema():
 
 def test_row_builds_dataframe():
     full = InferenceResult(
-        dataset_id="d1",
+        dataset_id="/data/sim_0_1_1.csv",
         tree_inference_method=TreeInferenceMethod.MP,
         config_hash="abc",
         method_config_json="{}",
@@ -32,14 +31,7 @@ def test_row_builds_dataframe():
         runtime_seconds=1.5,
         status=RunStatus.OK,
         ran_at="2026-06-24T00:00:00",
-        poly=Polymorphism.HIGH,
-        homoplasy_factor=0.1,
-        tree_height=5,
-        n_chars=100,
-        ret_edges=2,
-        target_tree=3,
-        replica=1,
     )
     df = pl.DataFrame([full.to_registry_row()], schema=INFERENCE_REGISTRY_SCHEMA)
     assert df.height == 1
-    assert df["poly_level"][0] == "high"
+    assert df["dataset_id"][0] == "/data/sim_0_1_1.csv"

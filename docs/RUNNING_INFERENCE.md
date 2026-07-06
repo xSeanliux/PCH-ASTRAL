@@ -22,21 +22,23 @@ External deps `make` won't install: **Java** (ASTRAL), **R** (nexus-gen, scoring
 YAML=experiments/my_run/experiment_specification.yaml
 uv run pch simulation "$YAML"              # 1. simulate datasets -> simulation_data/
 uv run pch experiment inference "$YAML"    # 2. run inference     -> inference_data/inference_registry.csv
-uv run pch experiment status experiments/my_run   # 3. counts by method
+uv run pch experiment score "$YAML"        # 3. FN/FP             -> inference_data/scores.csv
+uv run pch experiment status experiments/my_run   # 4. counts by method
 ```
 
-Step 2 runs every method enabled under the YAML's `methods:` block for every dataset in the sim registry, scores each point estimate (FN/FP) against the model tree, and writes the joinable registry. Methods run in dependency order automatically (MP4/GA before ASTRAL3).
+Step 2 runs every method enabled under the YAML's `methods:` block for every dataset in the sim registry and writes the **generic** registry (one row per dataset×method, keyed by `dataset_id` = the input CSV path). Methods run in dependency order automatically (MP4/GA before ASTRAL3). Inference is source-agnostic — no sim keys, no scoring inline. Step 3 (`pch experiment score`) recovers the model tree via the join and writes FN/FP to `scores.csv`.
 
-### Analyze — join the two registries
+### Analyze — join the three tables
 
-The registry is a plain CSV; analysis is a join, no bespoke query command.
+The tables are plain CSVs; analysis is a join on `dataset_id`, no bespoke query command.
 
 ```python
 import polars as pl
 sim = pl.read_csv("experiments/my_run/simulation_data/simulated_data_registry.csv")
 inf = pl.read_csv("experiments/my_run/inference_data/inference_registry.csv")
-inf.join(sim, on=["poly_level","character_count","min_tree_height",
-                  "homoplasy_factor","horizontal_edges","model_tree","replica"])
+scores = pl.read_csv("experiments/my_run/inference_data/scores.csv")
+(inf.join(sim, left_on="dataset_id", right_on="path")           # recover sim keys
+    .join(scores, on=["dataset_id", "method", "config_hash"]))  # add FN/FP
 ```
 
 ## experiment_folder layout
@@ -47,6 +49,7 @@ experiments/my_run/
   simulation_data/  simulated_data_registry.csv, model trees, configs
   inference_data/
     inference_registry.csv            # THE joinable index (one row per dataset×method)
+    scores.csv                        # FN/FP per (dataset_id, method, config_hash) — `pch experiment score`
     shards/{job}.jsonl                # transient per-job staging; removed by compact
     manifest.json                     # created_at, completed_at, methods, tally
 ```
@@ -54,7 +57,7 @@ Everything lives under `experiment_folder/` — self-contained and portable. The
 
 ## Reading the registry
 
-One row per **successful** `(dataset, method, config)`. Columns: the seven sim join keys + `method, config_hash, method_config_json, runtime_seconds, point_estimate_newick, tree_set_path, consensus_method, fn_rate, fp_rate, status, ran_at, log_path`. Schema: `scripts/py/cli/schemata.py`.
+One row per **successful** `(dataset, method, config)`, generic and source-agnostic. Columns: `dataset_id` (the input CSV path — the identity), `method, config_hash, method_config_json, runtime_seconds, point_estimate_newick, tree_set_path, consensus_method, status, ran_at, log_path`. No sim keys (join to `simulated_data_registry` on `dataset_id`==`path`) and no FN/FP (see `scores.csv`). Schema: `scripts/py/cli/schemata.py`.
 
 - The registry is the ledger of **successful runs only** — a run is recorded **only if** the command exited 0 **and** produced its point estimate. Failed and dependency-blocked runs are **not** rows; their details are in the per-run `log_path`, and the run prints a tally (`N ok, N skipped, N blocked, N failed`). So `status` is always `ok`, and *absence* of a `(dataset, method)` row means "not successfully done" (failed, blocked, or not yet run).
 - `config_hash` is part of the row identity, so the same dataset+method under two configs are distinct rows — they don't overwrite each other.
@@ -76,12 +79,12 @@ Rerunning is safe and **incremental**: a `(dataset, method, config)` already in 
 
 ## Real (non-simulated) datasets
 
-`pch infer` runs one method on any CSV, simulated or not:
+`pch infer` runs one method on any CSV, simulated or not — the entry is the same generic shape (`dataset_id` = the input path):
 
 ```bash
 uv run pch infer DATASET.csv OUT_DIR --method mp [--method-config cfg.yaml] [--json]
 ```
-It returns/prints the `InferenceResult`; the sim join keys are left `None`. There is **no registry** for atomic runs — the registry machinery is pipeline-only. Scoring real data needs a user-supplied reference (`pch score --estimate … --reference …`), not the model registry.
+It returns/prints the `InferenceResult`. There is **no registry** for atomic runs — the registry machinery is pipeline-only. Real data has no model tree, so it skips `pch experiment score`; score it with a user-supplied reference (`pch score --estimate … --reference …`).
 
 `--method-config` is a YAML validated against the method's Pydantic model, required for methods with a non-default config (e.g. `pch_astral3` needs `is_exact`). No per-method flags — the same YAML works for atomic and pipeline runs.
 

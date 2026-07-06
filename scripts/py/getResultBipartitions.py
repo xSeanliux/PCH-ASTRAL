@@ -1,4 +1,4 @@
-from scripts.lib.utils import trees_to_newick
+from scripts.lib.utils import resolve_polytomies, trees_to_newick
 from Bio.Phylo import parse
 import argparse
 
@@ -51,7 +51,9 @@ def parse_arguments():
 
 
 def get_and_print_trees(trees_path: str, schema: str):
-    trees = parse(file=trees_path, format=schema)
+    trees = list(parse(file=trees_path, format=schema))
+    for t in trees:
+        resolve_polytomies(t)  # ASTRAL -f rejects non-binary extra trees
     newick = trees_to_newick(
         trees=trees,
     )

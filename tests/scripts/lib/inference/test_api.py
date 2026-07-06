@@ -31,6 +31,8 @@ def test_infer_ok(tmp_path: Path, monkeypatch) -> None:
     assert result.tree_inference_method == "mp"
     assert result.point_estimate_newick == "(a,(b,c));"
     assert result.runtime_seconds >= 0
-    # Non-simulated input: sim join keys are None (only the pipeline stamps them).
-    assert result.poly is None and result.homoplasy_factor is None
-    assert result.to_registry_row()["poly_level"] is None
+    # Generic entry: identity is the input PATH, not the stem; no sim-key fields.
+    assert result.dataset_id == str(csv)
+    row = result.to_registry_row()
+    assert row["dataset_id"] == str(csv)
+    assert "poly_level" not in row and "fn_rate" not in row
