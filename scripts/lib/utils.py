@@ -1,12 +1,34 @@
+import random
 import sys
 import pandas as pd
 from Bio import Phylo
-from Bio.Phylo.BaseTree import Tree
+from Bio.Phylo.BaseTree import Tree, Clade
 import matplotlib.pyplot as plt
 from enum import IntEnum
 from pathlib import Path
 from io import StringIO
 from typing import Sequence
+
+
+def resolve_polytomies(tree: Tree, seed: int = 0) -> None:
+    """Arbitrarily binarize every node of `tree` in place (like ape::multi2di).
+
+    Each polytomy (node with >2 children) is split into nested bifurcations
+    joined by zero-length edges. This only *adds* resolution: the leaf set and
+    every existing bipartition are preserved, no taxon moves (see
+    test_resolve_polytomies). Seeded → deterministic. ASTRAL rejects non-binary
+    trees fed via `-f`; refined trees only seed its search space, so the
+    arbitrary bifurcations are harmless (scored out by the quartets).
+    """
+    rng = random.Random(seed)
+    for clade in list(tree.find_clades()):
+        kids = clade.clades
+        if len(kids) <= 2:
+            continue
+        rng.shuffle(kids)
+        while len(kids) > 2:
+            a, b = kids.pop(), kids.pop()
+            kids.append(Clade(branch_length=0.0, clades=[a, b]))
 
 
 def tree_to_newick(tree: Tree) -> str:
