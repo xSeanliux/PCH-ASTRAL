@@ -23,7 +23,25 @@ pch infer DATASET.csv OUTPUT_DIR --method mp [--method-config cfg.yaml] [--json]
 - `--method-config` — YAML validated against the method's Pydantic model (required for methods with no all-default config, e.g. `pch_astral3`). No per-method flags.
 - output: the tree(s) under `OUTPUT_DIR`; the `InferenceResult` is printed (human) or `--json` (one plain JSON line — pipe it, e.g. `pch infer d.csv out --method mp --json | jq` or `| bat`).
 
+### `pch score`
+RF-score one estimate tree against a reference Newick; prints `FN <fn> FP <fp>`.
+
+```bash
+pch score --estimate EST.tree --reference REF.tree [--json]
+```
+- `--json` → one plain JSON line (`{"fn_rate": …, "fp_rate": …}`) — pipeable.
+
+### `pch summarize`
+Consensus-collapse a tree set to a single Newick.
+
+```bash
+pch summarize --trees SET.trees --output OUT.tree --consensus {passthrough|majority|map|mcc} [--discard N]
+```
+- `--discard N` — drop the first `N` trees as burn-in (default 0).
+
 ## Pipeline commands (`pch experiment …`, read the experiment YAML)
+
+> **Arg convention (mind the split):** `inference` and `score` take the spec **YAML**; `status` and `compact` take the experiment **folder**. Passing a yaml to `compact` fails with `NotADirectoryError`.
 
 ### `pch experiment inference EXPERIMENT.yaml`
 Reads `{experiment_folder}/simulation_data/simulated_data_registry.csv`, runs the methods enabled under `methods:` for every dataset, and writes the joinable `inference_data/inference_registry.csv` (+ `manifest.json`).
@@ -64,3 +82,21 @@ scores = pl.read_csv("experiments/my_run/inference_data/scores.csv")
 (inf.join(sim, left_on="dataset_id", right_on="path")
     .join(scores, on=["dataset_id", "method", "config_hash"]))
 ```
+
+## Environment & tuning
+
+| Var | Default | Notes |
+|-----|---------|-------|
+| `PCH_SCRATCH` | `$HOME/scratch` | Per-run temp (nexus, quartets, bipartitions). **Keep it short** — MrBayes 3.2.7a caps input filenames at 99 chars, so a deep scratch path silently fails GA (`Error when setting parameter "Filename" (2)`). |
+| `PCH_ASTRAL_XMX` | `8g` | ASTRAL JVM heap. Bump for large inputs (e.g. `12g`, `64g`). |
+
+**Scale note (ASTRAL memory):** the quartet file ASTRAL consumes has ≈ `n_chars × character_weight` weighted quartets (each character's quartets are emitted `weight` times as gene trees). High `n_chars` explodes this — 320 chars (weight ≈50) → ~410k quartets → OOMs the 8g default. Mitigate with `PCH_ASTRAL_XMX≥12g` or fewer characters.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| GA: `Error when setting parameter "Filename" (2)`, no `GA/trees1/*.trees` | `PCH_SCRATCH` path > 99 chars (MrBayes cap) | Use a short `PCH_SCRATCH` (default `$HOME/scratch`). |
+| ASTRAL: `OutOfMemoryError: Java heap space` | Too many weighted quartets for the heap | `PCH_ASTRAL_XMX=12g` (or higher), or fewer `n_chars`. |
+| ASTRAL: `RuntimeException: Extra tree shouldn't have polytomy` | Unresolved MP4/GA tree fed to ASTRAL `-f` | Fixed in `getResultBipartitions` (`utils.resolve_polytomies`); update if you see it again. |
+| `NotADirectoryError: …/experiment_specification.yaml/inference_data` | Passed the spec yaml to `status`/`compact` | Those take the experiment **folder**, not the yaml. |
