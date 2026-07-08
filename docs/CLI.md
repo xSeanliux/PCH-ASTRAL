@@ -87,6 +87,8 @@ scores = pl.read_csv("experiments/my_run/inference_data/scores.csv")
 
 | Var | Default | Notes |
 |-----|---------|-------|
+| `R_LIBS` | (system) | R package library for scoring/consensus/nexus-gen. Must contain `shiny, optparse, dplyr, stringr, ape, testit, phangorn, castor, TreeDist`. Missing → `commandLineNex.R` halts and MP4/GA silently emit no tree. |
+| `MB_EXEC` | `bin/mb` | MrBayes binary for GA. `make install-mrbayes` puts it at `bin/mb`; only override to use an mb elsewhere (e.g. a conda env). |
 | `PCH_SCRATCH` | `$HOME/scratch` | Per-run temp (nexus, quartets, bipartitions). **Keep it short** — MrBayes 3.2.7a caps input filenames at 99 chars, so a deep scratch path silently fails GA (`Error when setting parameter "Filename" (2)`). |
 | `PCH_ASTRAL_XMX` | `8g` | ASTRAL JVM heap. Bump for large inputs (e.g. `12g`, `64g`). |
 
@@ -96,6 +98,10 @@ scores = pl.read_csv("experiments/my_run/inference_data/scores.csv")
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
+| MP4/GA: `[failed] … (no tree)`; log shows `there is no package called '…'` | `R_LIBS` missing R deps → `commandLineNex.R` halts → empty NEXUS → PAUP/MrBayes produce nothing | Point `R_LIBS` at a library with the packages (see *Environment & tuning*). |
+| ASTRAL3: `NoClassDefFoundError: phylonet/tree/io/ParseException` | `bin/Astral/` has the jar but no sibling `lib/` (jar manifest `Class-Path` is `lib/*.jar`) | `make install-astral3` (extracts jar + `lib/` into `bin/Astral/`). |
+| Simulation: `Could not find or load main class Simulator` | `bin/LingPhyloSimulator.jar` built from LFS-pointer deps (git-lfs not pulled) | `git lfs pull`, then `make install-lingphylosimulator`. |
+| `ModuleNotFoundError: No module named 'scripts.py.cli'` (via `uv run pch`) | `PYTHONPATH` includes another project with its own `scripts/` package, shadowing this repo | Clear `PYTHONPATH`, or run `python -m scripts.py.cli.main`. |
 | GA: `Error when setting parameter "Filename" (2)`, no `GA/trees1/*.trees` | `PCH_SCRATCH` path > 99 chars (MrBayes cap) | Use a short `PCH_SCRATCH` (default `$HOME/scratch`). |
 | ASTRAL: `OutOfMemoryError: Java heap space` | Too many weighted quartets for the heap | `PCH_ASTRAL_XMX=12g` (or higher), or fewer `n_chars`. |
 | ASTRAL: `RuntimeException: Extra tree shouldn't have polytomy` | Unresolved MP4/GA tree fed to ASTRAL `-f` | Fixed in `getResultBipartitions` (`utils.resolve_polytomies`); update if you see it again. |
