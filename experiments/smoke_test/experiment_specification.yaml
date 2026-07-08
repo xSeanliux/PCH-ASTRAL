@@ -1,0 +1,34 @@
+# Small end-to-end smoke test: 2 conditions, 80 chars, 1 tree, 4 replicas.
+# Exercises MP4, GA, and heuristic ASTRAL3 (needs MP4+GA bipartitions).
+default_sim_configs: &default_sim_configs
+  poly: high
+  homoplasy_factor: 0.1
+  tree_height: 4
+  n_chars: 80
+
+experiment_folder: experiments/smoke_test
+simulation:
+  n_taxa: 30
+  n_horizontal_edges:
+    - 0
+  n_trees: 1
+  n_replicas: 4
+  base_config_dir: data/base_configs
+  base_trees_file: data/trees.txt
+  base_networks_dir: data/base_networks
+  simulation_params:
+    # condition 1: high polymorphism
+    - <<: *default_sim_configs
+      poly: high
+    # condition 2: low polymorphism
+    - <<: *default_sim_configs
+      poly: low
+
+methods:
+  mp4: {}
+  gray_atkinson: {}
+  astral_3:
+    is_exact: False
+    bipartition_strategies:
+      - mp4_trees
+      - ga_trees
