@@ -10,6 +10,7 @@ caller, never recorded. See docs/ARCHITECTURE.md.
 from collections import defaultdict, deque
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import cast
 
 import polars as pl
 
@@ -23,7 +24,7 @@ DatasetKey = tuple[Cell, ...]
 
 
 def _add_ok_runs(
-    rows: Iterable[Mapping[str, object]],
+    rows: Iterable[Mapping[str, Cell]],
     done: dict[DatasetKey, set[tuple[str, str]]],
 ) -> None:
     """Fold status=="ok" rows into `done`, keyed by dataset in DATASET_KEY_COLUMNS
@@ -54,7 +55,12 @@ def completed_runs(experiment_folder: Path) -> dict[DatasetKey, set[tuple[str, s
     if out.exists():
         rows = pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).iter_rows(named=True)
         _add_ok_runs(rows, done)
-    _add_ok_runs(registry._iter_shard_rows(experiment_folder), done)
+    _add_ok_runs(
+        cast(
+            Iterable[Mapping[str, Cell]], registry._iter_shard_rows(experiment_folder)
+        ),
+        done,
+    )
     return dict(done)
 
 

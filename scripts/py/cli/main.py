@@ -17,7 +17,7 @@ from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference import registry
 from scripts.lib.inference.scoring import score
 from scripts.lib.inference.summarize import summarize
-from scripts.py.cli.handle_inference import _read_dataset_filter, handle_inference
+from scripts.py.cli.handle_inference import handle_inference
 from scripts.py.cli.handle_score import handle_score
 from scripts.py.cli.handle_simulation import handle_simulation
 from scripts.py.cli.handle_status import handle_status
@@ -147,11 +147,13 @@ def inference(
             named=True
         )
     )
-    wanted = _read_dataset_filter(datasets)  # None = all rows
-    if wanted is not None:
-        rows = [r for r in rows if registry.canonical_path(str(r["path"])) in wanted]
     SlurmExecutor(config).fan_out(
-        rows, resubmits=resubmits, astral_mem_gb=astral_mem_gb, dry_run=dry_run
+        rows,
+        method=method,
+        datasets=datasets,
+        resubmits=resubmits,
+        astral_mem_gb=astral_mem_gb,
+        dry_run=dry_run,
     )
 
 

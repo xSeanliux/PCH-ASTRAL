@@ -12,6 +12,7 @@ paths/str only and reload the config from a spec snapshot the executor writes.
 See specs/cli_specs/slurm_fanout_spec.md section C.
 """
 
+import os
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -88,11 +89,12 @@ def run_compact(spec_path: str) -> None:
     ok = (
         pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).height if out.exists() else 0
     )
-    # Batch jobs logged their own skipped/blocked/failed; the compact job only sees
-    # the merged ok rows, so the manifest tally records that count.
-    registry.finalize_manifest(
-        folder, {"ok": ok, "skipped": 0, "blocked": 0, "failed": 0}
-    )
+    # The fan-out compact can't see per-run failures: batch jobs logged their own
+    # skipped/blocked/failed and exit independently. Record only the cumulative ok
+    # count (all-time registry rows, inflated on incremental reruns) — do NOT stamp
+    # a fabricated 0-failure tally that reads as a clean run. Use `pch experiment
+    # status` to find gaps.
+    registry.finalize_manifest(folder, {"ok_cumulative": ok})
 
 
 class SlurmExecutor:
@@ -107,22 +109,46 @@ class SlurmExecutor:
         return f"{method}@{condition}"
 
     def _group_conditions(self, rows: Iterable[Row]) -> dict[str, list[Path]]:
-        """condition (parent-dir name) -> its dataset paths, insertion-ordered."""
+        """condition (parent-dir name) -> its dataset paths, insertion-ordered.
+        Errors if two distinct parent dirs share a name (they'd merge into one
+        batch/label and silently drop datasets)."""
         conditions: dict[str, list[Path]] = {}
+        seen_parents: dict[str, Path] = {}
         for row in rows:
             p = Path(str(row["path"]))
-            conditions.setdefault(p.parent.name, []).append(p)
+            name = p.parent.name
+            prev = seen_parents.setdefault(name, p.parent)
+            if prev != p.parent:
+                raise ValueError(
+                    f"condition name {name!r} collides across distinct dirs: "
+                    f"{prev} vs {p.parent}. Rename one to keep batches distinct."
+                )
+            conditions.setdefault(name, []).append(p)
         return conditions
 
-    def _plan(self, rows: Iterable[Row], *, astral_mem_gb: int | None) -> list[JobSpec]:
+    def _plan(
+        self,
+        conditions: Mapping[str, list[Path]],
+        *,
+        method: str | None = None,
+        astral_mem_gb: int | None,
+    ) -> list[JobSpec]:
         """Pure planner (no submitit): ordered JobSpecs, one per (condition, method)
-        in topological method order, then a final compact job on all of them."""
+        in topological method order, then a final compact job on all of them.
+        `method` restricts to that single enabled method (deps ran in a prior run)."""
         methods = select_methods(self.config.methods)  # topo order: deps first
+        if method is not None:
+            methods = [m for m in methods if method in (m.value, m.name)]
+            if not methods:
+                raise ValueError(
+                    f"Method {method!r} is not enabled in the config; "
+                    "cannot restrict the fan-out to it."
+                )
         enabled = {m.value for m in methods}
         specs: list[JobSpec] = []
         method_labels: list[str] = []
 
-        for condition in self._group_conditions(rows):
+        for condition in conditions:
             for m in methods:
                 cfg = config_for(self.config.methods, m)
                 assert cfg is not None  # select_methods only yields enabled methods
@@ -183,15 +209,29 @@ class SlurmExecutor:
         self,
         rows: Iterable[Row],
         *,
+        method: str | None = None,
+        datasets: Path | None = None,
         resubmits: int = 3,
         astral_mem_gb: int | None = None,
         dry_run: bool = False,
     ) -> list[JobSpec] | list[Job[None]]:
-        """Write per-condition batch files, plan the DAG, then either print it
+        """Filter rows (`datasets` paths file), write per-condition batch files,
+        plan the DAG (`method` restricts to one enabled method), then print it
         (dry_run) or submit it. Returns the plan (dry_run) or the submitit Jobs."""
-        rows = list(rows)  # consumed twice (batches + plan)
-        self._write_batches(self._group_conditions(rows))
-        plan = self._plan(rows, astral_mem_gb=astral_mem_gb)
+        rows = list(rows)
+        if datasets is not None:
+            wanted = {
+                registry.canonical_path(line)
+                for line in datasets.read_text().splitlines()
+                if line.strip()
+            }
+            rows = [
+                r for r in rows if registry.canonical_path(str(r["path"])) in wanted
+            ]
+
+        conditions = self._group_conditions(rows)  # group once, reuse
+        self._write_batches(conditions)
+        plan = self._plan(conditions, method=method, astral_mem_gb=astral_mem_gb)
 
         if dry_run:
             for spec in plan:
@@ -209,31 +249,40 @@ class SlurmExecutor:
         return self._submit(plan, resubmits)
 
     def _submit(self, plan: list[JobSpec], resubmits: int) -> list[Job[None]]:
-        spec_path = str(self._spec_snapshot())
+        # Absolute so the config file resolves regardless of the compute node's cwd
+        # (safe: it's an output/config path, not a dataset_id). Dataset paths inside
+        # the batch files stay relative and resolve against `chdir` below.
+        spec_path = os.path.abspath(str(self._spec_snapshot()))
+        # submitit doesn't pin the job cwd; pin it to the submission dir so every
+        # repo-root-relative path (batch files, dataset paths) resolves on the node
+        # exactly as it does locally — without rewriting (and breaking) dataset_id.
+        chdir = os.getcwd()
         submitit_dir = self._inference_dir / "submitit"
+        ex = AutoExecutor(folder=submitit_dir)  # one executor, reparametrized per job
         jobs: dict[str, Job[None]] = {}
         submitted: list[Job[None]] = []
 
         for spec in plan:  # topo order ⇒ every dep already submitted
-            ex = AutoExecutor(folder=submitit_dir)
+            # Xmx at ~85% of the cgroup: leaves headroom for JVM overhead/off-heap so
+            # SLURM doesn't OOM-kill. ponytail: lower the 0.85 further if still OOM.
+            xmx_gb = max(1, int(spec.mem_gb * 0.85))
+            extra: dict[str, str] = {"chdir": chdir}
+            if spec.dep_labels:
+                dep_ids = ":".join(jobs[label].job_id for label in spec.dep_labels)
+                extra["dependency"] = f"{spec.dep_mode}:{dep_ids}"
             params: dict[str, Param] = {
                 "slurm_partition": _PARTITION,
                 "timeout_min": _TIMEOUT_MIN,
                 "cpus_per_task": spec.cpus,
                 "mem_gb": spec.mem_gb,
                 "slurm_max_num_timeout": resubmits,
-                # Node-local scratch dodges the 99-char MrBayes path cap; JVM heap
-                # from this job's mem. ponytail: XMX==mem_gb, drop headroom if OOM.
+                # Node-local scratch dodges the 99-char MrBayes path cap.
                 "slurm_setup": [
                     "export PCH_SCRATCH=/tmp/pch.$SLURM_JOB_ID",
-                    f"export PCH_ASTRAL_XMX={spec.mem_gb}g",
+                    f"export PCH_ASTRAL_XMX={xmx_gb}g",
                 ],
+                "slurm_additional_parameters": extra,
             }
-            if spec.dep_labels:
-                dep_ids = ":".join(jobs[label].job_id for label in spec.dep_labels)
-                params["slurm_additional_parameters"] = {
-                    "dependency": f"{spec.dep_mode}:{dep_ids}"
-                }
             ex.update_parameters(**params)
 
             if spec.kind == "compact":

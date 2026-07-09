@@ -80,41 +80,39 @@ def handle_inference(
         ok_methods = {m for m, _ in prior}  # this dataset's OK methods; grows below
         out_dir = inference_dir / input_path.parent.name
 
-        for method in methods:
-            cfg = config_for(config.methods, method)
+        for m in methods:
+            cfg = config_for(config.methods, m)
             assert cfg is not None  # select_methods only yields enabled methods
             ch = config_hash(cfg)
 
-            if (method.value, ch) in prior:  # resume: this exact unit already done
+            if (m.value, ch) in prior:  # resume: this exact unit already done
                 tally["skipped"] += 1
                 continue
 
             unmet = [
-                d
-                for d in RUNNERS[method].dependencies(cfg)
-                if d.value not in ok_methods
+                d for d in RUNNERS[m].dependencies(cfg) if d.value not in ok_methods
             ]
             if unmet:
                 need = ", ".join(d.value for d in unmet)
                 print(
-                    f"[yellow]{method.value} blocked on {input_path.name}: "
+                    f"[yellow]{m.value} blocked on {input_path.name}: "
                     f"missing {need}[/yellow]"
                 )
                 tally["blocked"] += 1
                 continue
 
-            result = api.infer(input_path, out_dir, method, cfg)
+            result = api.infer(input_path, out_dir, m, cfg)
             if result.status is not RunStatus.OK:
                 # Not analyzable → not in the registry; the log has the details.
                 print(
-                    f"[yellow]{method.value} failed on {input_path.name} "
+                    f"[yellow]{m.value} failed on {input_path.name} "
                     f"(see {result.log_path})[/yellow]"
                 )
                 tally["failed"] += 1
                 continue
 
             registry.write_result(result, experiment_folder)
-            ok_methods.add(method.value)
+            ok_methods.add(m.value)
             tally["ok"] += 1
 
     if no_compact:  # SLURM batch: shards only; the compact job owns the manifest

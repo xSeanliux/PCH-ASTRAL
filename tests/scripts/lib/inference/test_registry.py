@@ -137,6 +137,16 @@ def test_manifest_preserves_created_at_on_rerun(tmp_path: Path):
     assert second["created_at"] == first["created_at"]
 
 
+def test_init_manifest_recovers_from_corrupt_manifest(tmp_path: Path):
+    inf = tmp_path / "inference_data"
+    inf.mkdir()
+    (inf / "manifest.json").write_text("{not valid json")
+    path = init_manifest(tmp_path, ["mp"])
+    m = json.loads(path.read_text())
+    assert m["methods"] == ["mp"]
+    assert m["created_at"]  # fresh manifest written; no raise
+
+
 def test_canonical_path_normalizes():
     import os
 

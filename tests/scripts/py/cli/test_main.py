@@ -128,6 +128,27 @@ def test_experiment_inference_slurm_dry_run(tmp_path: Path):
     assert not (inf / "submitit").exists()
 
 
+def test_experiment_inference_slurm_method_restricts_plan(tmp_path: Path):
+    spec = _write_experiment(
+        tmp_path,
+        methods={
+            "mp4": {},
+            "astral_3": {"is_exact": False, "bipartition_strategies": ["mp4_trees"]},
+        },
+        paths=[tmp_path / "sim" / "cond_a" / "d1.csv"],
+    )
+    res = runner.invoke(
+        main.app,
+        [
+            "experiment", "inference", str(spec),
+            "--executor", "slurm", "--dry-run", "--method", "mp",
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    assert "mp@cond_a" in res.output
+    assert "pch_astral3@cond_a" not in res.output  # restricted away
+
+
 def test_experiment_inference_slurm_no_sbatch_errors(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(main.shutil, "which", lambda _name: None)
     spec = _write_experiment(

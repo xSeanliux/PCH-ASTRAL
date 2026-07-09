@@ -127,3 +127,5 @@ Structured for a PM agent to fan out subagents. Two rules make it safe: **(1) di
 - Dependency granularity: ASTRAL3[condition] waits on **all** of MP4[condition]+GA[condition] (condition-coarse). Per-dataset deps would be finer but aren't worth the extra jobs.
 - Node-local `PCH_SCRATCH=/tmp/pch.$SLURM_JOB_ID`: confirm the cluster's node-local tmp policy (size, cleanup) when access exists.
 - Auto-size `--resubmits` from recorded `runtime_seconds` (followup).
+- **Verify on cluster: requeue-on-timeout is SLURM-native** — a requeued job retains its job id, so `afterok` dependents WAIT for the requeued run to succeed rather than being cancelled as never-satisfied when a job transiently hits the 4 h cap. This is the mechanism submitit's `slurm_max_num_timeout` relies on; confirm the cluster scheduler behaves this way before depending on it.
+- **Relative paths and `--chdir`**: submitit pins `--chdir` to the submission cwd, so relative `experiment_folder`/dataset paths in batch files resolve identically on the worker node. The `dataset_id` (= relative input CSV path) stays relative — no re-keying needed.

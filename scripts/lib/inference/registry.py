@@ -155,7 +155,10 @@ def init_manifest(experiment_folder: Path, methods: list[str]) -> Path:
     # Preserve the first run's created_at across incremental re-runs.
     created = _now()
     if path.exists():
-        created = json.loads(path.read_text()).get("created_at", created)
+        try:
+            created = json.loads(path.read_text()).get("created_at", created)
+        except (json.JSONDecodeError, OSError):
+            pass  # corrupt/partial write (e.g. SIGKILL mid-write) → regenerate
     path.write_text(
         json.dumps({"created_at": created, "completed_at": None, "methods": methods})
     )
