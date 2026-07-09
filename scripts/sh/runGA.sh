@@ -48,6 +48,9 @@ fi
 PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
 mkdir -p "$PCH_SCRATCH"
 
+# Resolve MB_EXEC to an absolute path so it stays valid after cd-ing into PCH_SCRATCH
+[[ "$MB_EXEC" != /* ]] && MB_EXEC="$(pwd)/$MB_EXEC"
+
 mkdir -p $TREEOUTPUT/GA/trees
 mkdir -p $TREEOUTPUT/GA/trees1
 mkdir -p $TREEOUTPUT/GA/scores
@@ -55,12 +58,14 @@ mkdir -p $TREEOUTPUT/GA/scores
 >"$PCH_SCRATCH"/tmp_mb_$RUNID.nex
 Rscript scripts/R/commandLineNex.R -H $RUNID -f $INPUT -o "$PCH_SCRATCH"/tmp_mb_$RUNID.nex --resolve-poly 4 --morph-weight 1.0
 echo "✅ GA nexus files"
-$MB_EXEC "$PCH_SCRATCH"/tmp_mb_$RUNID.nex # > tmp_mb_out_$RUNID.txt 2> tmp_mb_log_$RUNID.txt
+# MrBayes caps input filename at 99 chars; pass a relative name from the scratch dir to stay short.
+# MrBayes writes Bayes_out_$RUNID.* to its CWD, which is now $PCH_SCRATCH.
+( cd "$PCH_SCRATCH" && "$MB_EXEC" "tmp_mb_$RUNID.nex" ) # > tmp_mb_out_$RUNID.txt 2> tmp_mb_log_$RUNID.txt
 
 
-    
+
 echo "✅ GA sampling"
-mv Bayes_out_$RUNID.t $TREEOUTPUT/GA/trees1/$NAME.trees 
+mv "$PCH_SCRATCH"/Bayes_out_$RUNID.t $TREEOUTPUT/GA/trees1/$NAME.trees
 
 # MCC consensus, discard first 50%
 Rscript scripts/R/consensusTree.R\
@@ -70,4 +75,4 @@ Rscript scripts/R/consensusTree.R\
     -o $TREEOUTPUT/GA/trees/$NAME.tree\
     --discard 50
 
-rm Bayes_out_$RUNID.* # tmp_mb*
+rm "$PCH_SCRATCH"/Bayes_out_$RUNID.* # tmp_mb*

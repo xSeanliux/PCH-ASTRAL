@@ -3,8 +3,13 @@ from pathlib import Path
 
 import polars as pl
 
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
+from scripts.lib.inference.inference import (
+    InferenceResult,
+    TreeInferenceMethod,
+    RunStatus,
+)
 from scripts.lib.inference.registry import (
+    _iter_shard_rows,
     compact,
     finalize_manifest,
     init_manifest,
@@ -74,6 +79,45 @@ def test_compact_accumulates_across_cleanups(tmp_path: Path):
     write_result(_result("2026-01-02T00:00:00+00:00", dataset_id="ds2"), tmp_path)
     df = pl.read_csv(compact(tmp_path))
     assert df.height == 2  # ds1 from prior registry + ds2 from new shard
+
+
+def _write_shard(tmp_path: Path, text: str) -> None:
+    shards = tmp_path / "inference_data" / "shards"
+    shards.mkdir(parents=True, exist_ok=True)
+    (shards / "job1.jsonl").write_text(text)
+
+
+def test_iter_shard_rows_skips_torn_tail(tmp_path: Path):
+    good1 = json.dumps(_result("2026-01-01T00:00:00+00:00").to_registry_row())
+    good2 = json.dumps(
+        _result("2026-01-02T00:00:00+00:00", dataset_id="ds2").to_registry_row()
+    )
+    # 3rd line is a truncated JSON object — a killed writer's torn tail.
+    _write_shard(tmp_path, f"{good1}\n{good2}\n{good2[:20]}")
+    rows = list(_iter_shard_rows(tmp_path))
+    assert len(rows) == 2
+    assert [r["dataset_id"] for r in rows] == ["ds1", "ds2"]
+
+
+def test_compact_drops_torn_line_and_merges_prior(tmp_path: Path):
+    # Seed a prior registry row (ds0), then a shard with 2 valid + 1 torn line.
+    write_result(_result("2026-01-01T00:00:00+00:00", dataset_id="ds0"), tmp_path)
+    compact(tmp_path)  # ds0 now lives in inference_registry.csv, shard cleaned
+
+    good1 = json.dumps(
+        _result("2026-01-02T00:00:00+00:00", dataset_id="ds1").to_registry_row()
+    )
+    good2 = json.dumps(
+        _result("2026-01-03T00:00:00+00:00", dataset_id="ds2").to_registry_row()
+    )
+    _write_shard(tmp_path, f"{good1}\n{good2}\n{good2[:15]}")
+
+    df = pl.read_csv(compact(tmp_path))
+    assert sorted(df["dataset_id"].to_list()) == [
+        "ds0",
+        "ds1",
+        "ds2",
+    ]  # torn dropped, prior kept
 
 
 def test_manifest_roundtrip(tmp_path: Path):

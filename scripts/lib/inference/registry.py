@@ -9,7 +9,7 @@ junk files linger.
 
 import json
 import os
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -83,6 +83,27 @@ def write_result(result: InferenceResult, experiment_folder: Path) -> Path:
     return shard
 
 
+def _iter_shard_rows(experiment_folder: Path) -> Iterator[dict[str, object]]:
+    """Yield one parsed row per line across all shards/*.jsonl (sorted).
+
+    Crash-tolerant: a SLURM SIGKILL mid-write can leave a torn/truncated trailing
+    JSON line; skip any line that won't parse (and blank lines) rather than fail
+    the whole compaction. Reads each shard whole so a >8KB newick split across
+    write() calls still lands on one line.
+    """
+    shards = _shards_dir(experiment_folder)
+    if not shards.exists():
+        return
+    for sf in sorted(shards.glob("*.jsonl")):
+        for line in sf.read_text().splitlines():
+            if not line.strip():
+                continue
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError:
+                continue  # torn tail from a killed writer
+
+
 def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
     """Merge shards/*.jsonl -> inference_registry.csv (last-writer-wins by ran_at).
 
@@ -103,15 +124,11 @@ def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
             by_key[run_key(prev_row)] = prev_row
 
     shard_files = sorted(shards.glob("*.jsonl")) if shards.exists() else []
-    for sf in shard_files:
-        for line in sf.read_text().splitlines():
-            if not line.strip():
-                continue
-            row: dict[str, object] = json.loads(line)
-            k = run_key(row)
-            prev = by_key.get(k)
-            if prev is None or _ran_at(row) >= _ran_at(prev):
-                by_key[k] = row
+    for row in _iter_shard_rows(experiment_folder):
+        k = run_key(row)
+        prev = by_key.get(k)
+        if prev is None or _ran_at(row) >= _ran_at(prev):
+            by_key[k] = row
 
     inference_dir.mkdir(parents=True, exist_ok=True)
     pl.DataFrame(list(by_key.values()), schema=INFERENCE_REGISTRY_SCHEMA).write_csv(out)
