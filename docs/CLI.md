@@ -41,19 +41,33 @@ pch summarize --trees SET.trees --output OUT.tree --consensus {passthrough|major
 
 ## Pipeline commands (`pch experiment …`, read the experiment YAML)
 
-> **Arg convention (mind the split):** `inference` and `score` take the spec **YAML**; `status` and `compact` take the experiment **folder**. Passing a yaml to `compact` fails with `NotADirectoryError`.
+> **Arg convention (uniform):** every `experiment` subcommand takes the spec **YAML** — the experiment folder is derived from it (`experiment_folder:`). Keep the spec inside the experiment folder.
 
 ### `pch experiment inference EXPERIMENT.yaml`
 Reads `{experiment_folder}/simulation_data/simulated_data_registry.csv`, runs the methods enabled under `methods:` for every dataset, and writes the joinable `inference_data/inference_registry.csv` (+ `manifest.json`).
 
+```bash
+pch experiment inference EXPERIMENT.yaml [--executor local|slurm] [--datasets FILE] [--method M] \
+    [--dry-run] [--resubmits K] [--astral-mem-gb N]
+```
+- `--executor local` (default) — run every enabled method in-process (today's behavior).
+- `--datasets FILE` — text file of dataset paths (one per line); restrict the run to those datasets (matched by canonical path). Default = all sim rows.
+- `--method M` — restrict a *local* run to one enabled method.
+
+#### SLURM fan-out (`--executor slurm`)
+Fans the work out as **one submitit job per (condition, method)** (condition = the dataset's parent-dir name, as in `run_parallel_sim.sh`). Method dependencies become `afterok` edges within a condition (MP4/GA → ASTRAL3); a final **compact** job depends `afterany` on all method jobs and merges the shards into the registry + manifest. Batch jobs write only per-job JSONL shards; only the compact job compacts — so concurrent jobs never race the manifest.
+- **Requeue-on-timeout** absorbs the `secondary` queue's 4 h cap (`slurm_max_num_timeout=--resubmits`, default 3): a timed-out job auto-requeues, and idempotent `completed_runs` makes the rerun safe (finished datasets are skipped).
+- **Two resource tiers**, not a per-method map: ASTRAL3 is `heavy` (big `mem_gb`/heap; override with `--astral-mem-gb N`), MP4/GA are `light`. Each job exports a short **node-local** scratch (`PCH_SCRATCH=/tmp/pch.$SLURM_JOB_ID`, dodging MrBayes' 99-char cap) and `PCH_ASTRAL_XMX` from its `mem_gb`.
+- `--dry-run` prints the (condition, method) DAG + tiers + `afterok`/`afterany` edges and submits nothing (works without `sbatch`). Without `--dry-run`, a missing `sbatch` errors (no silent local fallback — use `--executor local` for that).
+
 ### `pch experiment score EXPERIMENT.yaml`
 Join the inference registry to `simulated_data_registry.csv` (on `dataset_id`==`path`) to recover the model tree, RF-score each point estimate, and write `inference_data/scores.csv` (`dataset_id, method, config_hash, fn_rate, fp_rate`). Idempotent (rewrites).
 
-### `pch experiment status EXPERIMENT_FOLDER`
-Summarize the registry: total runs and counts per method.
+### `pch experiment status EXPERIMENT.yaml`
+Expected-vs-done gap view: per condition, `done/expected` for each enabled method (expected = sim datasets × methods; done = shard-aware `completed_runs`), plus the missing dataset stems. Reads registry ∪ uncompacted shards, so it's accurate mid-batch.
 
-### `pch experiment compact EXPERIMENT_FOLDER`
-Merge the per-job shards into `inference_registry.csv` (normally automatic at the end of `inference`; run manually after a SLURM batch).
+### `pch experiment compact EXPERIMENT.yaml`
+Merge the per-job shards into `inference_registry.csv` (normally automatic at the end of a `local` run; run manually after a SLURM batch — though the fan-out's compact job usually handles it).
 
 ### `pch simulation EXPERIMENT.yaml`
 Generate the simulated datasets (see `experiments/README.md`).
@@ -71,7 +85,7 @@ Generate the simulated datasets (see `experiments/README.md`).
 pch simulation experiments/my_run/experiment_specification.yaml      # 1. simulate datasets
 pch experiment inference experiments/my_run/experiment_specification.yaml   # 2. run inference -> registry
 pch experiment score experiments/my_run/experiment_specification.yaml       # 3. FN/FP -> scores.csv
-pch experiment status experiments/my_run                              # 4. check
+pch experiment status experiments/my_run/experiment_specification.yaml      # 4. check
 ```
 Analyze by joining the three tables on `dataset_id`:
 ```python
@@ -105,4 +119,4 @@ scores = pl.read_csv("experiments/my_run/inference_data/scores.csv")
 | GA: `Error when setting parameter "Filename" (2)`, no `GA/trees1/*.trees` | `PCH_SCRATCH` path > 99 chars (MrBayes cap) | Use a short `PCH_SCRATCH` (default `$HOME/scratch`). |
 | ASTRAL: `OutOfMemoryError: Java heap space` | Too many weighted quartets for the heap | `PCH_ASTRAL_XMX=12g` (or higher), or fewer `n_chars`. |
 | ASTRAL: `RuntimeException: Extra tree shouldn't have polytomy` | Unresolved MP4/GA tree fed to ASTRAL `-f` | Fixed in `getResultBipartitions` (`utils.resolve_polytomies`); update if you see it again. |
-| `NotADirectoryError: …/experiment_specification.yaml/inference_data` | Passed the spec yaml to `status`/`compact` | Those take the experiment **folder**, not the yaml. |
+| `--executor slurm` errors on missing `sbatch` | No SLURM on this host | Use `--dry-run` to preview the plan, or `--executor local` to run in-process. |

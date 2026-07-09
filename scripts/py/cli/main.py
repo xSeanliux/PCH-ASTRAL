@@ -1,6 +1,9 @@
 import json
+import shutil
+from enum import Enum
 from pathlib import Path
 
+import polars as pl
 import typer
 import yaml
 from pydantic import ValidationError
@@ -8,14 +11,23 @@ from rich import print
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
+from scripts.lib.inference.executor import SlurmExecutor
 from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
 from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference import registry
 from scripts.lib.inference.scoring import score
 from scripts.lib.inference.summarize import summarize
-from scripts.py.cli.handle_inference import handle_inference
+from scripts.py.cli.handle_inference import _read_dataset_filter, handle_inference
 from scripts.py.cli.handle_score import handle_score
 from scripts.py.cli.handle_simulation import handle_simulation
+from scripts.py.cli.handle_status import handle_status
+from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
+
+
+class Executor(str, Enum):
+    local = "local"
+    slurm = "slurm"
+
 
 app = typer.Typer()
 experiment = typer.Typer()
@@ -102,9 +114,45 @@ def summarize_(
 
 
 @experiment.command()
-def inference(config_path: Path):
-    out = handle_inference(_get_experiment_config(config_path))
-    print(f"Results in [green]{out}[/green] (join to simulated_data_registry.csv).")
+def inference(
+    config_path: Path,
+    executor: Executor = typer.Option(Executor.local, "--executor"),
+    datasets: Path | None = typer.Option(None, "--datasets"),
+    method: str | None = typer.Option(None, "--method"),
+    resubmits: int = typer.Option(3, "--resubmits"),
+    astral_mem_gb: int | None = typer.Option(None, "--astral-mem-gb"),
+    dry_run: bool = typer.Option(False, "--dry-run/--no-dry-run"),
+):
+    """Run enabled methods over the sim registry. `--executor slurm` fans out one
+    submitit job per (condition, method); `local` (default) runs in-process."""
+    config = _get_experiment_config(config_path)
+    if executor is Executor.local:
+        out = handle_inference(config, datasets=datasets, method=method)
+        print(f"Results in [green]{out}[/green] (join to simulated_data_registry.csv).")
+        return
+
+    # submitit's AutoExecutor silently degrades to local when sbatch is absent;
+    # error instead so `--executor slurm` never surprises. (dry-run needs no sbatch.)
+    if not dry_run and shutil.which("sbatch") is None:
+        raise typer.BadParameter(
+            "SLURM executor needs `sbatch` on PATH. Use --dry-run to preview the "
+            "plan, or --executor local to run in-process."
+        )
+
+    sim_registry = (
+        config.experiment_folder / "simulation_data" / "simulated_data_registry.csv"
+    )
+    rows = list(
+        pl.read_csv(sim_registry, schema=SIMULATED_DATA_REGISTRY_SCHEMA).iter_rows(
+            named=True
+        )
+    )
+    wanted = _read_dataset_filter(datasets)  # None = all rows
+    if wanted is not None:
+        rows = [r for r in rows if registry.canonical_path(str(r["path"])) in wanted]
+    SlurmExecutor(config).fan_out(
+        rows, resubmits=resubmits, astral_mem_gb=astral_mem_gb, dry_run=dry_run
+    )
 
 
 @experiment.command(name="score")
@@ -114,22 +162,13 @@ def score_experiment(config_path: Path):
 
 
 @experiment.command()
-def status(experiment_folder: Path):
-    csv = experiment_folder / "inference_data" / "inference_registry.csv"
-    if not csv.exists():
-        print(f"No inference registry at [green]{csv}[/green].")
-        return
-    import polars as pl
-
-    df = pl.read_csv(csv)
-    print(f"Total runs: {df.height}")
-    for method, count in df["method"].value_counts().iter_rows():
-        print(f"  {method}: {count}")
+def status(config_path: Path):
+    handle_status(_get_experiment_config(config_path))
 
 
 @experiment.command()
-def compact(experiment_folder: Path):
-    out = registry.compact(experiment_folder)
+def compact(config_path: Path):
+    out = registry.compact(_get_experiment_config(config_path).experiment_folder)
     print(f"Compacted registry -> [green]{out}[/green].")
 
 
