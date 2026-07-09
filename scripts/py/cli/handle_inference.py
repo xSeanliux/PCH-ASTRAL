@@ -32,7 +32,17 @@ def select_methods(methods: MethodConfig) -> list[TreeInferenceMethod]:
     return scheduler.topological_order(enabled, deps_of)
 
 
-def handle_inference(config: ExperimentConfig) -> Path:
+def handle_inference(
+    config: ExperimentConfig,
+    *,
+    datasets: Path | None = None,
+    method: str | None = None,
+    no_compact: bool = False,
+) -> Path:
+    """Run enabled methods per dataset. SLURM batch knobs (all additive):
+    `datasets` restricts to sim rows named in a paths file; `method` runs one
+    enabled method; `no_compact` skips all manifest/compact (shard-only shards).
+    """
     experiment_folder = config.experiment_folder
     sim_registry = experiment_folder / "simulation_data" / "simulated_data_registry.csv"
     assert sim_registry.exists(), (
@@ -44,9 +54,17 @@ def handle_inference(config: ExperimentConfig) -> Path:
         "No runnable inference methods selected — the config enables none that this "
         "milestone supports (MP4/GA/ASTRAL3). Nothing to do."
     )
+    if method is not None:  # SLURM: pin the run to one enabled method
+        methods = [m for m in methods if method in (m.value, m.name)]
+        assert methods, (
+            f"Method {method!r} is not enabled in the config; "
+            "cannot restrict the run to it."
+        )
     inference_dir = experiment_folder / "inference_data"
-    registry.init_manifest(experiment_folder, [m.value for m in methods])
+    if not no_compact:
+        registry.init_manifest(experiment_folder, [m.value for m in methods])
 
+    wanted = _read_dataset_filter(datasets)  # None = all rows
     done = scheduler.completed_runs(experiment_folder)  # {dataset → {(method, cfg)}}
     tally = {"ok": 0, "skipped": 0, "blocked": 0, "failed": 0}
     rows = pl.read_csv(sim_registry, schema=SIMULATED_DATA_REGISTRY_SCHEMA).iter_rows(
@@ -55,6 +73,8 @@ def handle_inference(config: ExperimentConfig) -> Path:
     for row in rows:
         input_path = Path(str(row["path"]))
         dataset_id = registry.canonical_path(input_path)  # identity = canonical path
+        if wanted is not None and dataset_id not in wanted:
+            continue  # SLURM: this shard doesn't own this dataset
         dkey = (dataset_id,)
         prior = done.get(dkey, set())
         ok_methods = {m for m, _ in prior}  # this dataset's OK methods; grows below
@@ -97,10 +117,21 @@ def handle_inference(config: ExperimentConfig) -> Path:
             ok_methods.add(method.value)
             tally["ok"] += 1
 
-    registry.finalize_manifest(experiment_folder, tally)
-    out = registry.compact(experiment_folder)
+    if no_compact:  # SLURM batch: shards only; the compact job owns the manifest
+        out = inference_dir / "inference_registry.csv"
+    else:
+        registry.finalize_manifest(experiment_folder, tally)
+        out = registry.compact(experiment_folder)
     print(
         f"Inference: {tally['ok']} ok, {tally['skipped']} skipped, "
         f"{tally['blocked']} blocked, {tally['failed']} failed → [green]{out}[/green]."
     )
     return out
+
+
+def _read_dataset_filter(datasets: Path | None) -> set[str] | None:
+    """Paths file (one per line) → canonicalized set; None passes everything."""
+    if datasets is None:
+        return None
+    lines = datasets.read_text().splitlines()
+    return {registry.canonical_path(p) for p in lines if p.strip()}

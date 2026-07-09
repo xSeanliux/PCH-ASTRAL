@@ -1,7 +1,48 @@
+from pathlib import Path
+
 import pytest
 
+from scripts.lib.inference.inference import (
+    InferenceResult,
+    RunStatus,
+    TreeInferenceMethod,
+)
 from scripts.lib.inference.inference import TreeInferenceMethod as T
-from scripts.lib.inference.scheduler import topological_order
+from scripts.lib.inference.registry import compact, write_result
+from scripts.lib.inference.scheduler import completed_runs, topological_order
+
+
+def _result(
+    ran_at: str, *, dataset_id: str = "ds1", config_hash: str = "abc"
+) -> InferenceResult:
+    return InferenceResult(
+        dataset_id=dataset_id,
+        tree_inference_method=TreeInferenceMethod.MP,
+        config_hash=config_hash,
+        method_config_json="{}",
+        point_estimate_newick="(a,b);",
+        runtime_seconds=1.0,
+        status=RunStatus.OK,
+        ran_at=ran_at,
+    )
+
+
+def test_completed_runs_sees_shard_only_progress(tmp_path: Path):
+    # A SLURM batch job wrote a shard; nothing compacted yet (no registry.csv).
+    write_result(_result("2026-01-01T00:00:00+00:00"), tmp_path)
+    done = completed_runs(tmp_path)
+    assert done[("ds1",)] == {("mp", "abc")}  # visible without compaction
+
+
+def test_completed_runs_unions_and_dedups_registry_and_shard(tmp_path: Path):
+    # ds1 compacted into registry.csv; then ds1 (dup) + ds2 land in a new shard.
+    write_result(_result("2026-01-01T00:00:00+00:00"), tmp_path)
+    compact(tmp_path)  # ds1 -> registry.csv, shard cleaned
+    write_result(_result("2026-01-02T00:00:00+00:00"), tmp_path)  # same key, in shard
+    write_result(_result("2026-01-03T00:00:00+00:00", dataset_id="ds2"), tmp_path)
+    done = completed_runs(tmp_path)
+    assert done[("ds1",)] == {("mp", "abc")}  # dedups across the two sources
+    assert done[("ds2",)] == {("mp", "abc")}
 
 
 def test_topo_orders_deps_before_dependents():

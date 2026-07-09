@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from scripts.lib.experiment import (
     ASTRAL3Config,
@@ -313,6 +314,100 @@ def test_handle_inference_astral3_runs_when_upstream_ok_same_run(tmp_path, monke
     handle_inference(cfg)
 
     assert TreeInferenceMethod.PCH_ASTRAL3 in calls  # not blocked
+
+
+def _setup_two_datasets(tmp_path: Path, methods: dict):
+    # Two datasets under the same condition; mirrors _setup but with a 2nd row.
+    cond = tmp_path / "simulation_data" / "simulated_data" / "high_0.1_4_320"
+    cond.mkdir(parents=True)
+    d1, d2 = cond / "sim_0_1_1.csv", cond / "sim_0_1_2.csv"
+    d1.write_text("id,feature,weight,A,B\n")
+    d2.write_text("id,feature,weight,A,B\n")
+    base_tree = tmp_path / "base.txt"
+    base_tree.write_text("(A,B);\n")
+    pl.DataFrame(
+        {"horizontal_edges": [0], "model_tree": [1], "path": [str(base_tree)]}
+    ).write_csv(tmp_path / "simulation_data" / "model_graph_registry.csv")
+    pl.DataFrame(
+        {
+            "poly_level": ["high", "high"],
+            "character_count": [320, 320],
+            "min_tree_height": [4, 4],
+            "homoplasy_factor": [0.1, 0.1],
+            "horizontal_edges": [0, 0],
+            "model_tree": [1, 1],
+            "replica": [1, 2],
+            "path": [str(d1), str(d2)],
+        }
+    ).write_csv(tmp_path / "simulation_data" / "simulated_data_registry.csv")
+    cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
+    return cfg, d1, d2
+
+
+def test_handle_inference_datasets_subset(tmp_path: Path, monkeypatch):
+    from scripts.lib.inference import registry
+
+    cfg, d1, d2 = _setup_two_datasets(tmp_path, {"mp4": {}})
+    ids: list = []
+
+    def fake(input_csv, output_dir, method, config, *, name=None):
+        ids.append(str(input_csv))
+        return InferenceResult(
+            dataset_id=str(input_csv),
+            tree_inference_method=method,
+            config_hash=config_hash(config),
+            method_config_json=config.model_dump_json(),
+            point_estimate_newick="(A,B);",
+            runtime_seconds=1.0,
+            status=RunStatus.OK,
+            ran_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    monkeypatch.setattr(api, "infer", fake)
+
+    subset = tmp_path / "subset.txt"
+    subset.write_text(f"{d1}\n")  # name only d1
+    handle_inference(cfg, datasets=subset)
+
+    assert ids == [str(d1)]  # d2 skipped
+    df = pl.read_csv(tmp_path / "inference_data" / "inference_registry.csv")
+    assert df["dataset_id"].to_list() == [registry.canonical_path(d1)]
+
+
+def test_handle_inference_method_filter(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, {"mp4": {}, "gray_atkinson": {}})
+    calls: list = []
+    monkeypatch.setattr(api, "infer", _ok_infer(calls))
+
+    handle_inference(cfg, method="ga")
+
+    assert calls == [TreeInferenceMethod.GA]  # only the named method runs
+
+
+def test_handle_inference_method_not_enabled_errors(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, {"mp4": {}})
+    monkeypatch.setattr(api, "infer", _ok_infer([]))
+
+    with pytest.raises(AssertionError):
+        handle_inference(cfg, method="ga")  # ga not enabled → error
+
+
+def test_handle_inference_no_compact_skips_manifest(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, {"mp4": {}})
+    calls: list = []
+    monkeypatch.setattr(api, "infer", _ok_infer(calls))
+
+    handle_inference(cfg, no_compact=True)
+
+    inf = tmp_path / "inference_data"
+    assert calls == [TreeInferenceMethod.MP]  # inference still ran
+    assert not (inf / "inference_registry.csv").exists()  # not compacted
+    assert not (inf / "manifest.json").exists()  # manifest untouched
+    assert list((inf / "shards").glob("*.jsonl"))  # shards remain
+
+    handle_inference(cfg, no_compact=False)  # default still compacts + writes manifest
+    assert (inf / "inference_registry.csv").exists()
+    assert (inf / "manifest.json").exists()
 
 
 def test_handle_inference_astral3_runs_from_prior_registry(tmp_path, monkeypatch):
