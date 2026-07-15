@@ -10,11 +10,21 @@ The front door for *running* the config-driven inference pipeline. Task-oriented
 ## Setup
 
 ```bash
+git lfs install && git lfs pull   # fetch bin/lingphylosimulator_jars/*.jar (LFS)
 make setup          # uv + `uv sync` (installs deps and the `pch` entry point)
-make install-bins   # PAUP, MrBayes, ASTER, TREE-QMC into bin/
-git submodule update --init   # ASTRAL jar
+make install-bins   # PAUP, MrBayes, ASTER, TREE-QMC, ASTRAL, LingPhyloSimulator into bin/
 ```
-External deps `make` won't install: **Java** (ASTRAL), **R** (nexus-gen, scoring, consensus). Run `pch` via `uv run pch …` or activate the venv.
+External deps `make` won't install: **Java** (ASTRAL/simulator), **R** (nexus-gen, scoring, consensus). Run `pch` via `uv run pch …` or activate the venv.
+
+**Prerequisites, in order (each blocks the pipeline if missing):**
+
+1. **git-lfs.** `bin/lingphylosimulator_jars/*.jar` (the simulator's build deps) are LFS-tracked. Without `git lfs pull` they're 130-byte pointers, and `make install-lingphylosimulator` builds a broken `bin/LingPhyloSimulator.jar` (silent `javac` failure → `Could not find or load main class Simulator` when simulating). No git-lfs on the machine? Grab a static binary from the [git-lfs releases](https://github.com/git-lfs/git-lfs/releases) and put it on `PATH`.
+2. **`make install-bins`** populates `bin/`: `bin/mb` (MrBayes → GA's default `MB_EXEC`), `bin/paup` (MP4), `bin/Astral/` (jar **and** its `lib/` — the jar's manifest `Class-Path` is `lib/*.jar`), `bin/LingPhyloSimulator.jar` (simulation), plus ASTER/TREE-QMC. Individual targets: `make install-mrbayes`, `install-paup`, `install-astral3`, `install-lingphylosimulator`. MrBayes builds from source — run it from a directory whose C compiler works (empty `LIBRARY_PATH`/`CPATH` entries can make `gcc` fail on `./specs`).
+3. **R + packages.** Scoring/consensus/nexus-gen shell out to `Rscript`. The R scripts need `shiny, optparse, dplyr, stringr, ape, testit, phangorn, castor, TreeDist`. Point `R_LIBS` at a library that has them (packages built under R 4.4 load fine under the system R 4.5). Missing packages → `commandLineNex.R` halts on `library(...)`, PAUP gets an empty NEXUS, and **MP4/GA silently produce no tree**.
+
+**Environment variables** (see `CLI.md` § *Environment & tuning* for the full table): `R_LIBS` (R package library), `MB_EXEC` (MrBayes; defaults to `bin/mb`, so unset once `make install-mrbayes` has run), `PCH_SCRATCH` (short temp path), `PCH_ASTRAL_XMX` (ASTRAL heap).
+
+> **`PYTHONPATH` shadow.** A `PYTHONPATH` that contains another project with its own top-level `scripts/` package shadows this repo's `scripts` for the `pch` **console script** (`ModuleNotFoundError: No module named 'scripts.py.cli'`). `python -m scripts.py.cli.main` is immune (cwd wins). Fix: run from a clean `PYTHONPATH`, or invoke via `python -m`.
 
 ## Run an experiment end to end
 
