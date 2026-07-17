@@ -132,4 +132,6 @@ def _read_dataset_filter(datasets: Path | None) -> set[str] | None:
     if datasets is None:
         return None
     lines = datasets.read_text().splitlines()
-    return {registry.canonical_path(p) for p in lines if p.strip()}
+    # Canonicalize the STRIPPED line: a trailing space/`\r` would otherwise make a
+    # path that never matches a stored dataset_id, silently dropping that dataset.
+    return {registry.canonical_path(p.strip()) for p in lines if p.strip()}

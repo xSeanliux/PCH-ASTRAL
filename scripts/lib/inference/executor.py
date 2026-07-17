@@ -13,6 +13,7 @@ See specs/cli_specs/slurm_fanout_spec.md section C.
 """
 
 import os
+import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -160,13 +161,14 @@ class SlurmExecutor:
                 )
                 heavy = m is TreeInferenceMethod.PCH_ASTRAL3
                 label = self._label(condition, m.value)
+                # `is None`, not `or`: `--astral-mem-gb 0` is an explicit override,
+                # not a request for the 64g default.
+                heavy_mem = _HEAVY_MEM_GB if astral_mem_gb is None else astral_mem_gb
                 specs.append(
                     JobSpec(
                         label=label,
                         kind="batch",
-                        mem_gb=(astral_mem_gb or _HEAVY_MEM_GB)
-                        if heavy
-                        else _LIGHT_MEM_GB,
+                        mem_gb=heavy_mem if heavy else _LIGHT_MEM_GB,
                         cpus=_HEAVY_CPUS if heavy else _LIGHT_CPUS,
                         dep_labels=dep_labels,
                         dep_mode="afterok",
@@ -199,8 +201,14 @@ class SlurmExecutor:
 
     def _spec_snapshot(self) -> Path:
         """Serialize the config to a picklable/importable spec path for the jobs.
-        Sidesteps needing the original yaml location; jobs reload from this."""
-        p = self._inference_dir / "spec.snapshot.yaml"
+        Sidesteps needing the original yaml location; jobs reload from this.
+
+        Unique name per submission: jobs reload it lazily at run time (incl. a
+        requeue hours later), so a fixed path would let a later `--executor slurm`
+        wave (edited yaml) overwrite the config a still-queued wave reads. A
+        per-submission name isolates each wave.
+        """
+        p = self._inference_dir / f"spec.snapshot.{uuid.uuid4().hex[:12]}.yaml"
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(yaml.safe_dump(self.config.model_dump(mode="json")))
         return p
@@ -221,7 +229,7 @@ class SlurmExecutor:
         rows = list(rows)
         if datasets is not None:
             wanted = {
-                registry.canonical_path(line)
+                registry.canonical_path(line.strip())
                 for line in datasets.read_text().splitlines()
                 if line.strip()
             }

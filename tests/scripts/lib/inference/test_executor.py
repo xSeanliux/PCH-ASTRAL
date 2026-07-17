@@ -56,9 +56,7 @@ def test_plan_one_job_per_condition_method(tmp_path: Path):
     batch = _batch(plan)
     # 2 conditions × 3 methods.
     assert {(s.condition, s.method) for s in batch} == {
-        (c, m)
-        for c in ("netA", "netB")
-        for m in ("mp", "ga", "pch_astral3")
+        (c, m) for c in ("netA", "netB") for m in ("mp", "ga", "pch_astral3")
     }
     assert len(batch) == 6
 
@@ -90,6 +88,13 @@ def test_default_astral_mem(tmp_path: Path):
     plan = _plan(tmp_path, astral_mem_gb=None)
     a3 = next(s for s in plan if s.method == "pch_astral3")
     assert a3.mem_gb == 64  # heavy default when no override
+
+
+def test_astral_mem_zero_is_explicit_not_default(tmp_path: Path):
+    # `--astral-mem-gb 0` is an explicit override (falsy), NOT a request for 64.
+    plan = _plan(tmp_path, astral_mem_gb=0)
+    a3 = next(s for s in plan if s.method == "pch_astral3")
+    assert a3.mem_gb == 0
 
 
 def test_dry_run_writes_batches_without_submitting(tmp_path: Path):
@@ -131,9 +136,7 @@ def test_datasets_filter_restricts_conditions(tmp_path: Path):
     plan = SlurmExecutor(_config(tmp_path)).fan_out(
         _rows(), datasets=keep, dry_run=True
     )
-    conds = {
-        s.condition for s in plan if isinstance(s, JobSpec) and s.kind == "batch"
-    }
+    conds = {s.condition for s in plan if isinstance(s, JobSpec) and s.kind == "batch"}
     assert conds == {"netA"}
 
 

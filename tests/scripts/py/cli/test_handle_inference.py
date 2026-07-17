@@ -18,7 +18,24 @@ from scripts.lib.inference.inference import (
     RunStatus,
 )
 from scripts.lib.inference.method_config import config_for, config_hash
-from scripts.py.cli.handle_inference import handle_inference, select_methods
+from scripts.lib.inference import registry
+from scripts.py.cli.handle_inference import (
+    _read_dataset_filter,
+    handle_inference,
+    select_methods,
+)
+
+
+def test_read_dataset_filter_strips_whitespace(tmp_path: Path):
+    # A trailing space/CR must not survive into the key, or the path never matches
+    # a stored (canonical) dataset_id and the dataset is silently dropped.
+    f = tmp_path / "datasets.txt"
+    f.write_text("a/b/x.csv \nc/d/y.csv\r\n")
+    got = _read_dataset_filter(f)
+    assert got == {
+        registry.canonical_path("a/b/x.csv"),
+        registry.canonical_path("c/d/y.csv"),
+    }
 
 
 def test_select_methods_mp_only():
