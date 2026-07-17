@@ -99,6 +99,17 @@ def test_iter_shard_rows_skips_torn_tail(tmp_path: Path):
     assert [r["dataset_id"] for r in rows] == ["ds1", "ds2"]
 
 
+def test_iter_shard_rows_skips_valid_json_scalars(tmp_path: Path):
+    # A torn line can parse as a valid JSON *scalar* (number/string), not a dict.
+    # Yielding it would blow up downstream at row["status"]; it must be skipped.
+    good = json.dumps(_result("2026-01-01T00:00:00+00:00").to_registry_row())
+    _write_shard(tmp_path, f'{good}\n42\n"stray"')
+    rows = list(_iter_shard_rows(tmp_path))
+    assert len(rows) == 1
+    assert all(isinstance(r, dict) for r in rows)
+    assert rows[0]["dataset_id"] == "ds1"
+
+
 def test_compact_drops_torn_line_and_merges_prior(tmp_path: Path):
     # Seed a prior registry row (ds0), then a shard with 2 valid + 1 torn line.
     write_result(_result("2026-01-01T00:00:00+00:00", dataset_id="ds0"), tmp_path)

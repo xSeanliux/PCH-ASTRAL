@@ -10,16 +10,15 @@ caller, never recorded. See docs/ARCHITECTURE.md.
 from collections import defaultdict, deque
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import cast
 
 import polars as pl
 
 from scripts.lib.inference import registry
 from scripts.lib.inference.inference import RunStatus, TreeInferenceMethod
+from scripts.lib.inference.registry import Cell
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
-# A registry/sim cell value, and a dataset's identity (its join-key values).
-Cell = str | int | float | None
+# A dataset's identity (its join-key values). `Cell` is defined in registry.
 DatasetKey = tuple[Cell, ...]
 
 
@@ -55,12 +54,8 @@ def completed_runs(experiment_folder: Path) -> dict[DatasetKey, set[tuple[str, s
     if out.exists():
         rows = pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).iter_rows(named=True)
         _add_ok_runs(rows, done)
-    _add_ok_runs(
-        cast(
-            Iterable[Mapping[str, Cell]], registry._iter_shard_rows(experiment_folder)
-        ),
-        done,
-    )
+    # _iter_shard_rows now yields dict[str, Cell] directly — no cast needed.
+    _add_ok_runs(registry._iter_shard_rows(experiment_folder), done)
     return dict(done)
 
 

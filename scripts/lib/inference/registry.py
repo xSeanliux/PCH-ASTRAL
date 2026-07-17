@@ -18,6 +18,10 @@ import polars as pl
 from scripts.lib.inference.inference import InferenceResult
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
+# A registry/shard/sim cell value. Defined here (not scheduler) so this module
+# can type its row iterators without importing scheduler (which imports this).
+Cell = str | int | float | None
+
 # The key that identifies a dataset (the scheduler's ledger keys on this).
 # dataset_id = the input CSV path — unique per source, sim or real.
 DATASET_KEY_COLUMNS = ["dataset_id"]
@@ -83,25 +87,33 @@ def write_result(result: InferenceResult, experiment_folder: Path) -> Path:
     return shard
 
 
-def _iter_shard_rows(experiment_folder: Path) -> Iterator[dict[str, object]]:
-    """Yield one parsed row per line across all shards/*.jsonl (sorted).
+def _iter_shard_rows(experiment_folder: Path) -> Iterator[dict[str, Cell]]:
+    """Yield one parsed row (a dict) per line across all shards/*.jsonl (sorted).
 
-    Crash-tolerant: a SLURM SIGKILL mid-write can leave a torn/truncated trailing
-    JSON line; skip any line that won't parse (and blank lines) rather than fail
-    the whole compaction. Reads each shard whole so a >8KB newick split across
+    Crash-tolerant: a SLURM SIGKILL mid-write can leave a torn/truncated line;
+    skip anything that won't parse (blank lines, a torn JSON tail, or a scalar
+    from a half-written line) rather than fail the whole compaction — and skip an
+    unreadable shard (e.g. a torn multibyte char → `UnicodeDecodeError`) instead
+    of aborting the loop. Reads each shard whole so a >8KB newick split across
     write() calls still lands on one line.
     """
     shards = _shards_dir(experiment_folder)
     if not shards.exists():
         return
     for sf in sorted(shards.glob("*.jsonl")):
-        for line in sf.read_text().splitlines():
+        try:
+            text = sf.read_text()
+        except (UnicodeDecodeError, OSError):
+            continue  # torn/unreadable shard: skip it, don't kill the compaction
+        for line in text.splitlines():
             if not line.strip():
                 continue
             try:
-                yield json.loads(line)
+                obj = json.loads(line)
             except json.JSONDecodeError:
                 continue  # torn tail from a killed writer
+            if isinstance(obj, dict):
+                yield obj  # a torn line parsing as a bare scalar isn't a row
 
 
 def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
@@ -114,7 +126,7 @@ def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
     shards = _shards_dir(experiment_folder)
     out = inference_dir / "inference_registry.csv"
 
-    by_key: dict[str, dict[str, object]] = {}
+    by_key: dict[str, dict[str, Cell]] = {}
     # Seed from the existing registry so incremental compaction (with shard
     # cleanup) accumulates instead of replacing prior rows.
     if out.exists():
