@@ -258,7 +258,15 @@ class SlurmExecutor:
         # exactly as it does locally — without rewriting (and breaking) dataset_id.
         chdir = os.getcwd()
         submitit_dir = self._inference_dir / "submitit"
-        ex = AutoExecutor(folder=submitit_dir)  # one executor, reparametrized per job
+        # Pin cluster="slurm": AutoExecutor auto-detects from `srun` (not `sbatch`),
+        # so if the two diverge it would silently pick LocalExecutor, which ignores
+        # slurm_additional_parameters — dropping the afterok dep edges and racing
+        # ASTRAL3 ahead of MP4/GA. Pinning raises "no srun" instead of degrading.
+        # max_num_timeout is a constructor arg (forwarded to SlurmExecutor as
+        # max_num_timeout), NOT an update_parameters key. Requeue-on-timeout count.
+        ex = AutoExecutor(
+            folder=submitit_dir, cluster="slurm", slurm_max_num_timeout=resubmits
+        )
         jobs: dict[str, Job[None]] = {}
         submitted: list[Job[None]] = []
 
@@ -275,7 +283,6 @@ class SlurmExecutor:
                 "timeout_min": _TIMEOUT_MIN,
                 "cpus_per_task": spec.cpus,
                 "mem_gb": spec.mem_gb,
-                "slurm_max_num_timeout": resubmits,
                 # Node-local scratch dodges the 99-char MrBayes path cap.
                 "slurm_setup": [
                     "export PCH_SCRATCH=/tmp/pch.$SLURM_JOB_ID",

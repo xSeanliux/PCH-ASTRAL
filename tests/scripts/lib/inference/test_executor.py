@@ -168,8 +168,19 @@ class _FakeExecutor:
 
 def test_submit_pins_chdir_and_merges_dependency(tmp_path: Path, monkeypatch):
     fx = _FakeExecutor(tmp_path)
-    monkeypatch.setattr(executor_mod, "AutoExecutor", lambda folder: fx)
+    ctor_kw: dict[str, object] = {}
+
+    def _fake_ctor(folder, **kw):  # mirror the real AutoExecutor(folder, **kwargs)
+        ctor_kw.update(kw)
+        return fx
+
+    monkeypatch.setattr(executor_mod, "AutoExecutor", _fake_ctor)
     SlurmExecutor(_config(tmp_path)).fan_out(_rows(), dry_run=False)
+
+    # The executor must pin the cluster and pass requeue count at construction
+    # (both are AutoExecutor ctor args, not update_parameters keys).
+    assert ctor_kw["cluster"] == "slurm"
+    assert ctor_kw["slurm_max_num_timeout"] == 3
 
     assert fx.captured, "no jobs submitted"
     cwd = os.getcwd()
@@ -183,3 +194,29 @@ def test_submit_pins_chdir_and_merges_dependency(tmp_path: Path, monkeypatch):
     # chdir MERGES with the dependency edge (ASTRAL3 depends on MP4/GA).
     dep_extras = [e for e in extras if "dependency" in e]
     assert dep_extras and all(e["chdir"] == cwd for e in dep_extras)
+
+
+def test_real_autoexecutor_submit_path(tmp_path: Path, monkeypatch):
+    """Drive _submit through the REAL submitit AutoExecutor (not the fake), so the
+    actual constructor kwargs and every update_parameters call are validated. This
+    is the gap that hid the `slurm_max_num_timeout` NameError: the faked-executor
+    test and every dry-run never touched submitit's parameter validation. We only
+    neutralize srun-detection (so construction works off-cluster) and stub the
+    terminal .submit() (so no sbatch runs)."""
+    import itertools
+
+    from submitit import AutoExecutor
+    from submitit.slurm import slurm as slurm_mod
+
+    monkeypatch.setattr(slurm_mod.SlurmExecutor, "affinity", lambda self: 2)
+    counter = itertools.count(1)
+
+    class _RealJob:
+        def __init__(self) -> None:
+            self.job_id = str(next(counter))
+
+    monkeypatch.setattr(AutoExecutor, "submit", lambda self, fn, *a: _RealJob())
+
+    # Must not raise: a bad ctor kwarg or update_parameters key fails here.
+    jobs = SlurmExecutor(_config(tmp_path)).fan_out(_rows(), dry_run=False)
+    assert len(jobs) == 7  # 2 conditions × 3 methods + 1 compact
