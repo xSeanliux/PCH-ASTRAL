@@ -11,6 +11,7 @@ Check `docs/` first for anything not covered here:
 - `docs/HOW_TO_RUN.md` — legacy bash inference scripts: I/O, key lines, caveats (migration reference).
 - `docs/SCRIPT_CONTRACTS.md` — I/O contracts for the primitives the inference API shells out to.
 - `docs/CLI.md` — the config-driven `simulation`/`inference` CLI.
+- `docs/OPERATIONAL_ISSUES.md` — cluster-scale runbook: R-version ABI breaks, GA/4h-cap limits, ASTRAL heap, maintenance reservations, resume.
 
 ## What this is
 
