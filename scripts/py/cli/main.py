@@ -2,6 +2,10 @@ import json
 import shutil
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from submitit import Job
 
 import polars as pl
 import typer
@@ -138,16 +142,25 @@ def inference(
             "SLURM executor needs `sbatch` on PATH. Use --dry-run to preview the "
             "plan, or --executor local to run in-process."
         )
+    if resubmits < 1:
+        # 0 → slurm_max_num_timeout=0: a timed-out job never requeues, so its
+        # afterok dependent (ASTRAL3) stalls forever. Requeue must be possible.
+        raise typer.BadParameter("--resubmits must be >= 1.")
 
     sim_registry = (
         config.experiment_folder / "simulation_data" / "simulated_data_registry.csv"
     )
+    if not sim_registry.exists():
+        # Match the local path's friendly guidance instead of a raw FileNotFoundError.
+        raise typer.BadParameter(
+            f"No simulation registry at {sim_registry}. Run `pch simulation` first."
+        )
     rows = list(
         pl.read_csv(sim_registry, schema=SIMULATED_DATA_REGISTRY_SCHEMA).iter_rows(
             named=True
         )
     )
-    SlurmExecutor(config).fan_out(
+    result = SlurmExecutor(config).fan_out(
         rows,
         method=method,
         datasets=datasets,
@@ -155,6 +168,15 @@ def inference(
         astral_mem_gb=astral_mem_gb,
         dry_run=dry_run,
     )
+    if not dry_run:
+        # A real submit was silent before; report what was queued (dry-run already
+        # printed its plan and returns JobSpecs, so only summarize the live path).
+        job_ids = [j.job_id for j in cast("list[Job[None]]", result)]
+        print(
+            f"Submitted [green]{len(job_ids)}[/green] SLURM jobs "
+            f"({job_ids[0]}…{job_ids[-1]}); the compact job runs last. "
+            "Track with `squeue -u $USER`."
+        )
 
 
 @experiment.command(name="score")

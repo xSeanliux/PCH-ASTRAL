@@ -4,12 +4,17 @@ import polars as pl
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
-from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.inference.inference import (
+    InferenceResult,
+    RunStatus,
+    TreeInferenceMethod,
+)
 from scripts.lib.inference.scheduler import DatasetKey
 from scripts.py.cli.handle_status import compute_status, handle_status
 
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
+
 
 def _config(folder: Path, methods: dict | None = None) -> dict:
     return {
@@ -59,6 +64,7 @@ def _done_for(
 
 
 # ── compute_status unit tests ─────────────────────────────────────────────────
+
 
 def _rows(paths: list[Path]) -> list[dict[str, str | int | float]]:
     return [
@@ -152,6 +158,7 @@ def test_compute_status_method_partial_across_methods(tmp_path: Path) -> None:
 
 # ── handle_status integration smoke tests ─────────────────────────────────────
 
+
 def test_handle_status_no_registry(tmp_path: Path) -> None:
     cfg = ExperimentConfig.model_validate(_config(tmp_path))
     # Must not raise; sim registry absent → early return
@@ -171,7 +178,9 @@ def test_handle_status_smoke(tmp_path: Path) -> None:
     _write_sim_registry(tmp_path, [d1, d2])
 
     # No inference data → all missing; should print without crashing
-    cfg = ExperimentConfig.model_validate(_config(tmp_path, methods={"mp4": {}, "gray_atkinson": {}}))
+    cfg = ExperimentConfig.model_validate(
+        _config(tmp_path, methods={"mp4": {}, "gray_atkinson": {}})
+    )
     handle_status(cfg)  # smoke: no exception
 
 
@@ -228,3 +237,30 @@ def test_handle_status_counts_match_compute(tmp_path: Path) -> None:
 
     # Smoke: full handler runs without error
     handle_status(cfg)
+
+
+def test_status_falls_back_when_no_sim_registry(tmp_path: Path, capsys) -> None:
+    # Real-data experiment: no sim registry ⇒ per-method tally from the inference
+    # registry (regression: it used to just print "No simulation registry").
+    for m in (TreeInferenceMethod.MP, TreeInferenceMethod.GA):
+        registry.write_result(
+            InferenceResult(
+                dataset_id=f"ds_{m.value}",
+                tree_inference_method=m,
+                config_hash="abc",
+                method_config_json="{}",
+                point_estimate_newick="(a,b);",
+                runtime_seconds=1.0,
+                status=RunStatus.OK,
+                ran_at="2026-01-01T00:00:00+00:00",
+            ),
+            tmp_path,
+        )
+    cfg = ExperimentConfig.model_validate(
+        _config(tmp_path, {"mp4": {}, "gray_atkinson": {}})
+    )
+    handle_status(cfg)  # no simulation_data/ under tmp_path
+    out = capsys.readouterr().out
+    assert "mp: 1" in out
+    assert "ga: 1" in out
+    assert "Total: 2 runs" in out

@@ -56,13 +56,34 @@ def compute_status(
     return counts, dict(missing)
 
 
+def _status_from_registry(config: ExperimentConfig) -> None:
+    """Real-data fallback: no sim registry ⇒ no expected count, so just tally the
+    inference registry's recorded runs per method (reads registry ∪ shards)."""
+    done = scheduler.completed_runs(config.experiment_folder)
+    per_method: dict[str, int] = defaultdict(int)
+    for methods_done in done.values():
+        for method, _cfg in methods_done:
+            per_method[method] += 1
+    print(
+        "[dim]No sim registry — per-method recorded runs (real-data experiment):[/dim]"
+    )
+    if not per_method:
+        print("  [yellow]nothing recorded yet.[/yellow]")
+        return
+    for method in sorted(per_method):
+        print(f"  {method}: {per_method[method]}")
+    print(f"\n[bold]Total: {sum(per_method.values())} runs[/bold]")
+
+
 def handle_status(config: ExperimentConfig) -> None:
     """Print expected vs done per condition/method for an experiment."""
     sim_registry = (
         config.experiment_folder / "simulation_data" / "simulated_data_registry.csv"
     )
     if not sim_registry.exists():
-        print(f"No simulation registry at [green]{sim_registry}[/green].")
+        # Real (non-simulated) experiments have no sim registry, so there's no
+        # expected count — fall back to a per-method tally of what's recorded.
+        _status_from_registry(config)
         return
 
     methods = select_methods(config.methods)
