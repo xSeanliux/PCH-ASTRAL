@@ -85,7 +85,7 @@ Generate the simulated datasets (see `experiments/README.md`).
 pch simulation experiments/my_run/experiment_specification.yaml      # 1. simulate datasets
 pch experiment inference experiments/my_run/experiment_specification.yaml   # 2. run inference -> registry
 pch experiment score experiments/my_run/experiment_specification.yaml       # 3. FN/FP -> scores.csv
-pch experiment status experiments/my_run/experiment_specification.yaml      # 4. check
+pch experiment status experiments/my_run/experiment_specification.yaml      # 4. check (YAML, not the folder)
 ```
 Analyze by joining the three tables on `dataset_id`:
 ```python
