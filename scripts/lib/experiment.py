@@ -45,7 +45,16 @@ class WeightedTreeQMCConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     class NormalisationStrategy(StrEnum):
+        N0 = "n0"
         N2 = "n2"
+
+        def to_int(self) -> int:
+            # TODO: there must be a better way to write this
+            if self == "n0":
+                return 0
+            elif self == "n2":
+                return 2
+            return ValueError(f"Invalid value for to_int: {self}")
 
     normalisation_strategy: NormalisationStrategy
 

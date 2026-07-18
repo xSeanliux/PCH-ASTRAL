@@ -66,7 +66,7 @@ mkdir -p "$TREEOUTPUT/$ASTRAL_VARIANT/logs"
 mkdir -p "$TREEOUTPUT/$ASTRAL_VARIANT/trees"
 
 python3 -m scripts.py.printQuartets -i "$INPUT" > "$PCH_SCRATCH/tmp_quartet_$RUNID.txt" || exit 1
-echo "✅ ASTRAL quartet generation, $(wc -l "$PCH_SCRATCH/tmp_quartet_$RUNID.txt" | awk '{ print $1 }') quartets"
+echo "✅ PCH-W quartet generation, $(wc -l "$PCH_SCRATCH/tmp_quartet_$RUNID.txt" | awk '{ print $1 }') quartets"
 
 if [[ $RUN_EXACT == "-x" ]]; then
     echo "Running in exact mode. No bipartitions used."
