@@ -51,7 +51,7 @@ class WeightedTreeQMCConfig(BaseModel):
         def to_int(self) -> int:
             return int(self.value[1:])  # "n0" -> 0, "n2" -> 2
 
-    normalisation_strategy: NormalisationStrategy
+    normalisation_strategy: NormalisationStrategy = NormalisationStrategy.N2
 
 
 class MP4Config(BaseModel):
