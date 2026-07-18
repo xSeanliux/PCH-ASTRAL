@@ -223,3 +223,34 @@ def test_real_autoexecutor_submit_path(tmp_path: Path, monkeypatch):
     # Must not raise: a bad ctor kwarg or update_parameters key fails here.
     jobs = SlurmExecutor(_config(tmp_path)).fan_out(_rows(), dry_run=False)
     assert len(jobs) == 7  # 2 conditions × 3 methods + 1 compact
+
+
+def test_batch_jobs_submitted_as_checkpointable(tmp_path: Path, monkeypatch):
+    """Batch bodies must be Checkpointable, or submitit refuses to requeue them on
+    timeout (`UncompletedJobError: not checkpointable`) → the job FAILS at the
+    walltime cap and `slurm_max_num_timeout` is a no-op. Capture the submitted
+    callables and assert every batch one is Checkpointable (compact needn't be)."""
+    import itertools
+
+    from submitit import AutoExecutor
+    from submitit.helpers import Checkpointable
+    from submitit.slurm import slurm as slurm_mod
+
+    monkeypatch.setattr(slurm_mod.SlurmExecutor, "affinity", lambda self: 2)
+    counter = itertools.count(1)
+    submitted: list[object] = []
+
+    class _RealJob:
+        def __init__(self) -> None:
+            self.job_id = str(next(counter))
+
+    def _capture(self, fn, *args):
+        submitted.append(fn)
+        return _RealJob()
+
+    monkeypatch.setattr(AutoExecutor, "submit", _capture)
+    # method="ga" ⇒ one GA batch per condition, then the compact job last.
+    SlurmExecutor(_config(tmp_path)).fan_out(_rows(), method="ga", dry_run=False)
+    batch_fns = submitted[:-1]  # last submission is the compact job
+    assert batch_fns, "no batch jobs submitted"
+    assert all(isinstance(f, Checkpointable) for f in batch_fns)

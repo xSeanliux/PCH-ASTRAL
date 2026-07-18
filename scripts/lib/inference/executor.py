@@ -23,6 +23,7 @@ import polars as pl
 import yaml
 from rich import print
 from submitit import AutoExecutor, Job
+from submitit.helpers import Checkpointable
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
@@ -78,6 +79,22 @@ def run_batch(spec_path: str, datasets_file: str, method: str) -> None:
     handle_inference(
         config, datasets=Path(datasets_file), method=method, no_compact=True
     )
+
+
+class RequeueBatch(Checkpointable):
+    """`run_batch` wrapped so submitit **requeues it on timeout**.
+
+    A plain function is NOT requeued when it hits the walltime cap: submitit's
+    handler raises `UncompletedJobError: timed-out and not checkpointable` and the
+    job FAILS — so `slurm_max_num_timeout` never actually absorbs the 4 h cap for
+    a long batch (only an idempotent resubmit made progress). A `Checkpointable`'s
+    default `checkpoint` re-runs with the same args; because the batch is
+    idempotent (`completed_runs` = registry ∪ shards, and the shard id is stable
+    across a requeue) the rerun skips finished datasets and continues past the cap.
+    """
+
+    def __call__(self, spec_path: str, datasets_file: str, method: str) -> None:
+        run_batch(spec_path, datasets_file, method)
 
 
 def run_compact(spec_path: str) -> None:
@@ -304,8 +321,10 @@ class SlurmExecutor:
                 job = ex.submit(run_compact, spec_path)
             else:
                 assert spec.datasets_file is not None and spec.method is not None
+                # RequeueBatch (Checkpointable) so a batch that outruns the walltime
+                # cap is requeued and resumes, instead of failing "not checkpointable".
                 job = ex.submit(
-                    run_batch, spec_path, str(spec.datasets_file), spec.method
+                    RequeueBatch(), spec_path, str(spec.datasets_file), spec.method
                 )
             jobs[spec.label] = job
             submitted.append(job)
