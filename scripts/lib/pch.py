@@ -81,7 +81,7 @@ def print_quartets_for_qfm(quartets: Counter[Quartet], file: TextIO = sys.stdout
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="PCH quartet generation",
-        description="generates quartets from an input character file following the PCH-W quartet generation scheme. When format is astral3 or qfm outputs go to stderr; when format is qfm quartets output to stdout and weights go to stderr.",
+        description="generates quartets from an input character file following the PCH-W quartet generation scheme. Quartets go to stdout (astral3: repeated per weight; qfm: `quartet;weight`); in wastral mode weights go to stderr.",
     )
     parser.add_argument(
         "-i", "--input", action="store", required=True, help="input characters file"
@@ -102,7 +102,6 @@ def main():
     args = parser.parse_args()
     quartet_fmt = args.format
 
-    print(args.input)
     dataset = Dataset.from_path(path=Path(args.input))
     quartets = PCH_W.get_quartets(dataset)
     if quartet_fmt == "astral3":

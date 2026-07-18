@@ -7,13 +7,6 @@ from scripts.lib.types import Dataset
 
 import argparse
 from pathlib import Path
-from enum import StrEnum
-
-
-class OutputMode(StrEnum):
-    ASTRAL3 = "astral3"
-    WASTRAL = "wastral"
-    W_TREE_QMC = "w_tree_qmc"
 
 
 def main():
@@ -24,7 +17,6 @@ def main():
 
     # Add '-i' argument for a string input
     parser.add_argument("-i", type=str, required=True, help="Path to the input CSV.")
-    parser.add_argument("--format", type=str, required=False, default="astral3")
 
     # WASTER mode
     parser.add_argument(

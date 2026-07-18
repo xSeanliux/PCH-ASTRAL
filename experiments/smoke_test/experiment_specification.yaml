@@ -32,3 +32,5 @@ methods:
     bipartition_strategies:
       - mp4_trees
       - ga_trees
+  w_tree_qmc:
+    normalisation_strategy: n2
