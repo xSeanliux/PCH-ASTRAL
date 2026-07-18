@@ -40,7 +40,7 @@ class WTreeQmcRunner:
             "-n",
             name,
             "-N",
-            str(config.normalisation_strategy.to_int()),
+            str(config.normalisation_strategy.value),
         ]
 
     @staticmethod

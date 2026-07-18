@@ -1,6 +1,6 @@
 #!/bin/bash
 # CLI variant for weighted TREE-QMC: generates PCH-W quartets, then infers a
-# tree with TREE-QMC. Writes into the folder named by -V (e.g. PCH_W_TREE_QMC);
+# tree with TREE-QMC. Writes into the folder named by -V (e.g. PCH_W_W_TREE_QMC);
 # the runner (scripts/lib/inference/runners/w_tree_qmc.py) is the single source
 # of truth for that name.
 # Initialize variables with defaults
@@ -27,7 +27,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -i, --input           Input characters CSV"
             echo "  -o, --output          Output dir"
             echo "  -n, --name            Dataset name"
-            echo "  -V, --variant         Output folder name (e.g. PCH_W_TREE_QMC)"
+            echo "  -V, --variant         Output folder name (e.g. PCH_W_W_TREE_QMC)"
             echo ""
             echo "Optional:"
             echo "  -N, --normalisation   --norm_atax scheme, 0 or 2 (default 2)"
@@ -75,6 +75,19 @@ bin/TREE-QMC/tree-qmc --quartets \
     --norm_atax "$NORMALISATION" \
     --override
 rc=$?
+
+# PCH-W emits no quartet for a taxon that shares no informative state with another,
+# so that taxon is absent from the tree. Warn when the leaf set is short of the input
+# — a taxon-incomplete tree scores wrongly against the full model tree.
+# ponytail: leaf count = commas+1 (no internal node labels); good enough to flag drift.
+TREE_FILE="$TREEOUTPUT/$VARIANT/trees/$NAME.tree"
+if [[ $rc -eq 0 && -s "$TREE_FILE" ]]; then
+    N_TAXA=$(head -1 "$INPUT" | awk -F, '{ print NF - 3 }')
+    N_LEAVES=$(($(tr -cd ',' < "$TREE_FILE" | wc -c) + 1))
+    if [[ "$N_LEAVES" -ne "$N_TAXA" ]]; then
+        echo "⚠️  tree has $N_LEAVES leaves but input has $N_TAXA taxa — PCH-W dropped uninformative taxa"
+    fi
+fi
 
 echo "✅ weighted TREE-QMC tree inference"
 exit $rc

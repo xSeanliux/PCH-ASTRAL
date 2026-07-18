@@ -41,7 +41,8 @@ def handle_inference(config: ExperimentConfig) -> Path:
 
     methods = select_methods(config.methods)
     assert methods, (
-        "No runnable inference methods selected — the config enables none that is supported. Noop. "
+        "No runnable inference methods selected — the config's `methods:` block enables "
+        "none of the supported methods (mp4, gray_atkinson, astral_3, w_tree_qmc). Nothing to do."
     )
     inference_dir = experiment_folder / "inference_data"
     registry.init_manifest(experiment_folder, [m.value for m in methods])
