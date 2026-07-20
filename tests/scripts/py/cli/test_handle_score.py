@@ -72,6 +72,39 @@ def test_handle_score_writes_fn_fp(tmp_path: Path, monkeypatch):
     )
 
 
+def test_handle_score_dedups_duplicate_sim_rows(tmp_path: Path, monkeypatch):
+    # A duplicate sim-registry `path` row fans the inf⨝sim join out; score the
+    # (dataset, method, config_hash) key once, not per duplicate.
+    cfg = _setup(tmp_path)
+    sim_csv = tmp_path / "simulation_data" / "simulated_data_registry.csv"
+    sim = pl.read_csv(sim_csv)
+    pl.concat([sim, sim]).write_csv(sim_csv)  # duplicate every row
+
+    def fake_infer(input_csv, output_dir, method, config, *, name=None):
+        return InferenceResult(
+            dataset_id=str(input_csv),
+            tree_inference_method=method,
+            config_hash="hash",
+            method_config_json="{}",
+            point_estimate_newick="(A,B);",
+            runtime_seconds=1.0,
+            status=RunStatus.OK,
+            ran_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    monkeypatch.setattr(api, "infer", fake_infer)
+    handle_inference(cfg)
+
+    calls: list = []
+    monkeypatch.setattr(
+        hs, "score", lambda est, ref: calls.append(1) or ScoreResult(0.25, 0.5)
+    )
+    out = handle_score(cfg)
+
+    assert len(calls) == 1  # scored once despite the duplicate sim row
+    assert pl.read_csv(out).height == 1  # one score row, not one per duplicate
+
+
 def test_handle_score_incremental(tmp_path: Path, monkeypatch):
     # Re-running score does NOT re-score already-scored entries.
     cfg = _setup(tmp_path)
