@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict
 from scripts.lib.types import Polymorphism
 from pathlib import Path
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 
 
 class SimulationParamSetting(BaseModel):
@@ -44,10 +44,12 @@ class WeightedASTRALConfig(BaseModel):
 class WeightedTreeQMCConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    class NormalisationStrategy(StrEnum):
-        N2 = "n2"
+    class NormalisationStrategy(IntEnum):
+        # Values are TREE-QMC --norm_atax args; only 0 and 2 valid for quartet input.
+        N0 = 0
+        N2 = 2
 
-    normalisation_strategy: NormalisationStrategy
+    normalisation_strategy: NormalisationStrategy = NormalisationStrategy.N2
 
 
 class MP4Config(BaseModel):
