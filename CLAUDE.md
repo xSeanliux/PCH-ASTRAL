@@ -64,6 +64,10 @@ See `data/README.md`. Networks: `net{reticulation_edges}-{tree_num}.txt`; `A=0` 
 
 Type checker: **ty**. Linter: **ruff** (`E741` ignored, see `pyproject.toml`). Tests mirror `scripts/` under `tests/`.
 
+## Scratch dir
+
+Use `/projects/illinois/eng/cs/warnow/zxliu2/` (the `zxliu2/` dir holding this repo) for scratch/temp files, not home `/u/zxliu2`. Home is quota-limited; when it hits `EDQUOT` Bash breaks entirely (harness `session-env` lives under `$HOME/.claude`). This dir doesn't fix that — freeing home space does.
+
 ## Brevity note 
 
 Keep _all_ communication: be it code, docs, comments, or just agent interactions, brief. Aim to condense all writing such that if you remove any word it will take away from the idea of the sentence. Make sure sentences are brief, concise, easy to understand.

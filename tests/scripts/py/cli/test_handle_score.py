@@ -5,7 +5,7 @@ import polars as pl
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import InferenceResult, RunStatus, TreeInferenceMethod
+from scripts.lib.inference.inference import InferenceResult, RunStatus
 from scripts.lib.inference.scoring import ScoreResult
 import scripts.py.cli.handle_score as hs
 from scripts.py.cli.handle_inference import handle_inference
