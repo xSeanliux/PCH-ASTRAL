@@ -218,4 +218,3 @@ CONS.tree
 # user-scope agent skills / plugin lockfile (not repo content)
 .agents/
 skills-lock.json
-scripts/pynb/figures/
