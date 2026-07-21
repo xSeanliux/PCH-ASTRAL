@@ -24,6 +24,12 @@ ASTRAL (heuristic mode) requires MP4 and GA bipartitions — always run those fi
 
 ## Commands
 
+**`source scripts/sh/env.sh` before running the pipeline or its tests** — in every
+shell, including batch jobs. It sets `R_LIBS`, `PYTHONPATH`, `PCH_SCRATCH`, and
+`PCH_ASTRAL_XMX` from paths derived at source time. Without it the R scripts halt
+on a missing package and MP4/GA emit no tree while the run still looks like it
+succeeded; four R-backed tests fail without it and pass with it.
+
 Python 3.12, managed with **uv**. See `Makefile` for all targets:
 
 ```bash
