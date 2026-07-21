@@ -1,0 +1,33 @@
+# Small-scale SLURM smoke test: MP4, GA, heuristic ASTRAL3.
+# 2 conditions (homoplasy 0.1 vs 0), high poly, 80 chars, tree height 4,
+# trees only (0 edges), 4 replicas -> 8 datasets x 3 methods = 24 runs.
+default_sim_configs: &default_sim_configs
+  poly: high
+  homoplasy_factor: 0.1
+  tree_height: 4
+  n_chars: 80
+
+experiment_folder: experiments/smoke_slurm
+simulation:
+  n_taxa: 30
+  n_horizontal_edges:
+    - 0
+  n_trees: 1
+  n_replicas: 4
+  base_config_dir: data/base_configs
+  base_trees_file: data/trees.txt
+  base_networks_dir: data/base_networks
+  simulation_params:
+    - <<: *default_sim_configs
+      homoplasy_factor: 0.1
+    - <<: *default_sim_configs
+      homoplasy_factor: 0
+
+methods:
+  mp4: {}
+  gray_atkinson: {}
+  astral_3:
+    is_exact: False
+    bipartition_strategies:
+      - mp4_trees
+      - ga_trees
