@@ -34,22 +34,22 @@ simulation:
     
     # varying polymorphism
     - <<: *default_sim_configs
-      polymorphism: verylow
+      poly: verylow
     - <<: *default_sim_configs
-      polymorphism: low
+      poly: low
     - <<: *default_sim_configs
-      polymorphism: veryhigh
+      poly: veryhigh
     
-    # varying n chars
+    # varying n chars (320 is the default baseline above)
     - <<: *default_sim_configs
       n_chars: 80
     - <<: *default_sim_configs
-      n_chars: 320
-    - <<: *default_sim_configs
       n_chars: 640
 
-methods: 
-  astral_3: 
+methods:
+  mp4: {}
+  gray_atkinson: {}
+  astral_3:
     is_exact: False
-    bipartition_strategies: 
+    bipartition_strategies:
       - mp4_trees
