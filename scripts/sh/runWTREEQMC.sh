@@ -69,7 +69,7 @@ SCRATCH_QUARTET_PATH="$PCH_SCRATCH/tmp_quartet_$RUNID.txt"
 python3 -m scripts.lib.pch --input "$INPUT" --format qfm > "$SCRATCH_QUARTET_PATH" || exit 1
 echo "✅ PCH-W quartet generation, $(wc -l "$SCRATCH_QUARTET_PATH" | awk '{ print $1 }') quartets"
 
-bin/TREE-QMC/tree-qmc --quartets \
+bin/tree-qmc --quartets \
     -i "$SCRATCH_QUARTET_PATH" \
     -o "$TREEOUTPUT/$VARIANT/trees/$NAME.tree" \
     --norm_atax "$NORMALISATION" \
