@@ -3,8 +3,13 @@ from pathlib import Path
 
 import polars as pl
 
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
+from scripts.lib.inference.inference import (
+    InferenceResult,
+    TreeInferenceMethod,
+    RunStatus,
+)
 from scripts.lib.inference.registry import (
+    _iter_shard_rows,
     compact,
     finalize_manifest,
     init_manifest,
@@ -76,6 +81,56 @@ def test_compact_accumulates_across_cleanups(tmp_path: Path):
     assert df.height == 2  # ds1 from prior registry + ds2 from new shard
 
 
+def _write_shard(tmp_path: Path, text: str) -> None:
+    shards = tmp_path / "inference_data" / "shards"
+    shards.mkdir(parents=True, exist_ok=True)
+    (shards / "job1.jsonl").write_text(text)
+
+
+def test_iter_shard_rows_skips_torn_tail(tmp_path: Path):
+    good1 = json.dumps(_result("2026-01-01T00:00:00+00:00").to_registry_row())
+    good2 = json.dumps(
+        _result("2026-01-02T00:00:00+00:00", dataset_id="ds2").to_registry_row()
+    )
+    # 3rd line is a truncated JSON object — a killed writer's torn tail.
+    _write_shard(tmp_path, f"{good1}\n{good2}\n{good2[:20]}")
+    rows = list(_iter_shard_rows(tmp_path))
+    assert len(rows) == 2
+    assert [r["dataset_id"] for r in rows] == ["ds1", "ds2"]
+
+
+def test_iter_shard_rows_skips_valid_json_scalars(tmp_path: Path):
+    # A torn line can parse as a valid JSON *scalar* (number/string), not a dict.
+    # Yielding it would blow up downstream at row["status"]; it must be skipped.
+    good = json.dumps(_result("2026-01-01T00:00:00+00:00").to_registry_row())
+    _write_shard(tmp_path, f'{good}\n42\n"stray"')
+    rows = list(_iter_shard_rows(tmp_path))
+    assert len(rows) == 1
+    assert all(isinstance(r, dict) for r in rows)
+    assert rows[0]["dataset_id"] == "ds1"
+
+
+def test_compact_drops_torn_line_and_merges_prior(tmp_path: Path):
+    # Seed a prior registry row (ds0), then a shard with 2 valid + 1 torn line.
+    write_result(_result("2026-01-01T00:00:00+00:00", dataset_id="ds0"), tmp_path)
+    compact(tmp_path)  # ds0 now lives in inference_registry.csv, shard cleaned
+
+    good1 = json.dumps(
+        _result("2026-01-02T00:00:00+00:00", dataset_id="ds1").to_registry_row()
+    )
+    good2 = json.dumps(
+        _result("2026-01-03T00:00:00+00:00", dataset_id="ds2").to_registry_row()
+    )
+    _write_shard(tmp_path, f"{good1}\n{good2}\n{good2[:15]}")
+
+    df = pl.read_csv(compact(tmp_path))
+    assert sorted(df["dataset_id"].to_list()) == [
+        "ds0",
+        "ds1",
+        "ds2",
+    ]  # torn dropped, prior kept
+
+
 def test_manifest_roundtrip(tmp_path: Path):
     init_manifest(tmp_path, ["mp"])
     finalize_manifest(tmp_path, {"ok": 5, "skipped": 0, "blocked": 0, "failed": 0})
@@ -91,6 +146,16 @@ def test_manifest_preserves_created_at_on_rerun(tmp_path: Path):
     init_manifest(tmp_path, ["mp"])  # re-run
     second = json.loads((tmp_path / "inference_data" / "manifest.json").read_text())
     assert second["created_at"] == first["created_at"]
+
+
+def test_init_manifest_recovers_from_corrupt_manifest(tmp_path: Path):
+    inf = tmp_path / "inference_data"
+    inf.mkdir()
+    (inf / "manifest.json").write_text("{not valid json")
+    path = init_manifest(tmp_path, ["mp"])
+    m = json.loads(path.read_text())
+    assert m["methods"] == ["mp"]
+    assert m["created_at"]  # fresh manifest written; no raise
 
 
 def test_canonical_path_normalizes():

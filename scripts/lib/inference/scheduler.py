@@ -8,23 +8,34 @@ caller, never recorded. See docs/ARCHITECTURE.md.
 """
 
 from collections import defaultdict, deque
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 import polars as pl
 
 from scripts.lib.inference import registry
 from scripts.lib.inference.inference import RunStatus, TreeInferenceMethod
+from scripts.lib.inference.registry import Cell
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
-# A registry/sim cell value, and a dataset's identity (its join-key values).
-Cell = str | int | float | None
+# A dataset's identity (its join-key values). `Cell` is defined in registry.
 DatasetKey = tuple[Cell, ...]
 
 
-def dataset_key(row: Mapping[str, Cell]) -> DatasetKey:
-    """A dataset's identity — its join-key values, in DATASET_KEY_COLUMNS order."""
-    return tuple(row[c] for c in registry.DATASET_KEY_COLUMNS)
+def _add_ok_runs(
+    rows: Iterable[Mapping[str, Cell]],
+    done: dict[DatasetKey, set[tuple[str, str]]],
+) -> None:
+    """Fold status=="ok" rows into `done`, keyed by dataset in DATASET_KEY_COLUMNS
+    order. Dedups naturally: the same run in both registry.csv and a shard yields
+    one identical set entry. (dataset_id is a path string, so str() is a no-op that
+    just aligns the two read paths' types.)
+    """
+    for row in rows:
+        if row["status"] != RunStatus.OK.value:  # trust only successes
+            continue
+        key: DatasetKey = tuple(str(row[c]) for c in registry.DATASET_KEY_COLUMNS)
+        done[key].add((str(row["method"]), str(row["config_hash"])))
 
 
 def completed_runs(experiment_folder: Path) -> dict[DatasetKey, set[tuple[str, str]]]:
@@ -32,15 +43,19 @@ def completed_runs(experiment_folder: Path) -> dict[DatasetKey, set[tuple[str, s
 
     `(method, config_hash)` present ⇒ that exact unit is done (resume skip);
     the method present (any config) ⇒ its output is available (dependency gate).
+
+    Reads the union of the compacted registry.csv AND the per-job shards. Under
+    SLURM, batch jobs write only shards and nothing is compacted until the end,
+    so a requeued job (post-timeout) and the dependency gate must see progress
+    that lives only in shards.
     """
-    out = registry.registry_path(experiment_folder)
-    if not out.exists():
-        return {}
     done: dict[DatasetKey, set[tuple[str, str]]] = defaultdict(set)
-    for row in pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).iter_rows(named=True):
-        if row["status"] != RunStatus.OK.value:  # trust only successes
-            continue
-        done[dataset_key(row)].add((row["method"], row["config_hash"]))
+    out = registry.registry_path(experiment_folder)
+    if out.exists():
+        rows = pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).iter_rows(named=True)
+        _add_ok_runs(rows, done)
+    # _iter_shard_rows now yields dict[str, Cell] directly — no cast needed.
+    _add_ok_runs(registry._iter_shard_rows(experiment_folder), done)
     return dict(done)
 
 

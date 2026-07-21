@@ -1,3 +1,5 @@
+> **SUPERSEDED** — the shipped design uses submitit (not hand-rolled sbatch). Canonical: [specs/cli_specs/slurm_fanout_spec.md](../../specs/cli_specs/slurm_fanout_spec.md). This draft predates that decision.
+
 # PR 2 — SLURM fan-out over the generic inference unit
 
 **Prerequisite: PR 1** (inference = a dataset list → generic entries, resumable). SLURM then just **partitions the dataset list into jobs**, respects the 4 h cap via resumable resubmission, and compacts once. There is no "condition" concept inside inference — the launcher partitions *paths*.

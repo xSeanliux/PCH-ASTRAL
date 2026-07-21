@@ -33,7 +33,7 @@ YAML=experiments/my_run/experiment_specification.yaml
 uv run pch simulation "$YAML"              # 1. simulate datasets -> simulation_data/
 uv run pch experiment inference "$YAML"    # 2. run inference     -> inference_data/inference_registry.csv
 uv run pch experiment score "$YAML"        # 3. FN/FP             -> inference_data/scores.csv
-uv run pch experiment status experiments/my_run   # 4. counts by method
+uv run pch experiment status "$YAML"       # 4. counts by method
 ```
 
 Step 2 runs every method enabled under the YAML's `methods:` block for every dataset in the sim registry and writes the **generic** registry (one row per dataset×method, keyed by `dataset_id` = the input CSV path). Methods run in dependency order automatically (MP4/GA before ASTRAL3). Inference is source-agnostic — no sim keys, no scoring inline. Step 3 (`pch experiment score`) recovers the model tree via the join and writes FN/FP to `scores.csv`.

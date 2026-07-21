@@ -9,7 +9,7 @@ junk files linger.
 
 import json
 import os
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,6 +17,10 @@ import polars as pl
 
 from scripts.lib.inference.inference import InferenceResult
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
+
+# A registry/shard/sim cell value. Defined here (not scheduler) so this module
+# can type its row iterators without importing scheduler (which imports this).
+Cell = str | int | float | None
 
 # The key that identifies a dataset (the scheduler's ledger keys on this).
 # dataset_id = the input CSV path — unique per source, sim or real.
@@ -83,6 +87,35 @@ def write_result(result: InferenceResult, experiment_folder: Path) -> Path:
     return shard
 
 
+def _iter_shard_rows(experiment_folder: Path) -> Iterator[dict[str, Cell]]:
+    """Yield one parsed row (a dict) per line across all shards/*.jsonl (sorted).
+
+    Crash-tolerant: a SLURM SIGKILL mid-write can leave a torn/truncated line;
+    skip anything that won't parse (blank lines, a torn JSON tail, or a scalar
+    from a half-written line) rather than fail the whole compaction — and skip an
+    unreadable shard (e.g. a torn multibyte char → `UnicodeDecodeError`) instead
+    of aborting the loop. Reads each shard whole so a >8KB newick split across
+    write() calls still lands on one line.
+    """
+    shards = _shards_dir(experiment_folder)
+    if not shards.exists():
+        return
+    for sf in sorted(shards.glob("*.jsonl")):
+        try:
+            text = sf.read_text()
+        except (UnicodeDecodeError, OSError):
+            continue  # torn/unreadable shard: skip it, don't kill the compaction
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue  # torn tail from a killed writer
+            if isinstance(obj, dict):
+                yield obj  # a torn line parsing as a bare scalar isn't a row
+
+
 def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
     """Merge shards/*.jsonl -> inference_registry.csv (last-writer-wins by ran_at).
 
@@ -93,7 +126,7 @@ def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
     shards = _shards_dir(experiment_folder)
     out = inference_dir / "inference_registry.csv"
 
-    by_key: dict[str, dict[str, object]] = {}
+    by_key: dict[str, dict[str, Cell]] = {}
     # Seed from the existing registry so incremental compaction (with shard
     # cleanup) accumulates instead of replacing prior rows.
     if out.exists():
@@ -103,15 +136,11 @@ def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
             by_key[run_key(prev_row)] = prev_row
 
     shard_files = sorted(shards.glob("*.jsonl")) if shards.exists() else []
-    for sf in shard_files:
-        for line in sf.read_text().splitlines():
-            if not line.strip():
-                continue
-            row: dict[str, object] = json.loads(line)
-            k = run_key(row)
-            prev = by_key.get(k)
-            if prev is None or _ran_at(row) >= _ran_at(prev):
-                by_key[k] = row
+    for row in _iter_shard_rows(experiment_folder):
+        k = run_key(row)
+        prev = by_key.get(k)
+        if prev is None or _ran_at(row) >= _ran_at(prev):
+            by_key[k] = row
 
     inference_dir.mkdir(parents=True, exist_ok=True)
     pl.DataFrame(list(by_key.values()), schema=INFERENCE_REGISTRY_SCHEMA).write_csv(out)
@@ -138,7 +167,10 @@ def init_manifest(experiment_folder: Path, methods: list[str]) -> Path:
     # Preserve the first run's created_at across incremental re-runs.
     created = _now()
     if path.exists():
-        created = json.loads(path.read_text()).get("created_at", created)
+        try:
+            created = json.loads(path.read_text()).get("created_at", created)
+        except (json.JSONDecodeError, OSError):
+            pass  # corrupt/partial write (e.g. SIGKILL mid-write) → regenerate
     path.write_text(
         json.dumps({"created_at": created, "completed_at": None, "methods": methods})
     )

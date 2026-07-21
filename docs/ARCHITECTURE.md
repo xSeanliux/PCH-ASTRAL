@@ -13,7 +13,8 @@ Map of the config-driven inference pipeline (`scripts/lib/inference/` + `scripts
 | **Registry** | `lib/inference/registry.py` | Shard-per-job JSONL → `compact` → joinable `inference_registry.csv`. |
 | **Scoring** | `lib/inference/scoring.py`, `summarize.py` | RF FN/FP scoring; consensus summarization (shell out to R). |
 | **Scheduler** | `lib/inference/scheduler.py` | Dependency order (topo) + the registry-backed ledger (skip/gate). |
-| **Pipeline** | `py/cli/handle_inference.py` | Orchestrates sim-registry → schedule → `api.infer` → registry. |
+| **Executor** | `lib/inference/executor.py` | `SlurmExecutor`: fans out one submitit job per (condition, method); method deps → `afterok` edges; final `afterany` compact job; requeue-on-timeout (`slurm_max_num_timeout`) absorbs the 4 h `secondary` cap; shard-aware `completed_runs` makes reruns idempotent; 2 resource tiers (heavy ASTRAL3 / light MP4+GA); node-local `PCH_SCRATCH`. See `specs/cli_specs/slurm_fanout_spec.md`. |
+| **Pipeline** | `py/cli/handle_inference.py` | Orchestrates sim-registry → schedule → `api.infer` → registry; dispatches to `SlurmExecutor` when `--executor slurm`. |
 | **Scoring step** | `py/cli/handle_score.py` | `pch experiment score`: join registry→sim, RF-score → `scores.csv`. |
 | **CLI** | `py/cli/main.py` | `pch infer / score / summarize / experiment {inference,score,status,compact}`. |
 
@@ -36,7 +37,7 @@ The registry holds **only successful results**, so a row for `(dataset, method)`
    - **block** (log, no row) if a dependency has no successful result — counting this run **and** prior runs;
    - else **run** `api.infer`; **OK → a registry row**, **failed → log only**.
 
-So MP4/GA/ASTRAL3 work whether run together or as separate ordered invocations, and re-running an experiment only fills the gaps. A missing upstream is a *block* (never ran), distinct from a *failure* (ran, errored) — both stay out of the registry. SLURM will later translate `dependencies()` into `--dependency` between jobs.
+So MP4/GA/ASTRAL3 work whether run together or as separate ordered invocations, and re-running an experiment only fills the gaps. A missing upstream is a *block* (never ran), distinct from a *failure* (ran, errored) — both stay out of the registry. With `--executor slurm`, `SlurmExecutor` translates `dependencies()` into submitit `afterok` edges between per-(condition, method) jobs (see `specs/cli_specs/slurm_fanout_spec.md`).
 
 ## Data flow (`pch experiment inference`)
 
