@@ -1,24 +1,22 @@
-# End-to-end smoke test exercising BOTH trees (0 edges) and networks (1 edge).
-# Verifies network simulation (borrowing configs + net{A}-{B}.txt) and inference.
+# Small-scale SLURM smoke test: MP4, GA, heuristic ASTRAL3.
+# 2 conditions (homoplasy 0.1 vs 0), high poly, 80 chars, tree height 4,
+# trees only (0 edges), 4 replicas -> 8 datasets x 3 methods = 24 runs.
 #
-# NOTE: networks use the *_borrowing base config, and only `high_borrowing`
-# admits n_chars=80 (gcd 4); low/mod/veryhigh borrowing configs require a
-# multiple of 320. So both conditions here are `high` (varying homoplasy) to
-# stay small — swap to n_chars=320 to vary polymorphism with borrowing.
+# Fan out with the CLI's SLURM executor (source scripts/sh/env.sh first):
+#   uv run pch experiment inference experiments/smoke/slurm/experiment_specification.yaml --executor slurm
 default_sim_configs: &default_sim_configs
   poly: high
   homoplasy_factor: 0.1
   tree_height: 4
   n_chars: 80
 
-experiment_folder: experiments/smoke_test_net
+experiment_folder: experiments/smoke/slurm
 simulation:
   n_taxa: 30
   n_horizontal_edges:
     - 0
-    - 1
   n_trees: 1
-  n_replicas: 2
+  n_replicas: 4
   base_config_dir: data/base_configs
   base_trees_file: data/trees.txt
   base_networks_dir: data/base_networks

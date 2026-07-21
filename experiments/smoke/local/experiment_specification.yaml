@@ -1,14 +1,14 @@
 # Local end-to-end verification of the compute pipeline (MP4, GA, heuristic
 # ASTRAL3) on current main. 1 condition, 80 chars, 2 replicas -> 2 datasets x 3
 # methods = 6 runs. Kept small; the full 2-condition/4-replica run goes via SLURM
-# (experiments/smoke_slurm).
+# (experiments/smoke/slurm).
 default_sim_configs: &default_sim_configs
   poly: high
   homoplasy_factor: 0.1
   tree_height: 4
   n_chars: 80
 
-experiment_folder: experiments/smoke_local
+experiment_folder: experiments/smoke/local
 simulation:
   n_taxa: 30
   n_horizontal_edges:

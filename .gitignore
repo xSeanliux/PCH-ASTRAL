@@ -208,8 +208,8 @@ __marimo__/
 sim_outputs/
 SLURM_OUT/
 # Generated experiment artifacts — keep the spec YAML, ignore simulated/inferred data
-experiments/*/simulation_data/
-experiments/*/inference_data/
+experiments/**/simulation_data/
+experiments/**/inference_data/
 figs/
 tmp*/
 Bayes_out* 
