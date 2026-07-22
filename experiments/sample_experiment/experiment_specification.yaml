@@ -44,11 +44,14 @@ simulation:
     - <<: *default_sim_configs
       n_chars: 80
     - <<: *default_sim_configs
+      n_chars: 160
+    - <<: *default_sim_configs
       n_chars: 640
 
 methods:
   mp4: {}
   gray_atkinson: {}
+  w_tree_qmc: {}   # default norm_atax=2 (N2)
   astral_3:
     is_exact: False
     bipartition_strategies:
