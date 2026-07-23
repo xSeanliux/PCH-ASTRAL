@@ -1,7 +1,7 @@
 #!/bin/bash
-# CLI variant for weighted TREE-QMC: generates PCH-W quartets, then infers a
-# tree with TREE-QMC. Writes into the folder named by -V (e.g. PCH_W_W_TREE_QMC);
-# the runner (scripts/lib/inference/runners/w_tree_qmc.py) is the single source
+# CLI variant for wASTRAL: generates PCH-W quartets, then infers a
+# tree with wASTRAL. Writes into the folder named by -V (e.g. PCH_W_WASTRAL);
+# the runner (scripts/lib/inference/runners/wastral.py) is the single source
 # of truth for that name.
 # Initialize variables with defaults
 RUNID=""
@@ -9,7 +9,6 @@ INPUT=""
 TREEOUTPUT=""
 NAME=""
 VARIANT=""
-NORMALISATION="2"  # TREE-QMC --norm_atax; only 0 and 2 valid for quartet input
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -18,7 +17,6 @@ while [[ "$#" -gt 0 ]]; do
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
         -V|--variant) VARIANT="$2"; shift ;;
-        -N|--normalisation) NORMALISATION="$2"; shift ;;
         -h|--help)
             echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -V <variant> [-N <0|2>]"
             echo ""
@@ -30,7 +28,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -V, --variant         Output folder name (e.g. PCH_W_W_TREE_QMC)"
             echo ""
             echo "Optional:"
-            echo "  -N, --normalisation   --norm_atax scheme, 0 or 2 (default 2)"
+            echo "  one"
             exit 0
             ;;
         *)
