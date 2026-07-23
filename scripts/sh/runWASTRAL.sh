@@ -1,7 +1,7 @@
 #!/bin/bash
-# CLI variant for weighted TREE-QMC: generates PCH-W quartets, then infers a
-# tree with TREE-QMC. Writes into the folder named by -V (e.g. PCH_W_W_TREE_QMC);
-# the runner (scripts/lib/inference/runners/w_tree_qmc.py) is the single source
+# CLI variant for weighted ASTRAL: generates PCH-W quartets, then infers a
+# tree with wASTRAL. Writes into the folder named by -V (e.g. PCH_W_WASTRAL);
+# the runner (scripts/lib/inference/runners/wastral.py) is the single source
 # of truth for that name.
 # Initialize variables with defaults
 RUNID=""
@@ -9,7 +9,6 @@ INPUT=""
 TREEOUTPUT=""
 NAME=""
 VARIANT=""
-NORMALISATION="2"  # TREE-QMC --norm_atax; only 0 and 2 valid for quartet input
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -18,7 +17,6 @@ while [[ "$#" -gt 0 ]]; do
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
         -V|--variant) VARIANT="$2"; shift ;;
-        -N|--normalisation) NORMALISATION="$2"; shift ;;
         -h|--help)
             echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -V <variant> [-N <0|2>]"
             echo ""
@@ -30,7 +28,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -V, --variant         Output folder name (e.g. PCH_W_W_TREE_QMC)"
             echo ""
             echo "Optional:"
-            echo "  -N, --normalisation   --norm_atax scheme, 0 or 2 (default 2)"
+            echo "  None"
             exit 0
             ;;
         *)
@@ -64,16 +62,19 @@ mkdir -p "$TREEOUTPUT/$VARIANT/logs"
 mkdir -p "$TREEOUTPUT/$VARIANT/trees"
 
 SCRATCH_QUARTET_PATH="$PCH_SCRATCH/tmp_quartet_$RUNID.txt"
+SCRATCH_QUARTET_WEIGHT_PATH="$PCH_SCRATCH/tmp_weights_$RUNID.txt"
 
-# PCH-W quartets in qfm format `((A,B),(C,D));weight` — TREE-QMC's default quartet format.
-python3 -m scripts.lib.pch --input "$INPUT" --format qfm > "$SCRATCH_QUARTET_PATH" || exit 1
+# PCH-W quartets in wastral format: quartets to stdout, weights to stderr.
+python3 -m scripts.lib.pch --input "$INPUT" --format wastral > "$SCRATCH_QUARTET_PATH" 2> "$SCRATCH_QUARTET_WEIGHT_PATH" || exit 1
+
 echo "✅ PCH-W quartet generation, $(wc -l "$SCRATCH_QUARTET_PATH" | awk '{ print $1 }') quartets"
 
-bin/tree-qmc --quartets \
+bin/wastral \
     -i "$SCRATCH_QUARTET_PATH" \
     -o "$TREEOUTPUT/$VARIANT/trees/$NAME.tree" \
-    --norm_atax "$NORMALISATION" \
-    --override
+    --treeweights "$SCRATCH_QUARTET_WEIGHT_PATH" \
+    --mode 4 \ 
+    -t 4 # 4 threads
 rc=$?
 
 # PCH-W emits no quartet for a taxon that shares no informative state with another,
@@ -89,5 +90,5 @@ if [[ $rc -eq 0 && -s "$TREE_FILE" ]]; then
     fi
 fi
 
-echo "✅ weighted TREE-QMC tree inference"
+echo "✅ wastral tree inference"
 exit $rc
