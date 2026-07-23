@@ -52,6 +52,7 @@ methods:
   mp4: {}
   gray_atkinson: {}
   w_tree_qmc: {}   # default norm_atax=2 (N2)
+  wastral: {}
   astral_3:
     is_exact: False
     bipartition_strategies:
