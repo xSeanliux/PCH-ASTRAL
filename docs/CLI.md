@@ -61,7 +61,14 @@ Fans the work out as **one submitit job per (condition, method)** (condition = t
 - `--dry-run` prints the (condition, method) DAG + tiers + `afterok`/`afterany` edges and submits nothing (works without `sbatch`). Without `--dry-run`, a missing `sbatch` errors (no silent local fallback — use `--executor local` for that).
 
 ### `pch experiment score EXPERIMENT.yaml`
-Join the inference registry to `simulated_data_registry.csv` (on `dataset_id`==`path`) to recover the model tree, RF-score each point estimate, and write `inference_data/scores.csv` (`dataset_id, method, config_hash, fn_rate, fp_rate`). Idempotent (rewrites).
+Join the inference registry to `simulated_data_registry.csv` (on `dataset_id`==`path`) to recover the model tree, RF-score each point estimate, and write `inference_data/scores.csv` (`dataset_id, method, config_hash, fn_rate, fp_rate`).
+
+```bash
+pch experiment score EXPERIMENT.yaml [-t N]
+```
+- **Incremental**, not a rewrite: an already-scored `(dataset_id, method, config_hash)` is kept as-is, so a re-run only scores what's new (and a full re-score means deleting `scores.csv` first).
+- `-t/--threads N` (default 1) — score N estimates concurrently. Each score is one `Rscript` subprocess, so this is I/O-bound and scales past the core count; 64 rows went 159.6s → 21.2s at `-t 16`. Output is identical to the serial pass.
+- Results are held in memory and written once at the end (write-then-`os.replace`, so an interrupted run never corrupts or truncates `scores.csv` — but it does lose that run's in-flight work; just re-run to resume).
 
 ### `pch experiment status EXPERIMENT.yaml`
 Expected-vs-done gap view: per condition, `done/expected` for each enabled method (expected = sim datasets × methods; done = shard-aware `completed_runs`), plus the missing dataset stems. Reads registry ∪ uncompacted shards, so it's accurate mid-batch.
