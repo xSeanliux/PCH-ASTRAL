@@ -195,8 +195,8 @@ def test_dependencies_astral3_ga_only():
 
 
 def test_registry_has_wired_methods():
-    # M3 wires MP4/GA/ASTRAL3; later milestones add wASTRAL/TREE-QMC.
     assert TreeInferenceMethod.MP in RUNNERS
     assert TreeInferenceMethod.GA in RUNNERS
     assert TreeInferenceMethod.PCH_ASTRAL3 in RUNNERS
-    assert TreeInferenceMethod.PCH_WASTRAL not in RUNNERS
+    assert TreeInferenceMethod.PCH_W_TREE_QMC in RUNNERS
+    assert TreeInferenceMethod.PCH_WASTRAL in RUNNERS
