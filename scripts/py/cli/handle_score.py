@@ -7,12 +7,20 @@ base tree, scores each point estimate, and writes inference_data/scores.csv.
 
 Incremental + idempotent: an already-scored (dataset_id, method, config_hash) is
 kept as-is, so re-running only scores new entries.
+
+Scoring is one `Rscript` subprocess per estimate, so it is I/O-bound, not
+GIL-bound: a thread pool (`threads=`) gives near-linear speedup and keeps
+`resolve_reference_newick`'s cache shared, which a process pool would not.
 """
 
+import os
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 
 import polars as pl
 from rich import print
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, TimeRemainingColumn
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
@@ -23,8 +31,21 @@ from scripts.py.cli.schemata import (
     SIMULATED_DATA_REGISTRY_SCHEMA,
 )
 
+type Row = dict[str, object]
 
-def handle_score(config: ExperimentConfig) -> Path:
+
+@dataclass(frozen=True)
+class _Task:
+    """One estimate to score — typed, so workers never touch untyped CSV rows."""
+
+    dataset_id: str
+    method: str
+    config_hash: str
+    model_tree: int
+    estimate_newick: str
+
+
+def handle_score(config: ExperimentConfig, threads: int = 1) -> Path:
     experiment_folder = config.experiment_folder
     inf_csv = registry.registry_path(experiment_folder)
     assert inf_csv.exists(), (
@@ -53,33 +74,70 @@ def handle_score(config: ExperimentConfig) -> Path:
     )
     joined = inf.join(sim, left_on="dataset_id", right_on="path")
 
-    # TODO: parallelize — scoring is independent per row but runs sequentially,
-    # so a full pass is one Rscript subprocess per estimate (~2s each, hours at
-    # experiment scale). Fan out with a process pool (resolve_reference_newick's
-    # lru_cache is per-process, so re-warm or share refs across workers).
-    new: list[dict[str, object]] = []
+    # Select first, score second. Dedup must happen before the fan-out: a
+    # duplicate sim `path` row fans the join out, and concurrent workers would
+    # race the `already` set and re-score the same key twice.
+    todo: list[_Task] = []
     for r in joined.iter_rows(named=True):
         key = (r["dataset_id"], r["method"], r["config_hash"])
         if key in already or not r["point_estimate_newick"] or r["model_tree"] is None:
             continue
-        try:
-            ref = resolve_reference_newick(experiment_folder, r["model_tree"])
-            sr = score(r["point_estimate_newick"], ref)
-        except Exception as e:  # noqa: BLE001 — one bad score must not abort the pass
-            print(f"[yellow]Scoring failed for {r['dataset_id']}: {e}[/yellow]")
-            continue
-        new.append(
-            {
-                "dataset_id": r["dataset_id"],
-                "method": r["method"],
-                "config_hash": r["config_hash"],
-                "fn_rate": sr.fn_rate,
-                "fp_rate": sr.fp_rate,
-            }
+        already.add(key)
+        todo.append(
+            _Task(
+                dataset_id=r["dataset_id"],
+                method=r["method"],
+                config_hash=r["config_hash"],
+                model_tree=r["model_tree"],
+                estimate_newick=r["point_estimate_newick"],
+            )
         )
-        already.add(key)  # dedup within this run: a duplicate sim `path` row
-        # fans the join out, so guard against re-scoring the same key twice.
+
+    def score_row(t: _Task) -> Row | None:
+        try:
+            ref = resolve_reference_newick(experiment_folder, t.model_tree)
+            sr = score(t.estimate_newick, ref)
+        except Exception as e:  # noqa: BLE001 — one bad score must not abort the pass
+            print(f"[yellow]Scoring failed for {t.dataset_id}: {e}[/yellow]")
+            return None
+        return {
+            "dataset_id": t.dataset_id,
+            "method": t.method,
+            "config_hash": t.config_hash,
+            "fn_rate": sr.fn_rate,
+            "fp_rate": sr.fp_rate,
+        }
+
+    new: list[Row] = []
+    if todo:
+        # A full pass is thousands of ~2s subprocesses; show progress so a long
+        # run is distinguishable from a hung one.
+        with Progress(
+            *Progress.get_default_columns()[:1],
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeRemainingColumn(),
+            transient=True,
+        ) as progress:
+            task = progress.add_task(f"Scoring ({threads} thread(s))", total=len(todo))
+
+            def tracked(t: _Task) -> Row | None:
+                result = score_row(t)
+                progress.advance(task)
+                return result
+
+            if threads > 1:
+                with ThreadPoolExecutor(max_workers=threads) as pool:
+                    scored = list(pool.map(tracked, todo))  # map preserves input order
+            else:
+                scored = [tracked(t) for t in todo]
+        new = [s for s in scored if s is not None]
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    pl.concat([existing, pl.DataFrame(new, schema=SCORES_SCHEMA)]).write_csv(out)
+    # Write-then-rename: scores.csv is rewritten wholesale (existing + new), so a
+    # crash mid-write would otherwise truncate away already-scored rows. os.replace
+    # is atomic within a filesystem, so readers see either the old file or the new.
+    tmp = out.with_suffix(".csv.tmp")
+    pl.concat([existing, pl.DataFrame(new, schema=SCORES_SCHEMA)]).write_csv(tmp)
+    os.replace(tmp, out)
     return out

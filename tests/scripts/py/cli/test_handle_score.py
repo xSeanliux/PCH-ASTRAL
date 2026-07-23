@@ -1,3 +1,5 @@
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -103,6 +105,66 @@ def test_handle_score_dedups_duplicate_sim_rows(tmp_path: Path, monkeypatch):
 
     assert len(calls) == 1  # scored once despite the duplicate sim row
     assert pl.read_csv(out).height == 1  # one score row, not one per duplicate
+
+
+def _add_datasets(tmp_path: Path, n: int) -> None:
+    """Grow the sim registry to n datasets (the base _setup makes one)."""
+    sim_csv = tmp_path / "simulation_data" / "simulated_data_registry.csv"
+    sim = pl.read_csv(sim_csv)
+    sim_dir = tmp_path / "simulation_data" / "simulated_data" / "high_0.1_4_320"
+    rows = [sim]
+    for i in range(2, n + 1):
+        d = sim_dir / f"sim_0_1_{i}.csv"
+        d.write_text("id,feature,weight,A,B\n")
+        rows.append(
+            sim.with_columns(
+                replica=pl.lit(i).cast(sim.schema["replica"]), path=pl.lit(str(d))
+            )
+        )
+    pl.concat(rows).write_csv(sim_csv)
+
+
+def test_handle_score_threaded_matches_serial(tmp_path: Path, monkeypatch):
+    # -t N must not change results: same rows, same values, each key scored once.
+    cfg = _setup(tmp_path)
+    _add_datasets(tmp_path, 8)
+
+    def fake_infer(input_csv, output_dir, method, config, *, name=None):
+        return InferenceResult(
+            dataset_id=str(input_csv),
+            tree_inference_method=method,
+            config_hash="hash",
+            method_config_json="{}",
+            point_estimate_newick="(A,B);",
+            runtime_seconds=1.0,
+            status=RunStatus.OK,
+            ran_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    monkeypatch.setattr(api, "infer", fake_infer)
+    handle_inference(cfg)
+
+    lock = threading.Lock()
+    calls: list = []
+
+    def slow_score(est, ref):
+        with lock:
+            calls.append(1)
+        time.sleep(0.05)  # hold the worker so threads genuinely overlap
+        return ScoreResult(0.25, 0.5)
+
+    monkeypatch.setattr(hs, "score", slow_score)
+    started = time.monotonic()
+    out = handle_score(cfg, threads=4)
+    elapsed = time.monotonic() - started
+
+    df = pl.read_csv(out)
+    assert df.height == 8
+    assert len(calls) == 8  # each key scored exactly once
+    assert df["fn_rate"].to_list() == [0.25] * 8
+    assert df["dataset_id"].n_unique() == 8
+    # 8 × 50ms serially is 0.4s; with 4 workers it must beat a serial pass.
+    assert elapsed < 0.35
 
 
 def test_handle_score_incremental(tmp_path: Path, monkeypatch):

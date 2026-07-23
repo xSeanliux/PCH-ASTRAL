@@ -180,8 +180,15 @@ def inference(
 
 
 @experiment.command(name="score")
-def score_experiment(config_path: Path):
-    out = handle_score(_get_experiment_config(config_path))
+def score_experiment(
+    config_path: Path,
+    threads: int = typer.Option(1, "--threads", "-t"),
+):
+    """RF-score the registry's point estimates. `-t N` scores N estimates at once
+    (one `Rscript` each, so it scales well past the core count)."""
+    if threads < 1:
+        raise typer.BadParameter("--threads must be >= 1.")
+    out = handle_score(_get_experiment_config(config_path), threads=threads)
     print(f"Scores in [green]{out}[/green] (join to inference_registry.csv).")
 
 
