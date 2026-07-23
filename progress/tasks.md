@@ -22,6 +22,8 @@ Migrate legacy bash inference to the config-driven CLI. **Plan:** [`progress/pla
 - [ ] Deferred: inline `runASTRAL3.sh` (two Python steps + one `java`) into `ASTRAL3Runner` when the runner protocol grows a `run()` beyond `build_argv` (noted in `SCRIPT_CONTRACTS.md`).
 - [ ] **SLURM fan-out followups** (from PR 2): auto-size `--resubmits` from recorded `runtime_seconds`; (condition, method) jobs → submitit **job arrays** (`map_array`) if job counts get high; confirm the cluster's node-local `/tmp` policy (size/cleanup) when access exists; live-cluster smoke (submitit `LocalExecutor`/`DebugExecutor` stand in for now).
 - [ ] **Parallelize `pch experiment score`** (`handle_score.py`) — scoring is independent per row but runs sequentially: one `Rscript RFScorer.R` subprocess per estimate (~2s each → hours at experiment scale; the full sample_experiment pass ≈ 3840 rows ≈ 2h+). Fan out with a process pool. Note `resolve_reference_newick`'s `lru_cache` is per-process, so re-warm or share refs across workers. Inline `TODO` marks the loop.
+- [ ] **Network simulation** — simulate under networks with reticulation, not just trees. `data/base_networks/` and the spec's `n_horizontal_edges` already exist (`net{edges}-{tree}.txt`, `A=0` = plain tree); close the gap so non-zero reticulation exercises a real network model end to end.
+- [ ] **Zip + checkpoint experiment results** — an experiment folder is self-contained but grows large (trees, logs, shards) and is untracked. Add an archive/restore step so a finished run can be snapshotted, moved off scratch, and restored for re-analysis without a rerun.
 - [ ] Reconcile stale downstream branches M4 (#21) + refactor (#22) onto the final M1/M2/M3.
 
 ## Done
