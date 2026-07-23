@@ -1,0 +1,38 @@
+# End-to-end smoke test exercising BOTH trees (0 edges) and networks (1 edge).
+# Verifies network simulation (borrowing configs + net{A}-{B}.txt) and inference.
+#
+# NOTE: networks use the *_borrowing base config, and only `high_borrowing`
+# admits n_chars=80 (gcd 4); low/mod/veryhigh borrowing configs require a
+# multiple of 320. So both conditions here are `high` (varying homoplasy) to
+# stay small — swap to n_chars=320 to vary polymorphism with borrowing.
+default_sim_configs: &default_sim_configs
+  poly: high
+  homoplasy_factor: 0.1
+  tree_height: 4
+  n_chars: 80
+
+experiment_folder: experiments/smoke/test_net
+simulation:
+  n_taxa: 30
+  n_horizontal_edges:
+    - 0
+    - 1
+  n_trees: 1
+  n_replicas: 2
+  base_config_dir: data/base_configs
+  base_trees_file: data/trees.txt
+  base_networks_dir: data/base_networks
+  simulation_params:
+    - <<: *default_sim_configs
+      homoplasy_factor: 0.1
+    - <<: *default_sim_configs
+      homoplasy_factor: 0
+
+methods:
+  mp4: {}
+  gray_atkinson: {}
+  astral_3:
+    is_exact: False
+    bipartition_strategies:
+      - mp4_trees
+      - ga_trees

@@ -53,6 +53,10 @@ def handle_score(config: ExperimentConfig) -> Path:
     )
     joined = inf.join(sim, left_on="dataset_id", right_on="path")
 
+    # TODO: parallelize — scoring is independent per row but runs sequentially,
+    # so a full pass is one Rscript subprocess per estimate (~2s each, hours at
+    # experiment scale). Fan out with a process pool (resolve_reference_newick's
+    # lru_cache is per-process, so re-warm or share refs across workers).
     new: list[dict[str, object]] = []
     for r in joined.iter_rows(named=True):
         key = (r["dataset_id"], r["method"], r["config_hash"])
@@ -73,6 +77,8 @@ def handle_score(config: ExperimentConfig) -> Path:
                 "fp_rate": sr.fp_rate,
             }
         )
+        already.add(key)  # dedup within this run: a duplicate sim `path` row
+        # fans the join out, so guard against re-scoring the same key twice.
 
     out.parent.mkdir(parents=True, exist_ok=True)
     pl.concat([existing, pl.DataFrame(new, schema=SCORES_SCHEMA)]).write_csv(out)

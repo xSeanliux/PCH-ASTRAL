@@ -24,6 +24,12 @@ ASTRAL (heuristic mode) requires MP4 and GA bipartitions — always run those fi
 
 ## Commands
 
+**`source scripts/sh/env.sh` before running the pipeline or its tests** — in every
+shell, including batch jobs. It sets `R_LIBS`, `PYTHONPATH`, `PCH_SCRATCH`, and
+`PCH_ASTRAL_XMX` from paths derived at source time. Without it the R scripts halt
+on a missing package and MP4/GA emit no tree while the run still looks like it
+succeeded; four R-backed tests fail without it and pass with it.
+
 Python 3.12, managed with **uv**. See `Makefile` for all targets:
 
 ```bash
@@ -63,6 +69,10 @@ Beware: `ASTRAL/` is the git submodule; `Astral/` is a separate top-level dir ho
 See `data/README.md`. Networks: `net{reticulation_edges}-{tree_num}.txt`; `A=0` is a plain tree. Simulation seeds are deterministic (hashed from registry key in `scripts/py/cli/handle_simulation.py`).
 
 Type checker: **ty**. Linter: **ruff** (`E741` ignored, see `pyproject.toml`). Tests mirror `scripts/` under `tests/`.
+
+## Scratch dir
+
+Use `/projects/illinois/eng/cs/warnow/zxliu2/` (the `zxliu2/` dir holding this repo) for scratch/temp files, not home `/u/zxliu2`. Home is quota-limited; when it hits `EDQUOT` Bash breaks entirely (harness `session-env` lives under `$HOME/.claude`). This dir doesn't fix that — freeing home space does.
 
 ## Brevity note 
 

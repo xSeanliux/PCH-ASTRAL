@@ -1,0 +1,32 @@
+# Local end-to-end verification of the compute pipeline (MP4, GA, heuristic
+# ASTRAL3) on current main. 1 condition, 80 chars, 2 replicas -> 2 datasets x 3
+# methods = 6 runs. Kept small; the full 2-condition/4-replica run goes via SLURM
+# (experiments/smoke/slurm).
+default_sim_configs: &default_sim_configs
+  poly: high
+  homoplasy_factor: 0.1
+  tree_height: 4
+  n_chars: 80
+
+experiment_folder: experiments/smoke/local
+simulation:
+  n_taxa: 30
+  n_horizontal_edges:
+    - 0
+  n_trees: 1
+  n_replicas: 2
+  base_config_dir: data/base_configs
+  base_trees_file: data/trees.txt
+  base_networks_dir: data/base_networks
+  simulation_params:
+    - <<: *default_sim_configs
+
+methods:
+  mp4: {}
+  w_tree_qmc: {}   # default norm_atax=2 (N2)
+  gray_atkinson: {}
+  astral_3:
+    is_exact: False
+    bipartition_strategies:
+      - mp4_trees
+      - ga_trees
