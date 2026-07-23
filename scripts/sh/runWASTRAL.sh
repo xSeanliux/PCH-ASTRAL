@@ -50,10 +50,6 @@ if [[ -z "$VARIANT" ]]; then
     echo "Error: --variant (-V) must be provided."
     exit 1
 fi
-if [[ "$NORMALISATION" != "0" && "$NORMALISATION" != "2" ]]; then
-    echo "Normalisation (-N, --normalisation) must be 0 or 2, found $NORMALISATION"
-    exit 1
-fi
 
 PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
 mkdir -p "$PCH_SCRATCH"
@@ -73,7 +69,7 @@ bin/wastral \
     -i "$SCRATCH_QUARTET_PATH" \
     -o "$TREEOUTPUT/$VARIANT/trees/$NAME.tree" \
     --treeweights "$SCRATCH_QUARTET_WEIGHT_PATH" \
-    --mode 4 \ 
+    --mode 4 \
     -t 4 # 4 threads
 rc=$?
 

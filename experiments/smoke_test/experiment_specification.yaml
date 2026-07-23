@@ -33,3 +33,4 @@ methods:
       - mp4_trees
       - ga_trees
   w_tree_qmc: {}  # normalisation_strategy defaults to n2
+  wastral: {}  # no config, like mp4
