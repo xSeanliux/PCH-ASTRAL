@@ -35,7 +35,7 @@ External deps `make` won't install: **Java** (ASTRAL/simulator), **R** (nexus-ge
 YAML=experiments/my_run/experiment_specification.yaml
 uv run pch simulation "$YAML"              # 1. simulate datasets -> simulation_data/
 uv run pch experiment inference "$YAML"    # 2. run inference     -> inference_data/inference_registry.csv
-uv run pch experiment score "$YAML"        # 3. FN/FP             -> inference_data/scores.csv
+uv run pch experiment score "$YAML" -t 16  # 3. FN/FP             -> inference_data/scores.csv
 uv run pch experiment status "$YAML"       # 4. counts by method
 ```
 
