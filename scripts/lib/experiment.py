@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from scripts.lib.types import Polymorphism
+from scripts.lib.inference.inference import TreeInferenceMethod
 from pathlib import Path
 from enum import IntEnum, StrEnum
 
@@ -60,6 +61,34 @@ class GAConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class CamusConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    class GuideTree(StrEnum):
+        # Which tree constrains the CAMUS network search. mp/ga/astral3 are the
+        # upstream inference methods (a scheduler dependency); `true` is the
+        # simulation's model tree — already known, so no dependency.
+        MP = "mp"
+        GA = "ga"
+        ASTRAL3 = "astral3"
+        TRUE_TREE = "true_tree"
+
+        @property
+        def dependency(self) -> TreeInferenceMethod | None:
+            return _GUIDE_TREE_DEPENDENCY[self]
+
+    guide_trees: list[GuideTree]
+
+
+# Guide tree -> the method whose output supplies it (None = already have it).
+_GUIDE_TREE_DEPENDENCY: dict[CamusConfig.GuideTree, TreeInferenceMethod | None] = {
+    CamusConfig.GuideTree.MP: TreeInferenceMethod.MP,
+    CamusConfig.GuideTree.GA: TreeInferenceMethod.GA,
+    CamusConfig.GuideTree.ASTRAL3: TreeInferenceMethod.PCH_ASTRAL3,
+    CamusConfig.GuideTree.TRUE_TREE: None,
+}
+
+
 class MethodConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     astral_3: ASTRAL3Config | None = Field(None)
@@ -67,6 +96,7 @@ class MethodConfig(BaseModel):
     w_tree_qmc: WeightedTreeQMCConfig | None = Field(None)
     mp4: MP4Config | None = Field(None)
     gray_atkinson: GAConfig | None = Field(None)
+    camus: CamusConfig | None = Field(None)
 
 
 class ExperimentConfig(BaseModel):

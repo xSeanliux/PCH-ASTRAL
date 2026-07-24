@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from scripts.lib.experiment import (
     ASTRAL3Config,
+    CamusConfig,
     GAConfig,
     MethodConfig,
     MP4Config,
@@ -16,7 +17,12 @@ from scripts.lib.inference.inference import TreeInferenceMethod
 
 # The concrete method-config types (one per TreeInferenceMethod).
 MethodConfigT = (
-    ASTRAL3Config | WeightedASTRALConfig | WeightedTreeQMCConfig | MP4Config | GAConfig
+    ASTRAL3Config
+    | WeightedASTRALConfig
+    | WeightedTreeQMCConfig
+    | MP4Config
+    | GAConfig
+    | CamusConfig
 )
 
 METHOD_CONFIG: dict[TreeInferenceMethod, type[MethodConfigT]] = {
@@ -25,6 +31,7 @@ METHOD_CONFIG: dict[TreeInferenceMethod, type[MethodConfigT]] = {
     TreeInferenceMethod.PCH_W_TREE_QMC: WeightedTreeQMCConfig,
     TreeInferenceMethod.MP: MP4Config,
     TreeInferenceMethod.GA: GAConfig,
+    TreeInferenceMethod.CAMUS: CamusConfig,
 }
 
 

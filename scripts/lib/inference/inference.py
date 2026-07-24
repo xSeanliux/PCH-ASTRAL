@@ -9,6 +9,7 @@ class TreeInferenceMethod(StrEnum):
     PCH_W_TREE_QMC = "pch_w_tree_qmc"
     MP = "mp"
     GA = "ga"
+    CAMUS = "camus"  # level-1 network inference (not a tree); see spec/camus/
 
 
 class RunStatus(StrEnum):
