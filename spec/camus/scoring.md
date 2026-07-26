@@ -82,7 +82,7 @@ Network net1 = ((((B)#H1,C),(#H1,D)),A);
 Network net2 = (((A,B),C),D);
 END;
 BEGIN PHYLONET;
-CmpNets net1 net2 -m tree;
+CmpNets net1 net2 -m cluster;
 END;
 ```
 
@@ -104,56 +104,54 @@ END;
   sets`); `tri` and `luay` tolerate mismatches. Ours always match (same dataset, outgroup
   never pruned), so `-m tree`'s check is a free safety net rather than an obstacle.
 
-### Use `-m tree` — it is the only direction-invariant option
+### Choosing the method: `cluster` (the paper's) vs `tree` (direction-invariant)
 
-Measured, and it is the single most important fact for this pipeline. Take one contact
-event between two lineages, build the two networks that differ *only* in which lineage is
-called the hybrid, and compare them:
+`CmpNets` has **nine** methods, not three — the full list from the class file is
+`tree | tri | cluster | luay | rnbs | apd | normapd | wapd | normwapd`. The last five need
+branch lengths/probabilities and error on topology-only input.
 
-| method | distance between the two directions |
-|---|---|
-| `tree` | **0.0 0.0 0.0** — invariant |
-| `tri` | 0.8 0.833 0.817 |
-| `luay` | 6.0 |
+The CAMUS paper states: *"to assess phylogenetic network topology estimation error, we use
+the cluster metric from PhyloNet's CmpNets command"* — so `-m cluster`, which prints
+`The cluster-based distance between two networks: FN FP AVG`.
 
-Our contact events **have no direction** (§1). So under `tri` or `luay` we would be
-measuring our own arbitrary donor/recipient choice, not method accuracy — a coin flip per
-reticulation, scored as error. `-m tree` compares the sets of displayed trees, which are
-identical either way, so it measures what we actually mean.
+The tension is direction. Our contact events have no donor/recipient (§1), so any
+direction-sensitive metric charges our arbitrary choice as method error. Measured on a pair
+of networks differing *only* in which lineage of one contact event is the hybrid:
 
-This also **de-risks the adapter's three choices**, which were the scary part:
+| method | direction-flip distance | discriminates (level-1 vs tree) |
+|---|---|---|
+| `tree` | **0.0** — fully invariant | 1.0 |
+| `cluster` | 0.25 | 1.0 |
+| `tri` | 0.817 | — |
+| `luay` | 6.0 | — |
 
-- **Direction** — no longer load-bearing. Pick a deterministic rule (e.g. the
-  lexicographically smaller taxon set is the donor), document it, move on.
-- **γ** — affects probabilities, not topology; a topology metric ignores it. Set
-  `γ_minor = transmission_strength` for tidiness.
-- **`contact_time`** — a branch has no internal structure, so *where* on the branch the
-  hybrid attaches does not change the topology. It matters in exactly one case: when two
-  contacts insert on the **same** branch, their relative order does change the topology.
-  Sort insertions on a shared branch by `contact_time`.
+So `cluster` is direction-*sensitive* but far less than `tri`/`luay`. That 0.25 is one
+differing cluster out of four on a 4-taxon network — coarse granularity at tiny scale; at
+30 taxa one reticulation's worth of clusters is a much smaller fraction, so the artifact is
+probably modest. **Measure it at realistic scale before committing.**
 
-Caveat: `-m tree` enumerates displayed trees (2^r for r reticulations), so it is
-exponential in reticulation count. Fine for our truths (h ≤ 3 → 8 trees) but CAMUS's family
-runs to whatever k the DP reached. **Verify runtime at realistic scale (30 taxa, high k)
-before the first big sweep**, and cap k if needed.
+**Recommendation: report `-m cluster` as the primary metric, with `-m tree` as a control.**
+`cluster` keeps our numbers comparable to the published CAMUS results, which matters for
+work in the same line. `tree` is direction-invariant, so the gap between the two *is* the
+direction artifact — that makes it a measurement rather than an unknown, and worth stating
+in the paper. If the gap turns out large at 30 taxa, switch to `tree` and say why.
 
-### What the CAMUS paper uses, and why we differ
+With a deterministic direction rule the artifact is systematic rather than random noise,
+which is the better failure mode either way.
 
-The paper reports a "cluster metric error rate" — the **hardwired cluster distance**:
-extract each network's hardwired clusters (the leaves reachable below each edge), then
-count clusters present in one network but not the other. FN/FP fall out directly.
+Under either metric the adapter's three choices stay cheap: **γ** is ignored by both
+(topology only), and **`contact_time`** changes topology only when two contacts insert on
+the same branch — sort those by time. Only **direction** carries any weight, and only under
+`cluster`.
 
-That is *not* one of CmpNets' three methods, so they used their own code or
-PhyloNetworks.jl's `hardwiredClusterDistance`, not PhyloNet, for scoring. PhyloNet in their
-pipeline is the *competing inference method* (PhyloNet-MPL), not the scorer.
+Caveat: `-m tree` enumerates displayed trees (2^r), so it is exponential in reticulation
+count. Fine for our truths (h ≤ 3 → 8 trees) but CAMUS families run to whatever k the DP
+reached. **Verify runtime at realistic scale (30 taxa, high k) before the first big sweep.**
 
-**Their metric is direction-dependent** (a "cluster below an edge" presupposes directed
-edges), and that is fine for them: their truths come from SiPhyNetwork, which generates
-properly directed reticulation networks. Ours are undirected contact events. So we should
-not copy their metric — the difference is in our simulation model, not in our standards.
+### The rest of the paper's protocol
 
-Their protocol, for the record (supplementary §2, §4): ASTRAL-IV constraint tree rooted on
-the outgroup, gene-tree edges below 75% bootstrap collapsed, then
+Inference (supplementary §2, §4): ASTRAL-IV constraint tree rooted on the outgroup,
+gene-tree edges below 75% bootstrap collapsed, then
 `camus -n 32 -q 2 -t $threshold -o $output $const_tree $gene_trees`, with t = 0.5 chosen on
 simulated data (Figure S2) and t = 0.8 additionally explored on the empirical avian dataset
 because its gene trees had ~25% average branch support.
