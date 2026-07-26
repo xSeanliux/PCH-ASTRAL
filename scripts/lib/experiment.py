@@ -98,11 +98,9 @@ class CamusConfig(BaseModel):
         if bad:
             raise ValueError(
                 f"unsupported CAMUS guide tree(s): {', '.join(g.value for g in bad)}. "
-                "CAMUS requires a rooted, binary constraint tree and refuses anything "
-                "else; mp is a majority consensus (polytomies by construction) and ga "
-                "is unrooted. Supported: "
-                f"{', '.join(g.value for g in _GUIDE_TREE_DEPENDENCY)}. "
-                "See spec/camus/inference.md."
+                f"Supported: {', '.join(g.value for g in _GUIDE_TREE_DEPENDENCY)}. "
+                "CAMUS requires a rooted binary constraint tree; see "
+                "spec/camus/inference.md."
             )
         return v
 

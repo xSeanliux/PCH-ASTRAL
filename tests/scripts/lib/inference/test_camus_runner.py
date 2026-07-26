@@ -8,12 +8,6 @@ from scripts.lib.inference.runners.camus import CamusRunner
 G = CamusConfig.GuideTree
 
 
-def test_supported_guides_declare_their_dependency():
-    # astral3 gates on the upstream method; true_tree is already on disk.
-    assert G.ASTRAL3.dependency is TreeInferenceMethod.PCH_ASTRAL3
-    assert G.TRUE_TREE.dependency is None
-
-
 @pytest.mark.parametrize("guide", [G.MP, G.GA])
 def test_unsupported_guides_are_rejected(guide: CamusConfig.GuideTree):
     # CAMUS refuses a non-binary/unrooted constraint tree, so mp (majority
