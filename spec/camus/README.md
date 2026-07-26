@@ -57,6 +57,7 @@ methods:
   because the stub emits no network (`api.infer` requires the point-estimate
   file); that's expected until inference lands.
 
-Future work: `inference.md` (real runCAMUS.sh), `registry.md` (per-k network
-registry — CAMUS emits a network family, not one estimate), `scoring.md`
-(PhyloNet scoring, elbow of inferred-edges vs FN error).
+Future work: `inference.md` (real runCAMUS.sh + the rooted-binary constraint),
+`outgroup.md` (simulate an outgroup so PCH trees can be rooted), `registry.md`
+(per-k network registry — CAMUS emits a network family, not one estimate),
+`scoring.md` (PhyloNet scoring, elbow of inferred-edges vs FN error).

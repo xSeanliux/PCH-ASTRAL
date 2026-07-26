@@ -83,17 +83,13 @@ the uncertain regions.
   `scripts/lib/experiment.py` is the allow-list (absent key = unsupported); a
   `CamusConfig` field validator rejects them at config load with the reason.
 - Rooting for the PCH methods (`astral3`, and `w_tree_qmc` when it becomes a
-  guide) will be solved **in the simulation: add an outgroup**, so the inferred
-  trees can be rooted deterministically instead of guessed at post hoc. This
-  changes `ExperimentSimulationConfig` / the base trees and is its own piece of
-  work — until it lands, `astral3` is usable only because its output happens to
-  come back with a bifurcating root; that is not something to rely on.
+  guide) will be solved **in the simulation: add an outgroup** — see
+  `outgroup.md` for the config, mechanism, and cost. Until that lands, `astral3`
+  is usable only because its output happens to come back with a bifurcating root;
+  that is not something to rely on.
 
 ## Open questions
 
-- Outgroup mechanics: added to the base trees before simulation, or grafted per
-  replicate? Must survive into every method's output to be usable for rooting,
-  and must be excluded from scoring.
 - One CAMUS run per guide tree, or one guide tree per config? `guide_trees` is a
   list → one output family per guide tree. Simplest first cut: one guide tree per
   `camus:` block.
