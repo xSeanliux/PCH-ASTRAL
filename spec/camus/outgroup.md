@@ -121,8 +121,26 @@ with the ingroup tips. `tree_height` does not rescale the newick — it scales
 (`scripts/lib/simulation/types.py:97-106`) — so one policy works across every
 `tree_height`.
 
-Draw both lengths from a **seed derived from the experiment's registry key**, not a
-hardcoded `0`, to match how the rest of the pipeline seeds itself.
+### Seeding
+
+Reuse the pipeline's existing determinism rather than their hardcoded `r.seed(0)`:
+`stable_hash_dict` (`handle_simulation.py:23`) is already how simulation seeds are
+derived, and it's pure, so the same key gives the same lengths in every experiment.
+
+**Scope it to the model graph, not the dataset.** The per-dataset `registry_key`
+(poly, chars, height, homoplasy, h, model_tree, replica) is too fine — the graft
+happens once per model file at copy time, and every dataset built from that file
+shares it. Key on the model tree alone:
+
+```python
+seed = stable_hash_dict({"model_tree": i})
+```
+
+Deliberately **not** including `horizontal_edges`: the base tree is shared across `h`
+for a given model tree (verified — `net1-1`, `net2-1`, `net3-1` have identical line 1,
+and `trees.txt` line 1 is topologically identical to it). Seeding on `model_tree`
+alone therefore gives one outgroup geometry per model tree, constant across every `h`,
+so `h=0` vs `h>0` comparisons aren't confounded by a different outgroup.
 
 **The caveat that keeps the calibration below on the table.** Their branch lengths are
 tuned for a molecular pipeline (SiPhyNetwork → PhyloCoalSimulations → INDELible under
@@ -136,16 +154,22 @@ the starting point, then verify.
 `runCAMUS.sh` (and anything else needing a rooted tree):
 
 1. Take the method's unrooted estimate, which now includes the outgroup tip.
-2. Root on the outgroup branch → `(OG, (ingroup...))`.
-3. **Prune the outgroup.** The root becomes a unifurcation, which CAMUS's own
-   `RemoveSingleNodes()` collapses — leaving a rooted binary tree on the original
-   30 taxa.
+2. Root on the outgroup → `(OUT, (ingroup...))`. Biopython's
+   `Tree.root_with_outgroup()` does this and is already a dependency
+   (`scripts/lib/utils.py` imports `Bio.Phylo`), so no TreeSwift needed. The
+   `true_tree` guide arrives rooted already — grafting *is* the rooting — so this is
+   a no-op for it.
+3. Feed it to CAMUS as the constraint tree, outgroup included.
 
-Step 3 matters for comparability: scoring then runs on the same taxon set as every
-existing run, so FN/FP stay comparable to pre-outgroup results. Keeping the
-outgroup through scoring would instead add one edge that every method should
-recover, quietly deflating error rates and breaking comparison with existing
-numbers.
+**The outgroup is kept, not pruned.** It stays in the constraint tree, in the
+quartets, in the inferred networks, and in scoring — matching the paper, whose
+reported species counts are n+1 (16, 26, 51, …). This also keeps the taxon set
+consistent end to end, with no pruning step to get wrong.
+
+The consequence to remember: error rates from outgrouped runs are **not directly
+comparable to existing pre-outgroup numbers**. The extra taxon adds one edge that
+essentially every method recovers, which slightly deflates error. Compare
+outgrouped runs to outgrouped runs.
 
 ## Cost
 
@@ -163,10 +187,10 @@ Existing experiments with `outgroup` absent are untouched.
   way the rooting is wrong. **Do this before building the rest.** If none of the
   methods place it reliably at our homoplasy levels, outgroup rooting is no better
   than midpoint and the approach needs rethinking.
-- **Do we prune the outgroup before scoring?** The paper appears not to — its
-  species counts are n+1 (16, 26, 51, …). Pruning keeps our FN/FP comparable with
-  existing tree runs; not pruning matches the paper. A defensible split: prune for
-  the tree RF scores, keep it for network scoring.
+- Whether keeping the outgroup in the **tree** RF scores (not just network scores)
+  is acceptable long-term, given it breaks comparability with existing numbers. Fine
+  for the CAMUS study, which compares outgrouped runs to each other; revisit if
+  someone wants one table spanning both eras.
 - **Does the outgroup's own polymorphism matter?** It's simulated under the same
   character model as the ingroup; worth confirming that's sensible rather than giving
   it its own settings.
