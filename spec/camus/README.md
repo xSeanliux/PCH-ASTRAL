@@ -69,7 +69,11 @@ and the rooting plan, are in `inference.md` and `outgroup.md`.
   because the stub emits no network (`api.infer` requires the point-estimate
   file); that's expected until inference lands.
 
-Future work: `inference.md` (real runCAMUS.sh + the rooted-binary constraint),
+**`PLAN.md` is the plan of record** — five PR milestones from outgroup simulation to the
+elbow figure, with per-PR verification and the settled cross-cutting decisions. Start
+there.
+
+Supporting detail: `inference.md` (real runCAMUS.sh + the rooted-binary constraint),
 `outgroup.md` (simulate an outgroup so PCH trees can be rooted), `registry.md`
 (per-k network registry — CAMUS emits a network family, not one estimate),
-`scoring.md` (PhyloNet scoring, elbow of inferred-edges vs FN error).
+`scoring.md` (PhyloNet scoring; the contact-network adapter and the level-1 problem).
