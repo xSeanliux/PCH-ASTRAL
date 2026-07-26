@@ -142,6 +142,33 @@ and `trees.txt` line 1 is topologically identical to it). Seeding on `model_tree
 alone therefore gives one outgroup geometry per model tree, constant across every `h`,
 so `h=0` vs `h>0` comparisons aren't confounded by a different outgroup.
 
+### Recording it
+
+Deterministic isn't the same as reproducible — a derived seed still has to be written
+down, or reproducing a run means re-deriving it from source. Record the graft in
+`model_graph_registry.csv`, which already has exactly one row per model graph
+(`MODEL_GRAPH_REGISTRY` in `scripts/py/cli/schemata.py`):
+
+| column | type | meaning |
+|---|---|---|
+| `outgroup` | `String` | the label (`OUT`), or null when disabled |
+| `outgroup_seed` | `Int64` | the `stable_hash_dict` value the draws came from |
+| `outgroup_branch_length` | `Float64` | realised draw from `U(0.9, 1.0)` |
+| `ingroup_stem_length` | `Float64` | realised draw from `U(0.0, 0.1)` |
+
+The seed makes the run regenerable from scratch; the two realised lengths make it
+auditable without re-running anything — and they're precisely what the calibration
+below needs to plot rooting accuracy against. Rows for the same `model_tree` at
+different `h` carry the same values, which is the point: it's one geometry per model
+tree, and joins stay trivial.
+
+Null `outgroup` is the record that a run had none, so old and outgrouped experiments
+are distinguishable from the registry alone.
+
+The calibration sweep will want to *set* the lengths rather than search for a seed
+that produces them, so leave room for passing them in explicitly; the random draw is
+the default path, not the only one.
+
 **The caveat that keeps the calibration below on the table.** Their branch lengths are
 tuned for a molecular pipeline (SiPhyNetwork → PhyloCoalSimulations → INDELible under
 GTR, giving ~21% gene-tree estimation error). Ours feed LingPhyloSimulator's
@@ -194,5 +221,3 @@ Existing experiments with `outgroup` absent are untouched.
 - **Does the outgroup's own polymorphism matter?** It's simulated under the same
   character model as the ingroup; worth confirming that's sensible rather than giving
   it its own settings.
-- Whether to prune the outgroup inside the scorer (one guarded place, keeps every
-  method comparable) or in each consumer. Scorer is the obvious first cut.
