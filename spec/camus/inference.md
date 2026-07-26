@@ -40,9 +40,15 @@ impl enriches that CSV and appends it to `camus_registry.csv` — see `registry.
      `model_graph_registry.csv` for the `horizontal_edges == 0` row). No dependency.
 
    See "The rooted-binary constraint" below — this is the gate on the whole step.
-3. **Run CAMUS** — `bin/camus -o <prefix> [-t thresh -n procs] <const_tree>
-   <gene_trees>`. It writes `<prefix>.csv` with every k (the sweep is the point);
-   the writer ingests that CSV into the registry (`registry.md`).
+3. **Run CAMUS** — `bin/camus -n <procs> -t 0.5 -o <prefix> <const_tree> <gene_trees>`.
+   It writes `<prefix>.csv` with every k (the sweep is the point); the writer ingests
+   that CSV into the registry (`registry.md`).
+
+   `t = 0.5` is the paper's tuned value — supplementary Figure S2 sweeps the quartet
+   filter threshold over {0.0, 0.2, 0.5, 0.8} and 0.5 gives the lowest error. It is
+   also CAMUS's own default, so it can simply be left unset. Their published
+   invocation is `camus -n 32 -q 2 -t $threshold -o $output $const_tree $gene_trees`;
+   `-q 2` is obsolete (quartet filtering is on by default now).
 
 ## The rooted-binary constraint
 
@@ -93,4 +99,3 @@ the uncertain regions.
 - One CAMUS run per guide tree, or one guide tree per config? `guide_trees` is a
   list → one output family per guide tree. Simplest first cut: one guide tree per
   `camus:` block.
-- Which k / threshold defaults match the paper (btag245 supplement).
