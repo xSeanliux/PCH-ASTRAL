@@ -42,16 +42,65 @@ yaml is the record. Add the column if cross-folder analysis needs it.
 
 Graft the outgroup as sister to the whole base tree — `(base, OG)` — so it is by
 construction the deepest split, then let the simulator evolve characters along its
-branch like any other taxon. `n_taxa: 30` refers to the ingroup; the base trees are
-fixed files with `t1..t30`, so the outgroup is additive (31 tips simulated).
+branch like any other taxon. `n_taxa: 30` is the ingroup; the base trees are fixed
+files with `t1..t30`, so the outgroup is additive (31 tips simulated).
 
-**Two code paths.** `handle_simulation.py:197-205` branches on reticulations:
+### It's a root-level wrap, and that makes it cheap
 
-- `horizontal_edges == 0` → the base tree is passed inline as newick
-  (`--tree <newick>`). Grafting is string/tree surgery on that newick.
-- `horizontal_edges > 0` → a network **file** is passed
-  (`--network-input-file net{h}-{t}.txt`). The outgroup has to be added to the
-  network format instead, and a rewritten file staged. This is the awkward half.
+`net{h}-{t}.txt` is **base tree on line 1, then one line per reticulation edge**:
+
+```
+((((((t15:0.065,t14:0.0049):0.098,t11:0.076):0.033, ... )        <- base tree, no trailing ';'
+t8;((t6:0.0097,t7:0.0101):0.0048,t5:0.0093);0.4502;0.1922        <- source;target;p;p
+```
+
+The edge's target is a **verbatim substring of line 1** (verified). Wrapping at the
+root only prepends `(` and appends `:len,OG:len)`, so every internal subtree string
+survives byte-identical — **the edge lines need no rewriting at all**. Edge counts
+match `h` exactly (net1→1, net2→2, net3→3), and the base tree is shared across `h`
+for a given tree number.
+
+So one function covers both formats. The only real difference is the terminator:
+`trees.txt` lines end with `;`, network line 1 does not — preserve whichever came in.
+
+```python
+def graft_outgroup(newick: str, name: str, root_len: float, og_len: float) -> str:
+    s = newick.strip()
+    term = ";" if s.endswith(";") else ""
+    return f"({s.rstrip(';')}:{root_len},{name}:{og_len}){term}"
+```
+
+Assert the grafted string still contains each edge target, so a future format change
+fails loudly instead of silently producing a network with dangling edges.
+
+### Where it goes
+
+At the **existing copy step**, not at simulation time — `handle_simulation.py` already
+writes trees into the experiment folder (`model_tree_{i}.txt`, :48-51) and copies
+networks into `model_networks/` (:76-77). Grafting there means one insertion point,
+both formats, and `model_graph_registry.csv` + `resolve_reference_newick` pick up the
+outgrouped versions for free.
+
+> **Landmine.** `network_registry` records the **source** path
+> (`base_networks_dir/net{h}-{t}.txt`, :65-67), not the copy it just made — so today
+> the network copies are decorative and simulation reads the originals. Grafting at
+> the copy step would therefore have **no effect** for `h > 0` until that path is
+> pointed at the copied file. Fix it in the same change (trees already do this
+> correctly, so the two paths also stop disagreeing).
+
+### Branch lengths
+
+Base trees are normalised to max root-to-tip `1.0` and are **not** ultrametric
+(min tip depth `0.068`). `tree_height` does not rescale the newick — it scales
+`height_factor` in the generated simulator config
+(`scripts/lib/simulation/types.py:97-106`) — so these numbers are in fixed units and
+scale uniformly downstream. One constant works across all `tree_height` settings.
+
+To make the outgroup look like an extant taxon rather than a dangling stub, set
+`og_len = root_len + 1.0` (contemporaneous with the deepest ingroup tip). That leaves
+**one** tunable: `root_len`, how much deeper the outgroup split sits than the ingroup
+MRCA. Keep it a documented module constant until the calibration below says it needs
+to be per-experiment; promote it to config only then.
 
 ## Consuming it
 
@@ -77,15 +126,15 @@ Existing experiments with `outgroup` absent are untouched.
 
 ## Open questions
 
-- **Outgroup branch length / depth.** Too short and its position isn't reliably
-  recovered (so rooting is wrong); too long and homoplasy saturates the characters.
-  Needs a value, and probably a sensitivity check.
-- **Network grafting.** What the `net{h}-{t}.txt` format needs for an extra taxon,
-  and whether it's easier to pre-generate outgrouped network files than to rewrite
-  them at run time.
+- **Calibrate `root_len` first.** Too short and the outgroup's position isn't
+  recovered, so the rooting is wrong; too long and homoplasy saturates its
+  characters, with the same result. **Do this before building anything else**: graft
+  onto one base tree at a few `root_len` values, simulate a handful of replicates,
+  and check whether MP4/GA/ASTRAL actually place the outgroup as sister to everything
+  else. If none of them do reliably at our homoplasy levels, outgroup rooting is no
+  better than midpoint and the whole approach needs rethinking.
 - **Does the outgroup's own polymorphism matter?** It's simulated under the same
-  character model as the ingroup; worth confirming that's sensible rather than
-  giving it its own settings.
-- Do the tree methods actually recover the outgroup's position reliably at our
-  homoplasy levels? If not, outgroup rooting is no better than midpoint and this
-  whole approach needs rethinking. **Check this before building the rest.**
+  character model as the ingroup; worth confirming that's sensible rather than giving
+  it its own settings.
+- Whether to prune the outgroup inside the scorer (one guarded place, keeps every
+  method comparable) or in each consumer. Scorer is the obvious first cut.
