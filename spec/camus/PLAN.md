@@ -439,11 +439,10 @@ Sanity check: FN should be lowest near k == the dataset's true `horizontal_edges
 **Goal:** the actual research output.
 
 Join `network_scores.csv` → `camus_registry.csv` → `simulated_data_registry.csv` (on
-`dataset_id`) to recover the true `horizontal_edges`, and → `model_graph_registry.csv` for
-`is_level_1`. Plot **x = k, y = FN**, one line per condition, faceted by guide tree, with a
-marker at the true edge count. Follow the existing SciencePlots serif theme already used
-for paper figures (see recent commits on `main`). Add it under `scripts/py/analysis/`
-alongside the current sweep figures.
+`dataset_id`) to recover the true `horizontal_edges`. Plot **x = k, y = FN**, one line per
+condition, faceted by guide tree, with a marker at the true edge count. Follow the existing
+SciencePlots serif theme already used for paper figures (see recent commits on `main`). Add
+it under `scripts/py/analysis/` alongside the current sweep figures.
 
 **Lead with h=1**, the only condition whose references are all level-1 and therefore all
 reachable by CAMUS. For h=2/h=3, remember the non-level-1 datasets carry an error floor
