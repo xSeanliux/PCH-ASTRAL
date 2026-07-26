@@ -41,38 +41,68 @@ must make three choices explicitly rather than by accident:
 Direction reversed would give plausible, wrong scores. Needs a round-trip test on a
 hand-built case whose answer is known by inspection.
 
-### 2. 42% of the reference networks are not level-1
+### 2. Reference networks are not all level-1 — but that's fine
 
 Measured over all 96 files in `data/base_networks/` (cycle = tree path between the two
-contacting clades; level-1 breaks when two cycles share an edge):
+contacting clades; level-1 breaks when two cycles share an edge): 0/32 at h=1, 14/32 at
+h=2, 26/32 at h=3 are **not** level-1 — 42% overall.
 
-| h | total | not level-1 |
-|---|---|---|
-| 1 | 32 | **0** |
-| 2 | 32 | 14 (44%) |
-| 3 | 32 | 26 (81%) |
+**PhyloNet handles this** — `CmpNets` accepts arbitrary-level networks (verified below), so
+the comparison is well-posed either way. No flag is stored: CAMUS emits level-1 by
+definition, and a reference's level is a pure function of a file we already have, so it can
+be computed on demand if an analysis ever wants to stratify on it.
 
-CAMUS only emits level-1 networks, so for those 40 references **the truth is outside its
-hypothesis space** and FN cannot reach 0 regardless of method quality. Scoring must
-therefore record `is_level_1` (stored per model network in `model_graph_registry.csv`) and
-the analysis must stratify on it — otherwise "CAMUS failed" and "CAMUS could not possibly
-succeed" are averaged together. h=1 is the clean primary condition.
+The one thing to remember when reading results: CAMUS cannot represent a non-level-1 truth
+at any k, so those datasets have a nonzero error floor. That's a property of the method's
+hypothesis space, not a measurement artefact. h=1 is the only condition where every
+reference is level-1.
 
-Also confirm PhyloNet's comparison command **accepts a non-level-1 reference** at all. If
-it doesn't, the h=2/h=3 strata need a different metric.
+## PhyloNet contract (verified against bin/PhyloNet.jar 3.8.5)
+
+```
+#NEXUS
+BEGIN NETWORKS;
+Network net1 = ((((B)#H1,C),(#H1,D)),A);
+Network net2 = (((A,B),C),D);
+END;
+BEGIN PHYLONET;
+CmpNets net1 net2 -m tri;
+END;
+```
+
+- **Arguments are bare identifiers** defined in a `NETWORKS` block — not inline newicks
+  (CmpNets tries to parse those as newick), not brace-wrapped sets.
+- **The newick's own trailing `;` is the statement terminator.** Writing
+  `Network net1 = <newick>;` where the newick already ends in `;` produces a doubled `;`
+  and a misleading `missing END at ';'` error. This costs an hour if you don't know it.
+- **Methods:** `tree`, `tri`, `luay` (anything else → `Unknown method`).
+- **Output**, parsed from stdout:
+  - `tree` / `tri` → `The {tree|tripartition}-based distance between two networks: FN FP AVG`
+  - `luay` → `The Luay's distance between two networks: N` (single number)
+- **Argument order is FN/FP order.** Swapping the two networks swaps the first two numbers
+  (`0.8 1.0` ↔ `1.0 0.8`), so **net1 = reference/truth, net2 = estimate** — same convention
+  as `RFScorer.R`. Getting this backwards silently inverts FN and FP.
+- **Arbitrary level works:** a level-2 network compared against itself returns `0.0` under
+  all three methods.
+- `-m tree` additionally requires identical leaf sets (`Trees must have identical leaf
+  sets`); `tri` and `luay` tolerate mismatches. Ours always match (same dataset, outgroup
+  never pruned), so `-m tree`'s check is a free safety net rather than an obstacle.
+
+**Use `-m tri`** (tripartition) as the primary metric: it yields FN/FP directly, comparable
+in kind to `scores.csv`, and is level-agnostic. Sanity-check it against `-m tree` on a few
+datasets before committing to it for the paper.
 
 ## Intended flow
 
 1. Read each inferred network (`network_newick` from `camus_registry.csv`) and the truth
    (`net{h}-{t}.txt`, via the adapter above).
-2. Emit a NEXUS command file, run `java -jar bin/PhyloNet.jar`, parse stdout.
+2. Emit the NEXUS above into a `NamedTemporaryFile`, run `java -jar bin/PhyloNet.jar`,
+   parse the `distance between two networks:` line.
 3. Write `network_scores.csv` keyed on (`dataset_id`, `guide_tree`, `k`), joining back to
    `camus_registry.csv` (see `registry.md`). Feeds the inferred-edges vs FN elbow.
 
 ## Open questions
 
-- The exact PhyloNet command and its stdout contract — **verify before writing the
-  wrapper**, don't assume `cmpnets`.
-- Rooting/label reconciliation between CAMUS output and the true network. Both carry the
-  outgroup (it is never pruned — see `outgroup.md`), so the taxon sets should already
-  match; confirm PhyloNet agrees.
+- Which of `tri` / `tree` best matches the "cluster metric error rate" the CAMUS paper
+  reports. Both give FN/FP; pick one and state it.
+- The adapter's three choices (direction, γ, hybrid placement) — see above.
