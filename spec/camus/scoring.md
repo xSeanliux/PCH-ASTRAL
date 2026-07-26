@@ -38,8 +38,24 @@ must make three choices explicitly rather than by accident:
 3. **Hybrid node placement** — `contact_time` positions the event on both branches; Rich
    newick encodes position topologically.
 
-Direction reversed would give plausible, wrong scores. Needs a round-trip test on a
-hand-built case whose answer is known by inspection.
+### The adapter, concretely
+
+Given the base tree `T` and one contact line `cladeA;cladeB;time;strength`:
+
+1. **Locate both clades in `T` by taxon set** — a field is either a bare leaf label
+   (`t26`) or a full subtree newick, so parse out its taxa and match the clade whose
+   terminal set is equal. (Same lookup the level-1 check uses.)
+2. **Pick donor `D` and recipient `R`** by the deterministic rule. Low-stakes — see the
+   metric section.
+3. **Rewrite two places** for contact *i*:
+   - at `R`: `R_subtree:len` → `(R_subtree:len)#H{i}:len::{1-strength}`
+   - on `D`'s branch: `D_subtree:dlen` → `(D_subtree:dlen,#H{i}:0::{strength})`
+4. **If several contacts insert on the same branch**, order them by `contact_time`.
+5. Emit the Rich newick.
+
+Verification: a hand-built case whose answer is obvious by inspection, plus an assertion
+that both direction choices score `0.0` against each other under `-m tree` — that test is
+what keeps the direction rule from silently mattering later.
 
 ### 2. Reference networks are not all level-1 — but that's fine
 
@@ -66,7 +82,7 @@ Network net1 = ((((B)#H1,C),(#H1,D)),A);
 Network net2 = (((A,B),C),D);
 END;
 BEGIN PHYLONET;
-CmpNets net1 net2 -m tri;
+CmpNets net1 net2 -m tree;
 END;
 ```
 
@@ -88,9 +104,59 @@ END;
   sets`); `tri` and `luay` tolerate mismatches. Ours always match (same dataset, outgroup
   never pruned), so `-m tree`'s check is a free safety net rather than an obstacle.
 
-**Use `-m tri`** (tripartition) as the primary metric: it yields FN/FP directly, comparable
-in kind to `scores.csv`, and is level-agnostic. Sanity-check it against `-m tree` on a few
-datasets before committing to it for the paper.
+### Use `-m tree` — it is the only direction-invariant option
+
+Measured, and it is the single most important fact for this pipeline. Take one contact
+event between two lineages, build the two networks that differ *only* in which lineage is
+called the hybrid, and compare them:
+
+| method | distance between the two directions |
+|---|---|
+| `tree` | **0.0 0.0 0.0** — invariant |
+| `tri` | 0.8 0.833 0.817 |
+| `luay` | 6.0 |
+
+Our contact events **have no direction** (§1). So under `tri` or `luay` we would be
+measuring our own arbitrary donor/recipient choice, not method accuracy — a coin flip per
+reticulation, scored as error. `-m tree` compares the sets of displayed trees, which are
+identical either way, so it measures what we actually mean.
+
+This also **de-risks the adapter's three choices**, which were the scary part:
+
+- **Direction** — no longer load-bearing. Pick a deterministic rule (e.g. the
+  lexicographically smaller taxon set is the donor), document it, move on.
+- **γ** — affects probabilities, not topology; a topology metric ignores it. Set
+  `γ_minor = transmission_strength` for tidiness.
+- **`contact_time`** — a branch has no internal structure, so *where* on the branch the
+  hybrid attaches does not change the topology. It matters in exactly one case: when two
+  contacts insert on the **same** branch, their relative order does change the topology.
+  Sort insertions on a shared branch by `contact_time`.
+
+Caveat: `-m tree` enumerates displayed trees (2^r for r reticulations), so it is
+exponential in reticulation count. Fine for our truths (h ≤ 3 → 8 trees) but CAMUS's family
+runs to whatever k the DP reached. **Verify runtime at realistic scale (30 taxa, high k)
+before the first big sweep**, and cap k if needed.
+
+### What the CAMUS paper uses, and why we differ
+
+The paper reports a "cluster metric error rate" — the **hardwired cluster distance**:
+extract each network's hardwired clusters (the leaves reachable below each edge), then
+count clusters present in one network but not the other. FN/FP fall out directly.
+
+That is *not* one of CmpNets' three methods, so they used their own code or
+PhyloNetworks.jl's `hardwiredClusterDistance`, not PhyloNet, for scoring. PhyloNet in their
+pipeline is the *competing inference method* (PhyloNet-MPL), not the scorer.
+
+**Their metric is direction-dependent** (a "cluster below an edge" presupposes directed
+edges), and that is fine for them: their truths come from SiPhyNetwork, which generates
+properly directed reticulation networks. Ours are undirected contact events. So we should
+not copy their metric — the difference is in our simulation model, not in our standards.
+
+Their protocol, for the record (supplementary §2, §4): ASTRAL-IV constraint tree rooted on
+the outgroup, gene-tree edges below 75% bootstrap collapsed, then
+`camus -n 32 -q 2 -t $threshold -o $output $const_tree $gene_trees`, with t = 0.5 chosen on
+simulated data (Figure S2) and t = 0.8 additionally explored on the empirical avian dataset
+because its gene trees had ~25% average branch support.
 
 ## Intended flow
 

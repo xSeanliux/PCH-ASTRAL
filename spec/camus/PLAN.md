@@ -372,7 +372,7 @@ Network net1 = ((((B)#H1,C),(#H1,D)),A);
 Network net2 = (((A,B),C),D);
 END;
 BEGIN PHYLONET;
-CmpNets net1 net2 -m tri;
+CmpNets net1 net2 -m tree;
 END;
 ```
 
@@ -386,8 +386,12 @@ END;
   `RFScorer.R`. Backwards here silently inverts the metric.
 - `-m tree` also enforces identical leaf sets; ours always match, so it's a free safety net.
 
-**Use `-m tri`** — FN/FP directly, level-agnostic. Sanity-check against `-m tree` on a few
-datasets before committing for the paper.
+**Use `-m tree`** — it is the only **direction-invariant** method, verified: flipping which
+lineage of a contact event is the hybrid gives `0.0` under `tree` but `0.8` under `tri` and
+`6.0` under `luay`. Our contact events have no direction, so `tri`/`luay` would score our
+own arbitrary donor/recipient choice as error. This also de-risks the adapter — direction,
+γ, and contact-time all stop being load-bearing under a topology metric (see `scoring.md`).
+Caveat: `-m tree` enumerates 2^r displayed trees, so verify runtime at realistic k.
 
 ### Tasks
 
