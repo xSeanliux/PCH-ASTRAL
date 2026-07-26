@@ -32,15 +32,18 @@ CLI-controlled, matching the existing YAML conventions.
 methods:
   camus:
     guide_trees:
-      - mp          # guide = MP4 tree      (dep: mp)
-      - ga          # guide = Gray-Atkinson (dep: ga)
-      - astral3     # guide = PCH-ASTRAL3   (dep: pch_astral3)
-      - true_tree   # guide = simulation model tree (no dep)
+      - astral3     # guide = PCH-ASTRAL3           (dep: pch_astral3)
+      - true_tree   # guide = simulation base tree  (no dep)
 ```
 
-- `CamusConfig` in `scripts/lib/experiment.py`; `GuideTree` enum = {mp, ga,
-  astral3, true_tree}. Each member declares its own scheduler dependency via
-  `GuideTree.dependency` (`true_tree` → None).
+- `CamusConfig` in `scripts/lib/experiment.py`. `_GUIDE_TREE_DEPENDENCY` is the
+  **allow-list**: a `GuideTree` member absent from it is unsupported, and a field
+  validator rejects it at config load.
+- `mp` and `ga` remain enum members purely so they fail with an explanation:
+  CAMUS demands a rooted binary constraint tree, `mp` is a majority consensus
+  (polytomies by construction) and `ga` is unrooted. See `inference.md`.
+- Rooting for the PCH methods is to be solved by **adding an outgroup to the
+  simulation**, not by post-hoc guessing.
 - `TreeInferenceMethod.CAMUS`; runner `scripts/lib/inference/runners/camus.py`.
 - `guide_trees` map to **scheduler dependencies** (mp/ga/astral3 → their upstream
   methods; `true_tree` has none, it's the model tree from the sim registry).

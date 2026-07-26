@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from scripts.lib.types import Polymorphism
 from scripts.lib.inference.inference import TreeInferenceMethod
 from pathlib import Path
@@ -65,25 +65,51 @@ class CamusConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     class GuideTree(StrEnum):
-        # Which tree constrains the CAMUS network search. mp/ga/astral3 are the
-        # upstream inference methods (a scheduler dependency); `true` is the
-        # simulation's model tree — already known, so no dependency.
+        """Which tree constrains the CAMUS network search.
+
+        Membership in `_GUIDE_TREE_DEPENDENCY` is the allow-list: a member absent
+        from that map is a guide CAMUS cannot accept (see `supported`).
+        """
+
         MP = "mp"
         GA = "ga"
         ASTRAL3 = "astral3"
         TRUE_TREE = "true_tree"
 
         @property
+        def supported(self) -> bool:
+            return self in _GUIDE_TREE_DEPENDENCY
+
+        @property
         def dependency(self) -> TreeInferenceMethod | None:
+            """The method whose output supplies this guide (None = already have it).
+
+            Only valid for supported guides; the field validator rejects the rest
+            before anything can reach this.
+            """
             return _GUIDE_TREE_DEPENDENCY[self]
 
     guide_trees: list[GuideTree]
 
+    @field_validator("guide_trees")
+    @classmethod
+    def _reject_unsupported(cls, v: list[GuideTree]) -> list[GuideTree]:
+        bad = [g for g in v if not g.supported]
+        if bad:
+            raise ValueError(
+                f"unsupported CAMUS guide tree(s): {', '.join(g.value for g in bad)}. "
+                "CAMUS requires a rooted, binary constraint tree and refuses anything "
+                "else; mp is a majority consensus (polytomies by construction) and ga "
+                "is unrooted. Supported: "
+                f"{', '.join(g.value for g in _GUIDE_TREE_DEPENDENCY)}. "
+                "See spec/camus/inference.md."
+            )
+        return v
+
 
 # Guide tree -> the method whose output supplies it (None = already have it).
+# ONLY these are allowed; absent = CAMUS can't use it. See `GuideTree.supported`.
 _GUIDE_TREE_DEPENDENCY: dict[CamusConfig.GuideTree, TreeInferenceMethod | None] = {
-    CamusConfig.GuideTree.MP: TreeInferenceMethod.MP,
-    CamusConfig.GuideTree.GA: TreeInferenceMethod.GA,
     CamusConfig.GuideTree.ASTRAL3: TreeInferenceMethod.PCH_ASTRAL3,
     CamusConfig.GuideTree.TRUE_TREE: None,
 }
