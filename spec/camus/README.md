@@ -36,17 +36,12 @@ methods:
       - true_tree   # guide = simulation base tree  (no dep)
 ```
 
-- `CamusConfig` in `scripts/lib/experiment.py`. `_GUIDE_TREE_DEPENDENCY` is the
-  **allow-list**: a `GuideTree` member absent from it is unsupported, and a field
-  validator rejects it at config load.
-- `mp` and `ga` remain enum members purely so they fail with an explanation:
-  CAMUS demands a rooted binary constraint tree, `mp` is a majority consensus
-  (polytomies by construction) and `ga` is unrooted. See `inference.md`.
-- Rooting for the PCH methods is to be solved by **adding an outgroup to the
-  simulation**, not by post-hoc guessing.
-- `TreeInferenceMethod.CAMUS`; runner `scripts/lib/inference/runners/camus.py`.
-- `guide_trees` map to **scheduler dependencies** (mp/ga/astral3 → their upstream
-  methods; `true_tree` has none, it's the model tree from the sim registry).
+`CamusConfig` in `scripts/lib/experiment.py`; runner
+`scripts/lib/inference/runners/camus.py`. `_GUIDE_TREE_DEPENDENCY` is both the
+**allow-list** (absent member = unsupported, rejected by a field validator at config
+load) and the scheduler-dependency map — `astral3` gates on PCH_ASTRAL3, `true_tree`
+on nothing. `mp`/`ga` stay enum members only so they fail with an explanation; why,
+and the rooting plan, are in `inference.md` and `outgroup.md`.
 
 ## The pipeline, end to end
 
