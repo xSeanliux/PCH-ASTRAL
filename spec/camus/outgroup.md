@@ -5,6 +5,12 @@ CAMUS requires a **rooted** binary constraint tree and ships no rooting code
 from somewhere. Guessing post hoc (midpoint) is a modelling assumption we'd rather
 not smuggle in; instead **simulate an outgroup** and root on it.
 
+This is what the CAMUS paper itself does — their pipeline is ASTRAL-IV → reroot on
+the outgroup (`root-outgroup.py`, TreeSwift) → CAMUS, and they note CAMUS works
+"provided an outgroup is available (which is typically the case)". Our
+`astral3` → root → CAMUS plan is the same shape, so we can follow their protocol
+rather than invent one.
+
 ## Config
 
 Experiment-level, under `simulation:` — it changes the generated data, and nothing
@@ -88,19 +94,42 @@ outgrouped versions for free.
 > pointed at the copied file. Fix it in the same change (trees already do this
 > correctly, so the two paths also stop disagreeing).
 
-### Branch lengths
+### Branch lengths — follow the CAMUS paper
 
-Base trees are normalised to max root-to-tip `1.0` and are **not** ultrametric
-(min tip depth `0.068`). `tree_height` does not rescale the newick — it scales
+Willson & Warnow (Bioinformatics 2026) do exactly this, and their supplement gives
+the numbers. Their `add-outgroup.py` ([gist](https://gist.github.com/jsdoublel/de9ab383e0734d53222e289d0a737870))
+is the same root-level wrap:
+
+```python
+f"(OUT:{r.uniform(0.9, 1.0)},{ingroup_no_semicolon}:{r.uniform(0.0, 0.1)});"
+```
+
+> "a single vertex was created as the root, then the outgroup leaf was added with an
+> edge length [0.9, 1.0] (uniform distribution); finally, the previously generated
+> network was attached to the other side of the root on the other side of a branch
+> with length [0.0, 0.1]." — Supplementary §1.1
+
+So: **outgroup branch `U(0.9, 1.0)`, ingroup stem `U(0.0, 0.1)`**, label `OUT`, fixed
+RNG seed for reproducibility. The short stem is the point — the outgroup diverges only
+just before the ingroup MRCA, and its long branch simply carries it to the present.
+
+These numbers transfer directly to us: our base trees are normalised to max
+root-to-tip `1.0` (min tip depth `0.068`, so not ultrametric), the same scale their
+ingroup sits on, which is why `0.9–1.0` lands the outgroup roughly contemporaneous
+with the ingroup tips. `tree_height` does not rescale the newick — it scales
 `height_factor` in the generated simulator config
-(`scripts/lib/simulation/types.py:97-106`) — so these numbers are in fixed units and
-scale uniformly downstream. One constant works across all `tree_height` settings.
+(`scripts/lib/simulation/types.py:97-106`) — so one policy works across every
+`tree_height`.
 
-To make the outgroup look like an extant taxon rather than a dangling stub, set
-`og_len = root_len + 1.0` (contemporaneous with the deepest ingroup tip). That leaves
-**one** tunable: `root_len`, how much deeper the outgroup split sits than the ingroup
-MRCA. Keep it a documented module constant until the calibration below says it needs
-to be per-experiment; promote it to config only then.
+Draw both lengths from a **seed derived from the experiment's registry key**, not a
+hardcoded `0`, to match how the rest of the pipeline seeds itself.
+
+**The caveat that keeps the calibration below on the table.** Their branch lengths are
+tuned for a molecular pipeline (SiPhyNetwork → PhyloCoalSimulations → INDELible under
+GTR, giving ~21% gene-tree estimation error). Ours feed LingPhyloSimulator's
+polymorphic character model. The *geometry* transfers because the tree scale matches;
+what a branch length means for character evolution does not. Adopt their numbers as
+the starting point, then verify.
 
 ## Consuming it
 
@@ -126,13 +155,18 @@ Existing experiments with `outgroup` absent are untouched.
 
 ## Open questions
 
-- **Calibrate `root_len` first.** Too short and the outgroup's position isn't
-  recovered, so the rooting is wrong; too long and homoplasy saturates its
-  characters, with the same result. **Do this before building anything else**: graft
-  onto one base tree at a few `root_len` values, simulate a handful of replicates,
-  and check whether MP4/GA/ASTRAL actually place the outgroup as sister to everything
-  else. If none of them do reliably at our homoplasy levels, outgroup rooting is no
-  better than midpoint and the whole approach needs rethinking.
+- **Verify the paper's lengths hold under our character model.** Start from
+  `U(0.9, 1.0)` / `U(0.0, 0.1)` rather than guessing, but confirm it: graft onto one
+  base tree, simulate a handful of replicates, and check whether MP4/GA/ASTRAL
+  actually place the outgroup as sister to everything else. Too short and its
+  position isn't recovered; too long and homoplasy saturates its characters — either
+  way the rooting is wrong. **Do this before building the rest.** If none of the
+  methods place it reliably at our homoplasy levels, outgroup rooting is no better
+  than midpoint and the approach needs rethinking.
+- **Do we prune the outgroup before scoring?** The paper appears not to — its
+  species counts are n+1 (16, 26, 51, …). Pruning keeps our FN/FP comparable with
+  existing tree runs; not pruning matches the paper. A defensible split: prune for
+  the tree RF scores, keep it for network scoring.
 - **Does the outgroup's own polymorphism matter?** It's simulated under the same
   character model as the ingroup; worth confirming that's sensible rather than giving
   it its own settings.
