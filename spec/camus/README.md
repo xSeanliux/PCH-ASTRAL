@@ -48,6 +48,23 @@ methods:
 - `guide_trees` map to **scheduler dependencies** (mp/ga/astral3 → their upstream
   methods; `true_tree` has none, it's the model tree from the sim registry).
 
+## The pipeline, end to end
+
+1. **Simulate with an outgroup.** Graft `OUT` as sister to the old root of the base
+   tree/network, then simulate as usual — every dataset now has n+1 taxa. Branch
+   lengths and seeding: `outgroup.md`.
+2. **Get a guide tree.** Either `astral3` (inferred) or `true_tree` (the grafted model
+   tree). Only these two — see the rooted-binary constraint in `inference.md`.
+3. **Root it on the outgroup.** ASTRAL's output is unrooted, so reroot on `OUT`
+   (Biopython `root_with_outgroup`). `true_tree` is already rooted — grafting *is* the
+   rooting — so this is a no-op for it. Either way CAMUS gets a rooted binary tree.
+4. **Run CAMUS** on that constraint tree plus PCH-W quartets as its gene trees
+   (weights carry over as repeated lines). Out comes a family of networks, one per k.
+5. **Record** the family: CAMUS's own per-k CSV, enriched with our identity columns
+   and concatenated → `camus_registry.csv` (`registry.md`).
+6. **Score with PhyloNet**, outgroup retained, per (dataset, guide_tree, k) →
+   `network_scores.csv`, giving the inferred-edges vs error elbow (`scoring.md`).
+
 ## This PR's scope (wiring only)
 
 - Install scripts for both binaries + Makefile `install-camus` / `install-phylonet`.
