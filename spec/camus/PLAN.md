@@ -107,11 +107,7 @@ model tree keeps h=0 vs h>0 comparisons unconfounded.
 `ExperimentSimulationConfig`.
 
 **C. `scripts/py/cli/schemata.py`** — extend `MODEL_GRAPH_REGISTRY` with `outgroup: String`,
-`outgroup_seed: Int64`, `outgroup_branch_length: Float64`, `ingroup_stem_length: Float64`,
-and **`is_level_1: Boolean`** (see PR 4, Fact 2 — 42% of reference networks are not
-level-1, CAMUS can only emit level-1, so the analysis must be able to stratify on this).
-Computing it is ~20 lines and belongs beside the graft code: parse the edge lines, take the
-tree path between each pair of contacting clades, and check no two cycles share an edge.
+`outgroup_seed: Int64`, `outgroup_branch_length: Float64`, `ingroup_stem_length: Float64`.
 Deterministic isn't reproducible until it's written down; the realised lengths are also
 exactly what the calibration below plots against. Null `outgroup` records "this run had
 none", so pre-outgroup experiments stay distinguishable from the registry alone.
@@ -355,40 +351,45 @@ Getting direction backwards would silently produce plausible-but-wrong scores, s
 adapter needs a round-trip test on a hand-built two-taxon case where the answer is known
 by inspection.
 
-### Fact 2: 42% of the reference networks are **not level-1**
+### Fact 2: the PhyloNet contract, verified — and it handles arbitrary levels
 
-Measured across all 96 files in `data/base_networks/` (cycle = the tree path between the
-two contacting clades; two reticulations break level-1 when their cycles share an edge):
+`CmpNets` compares two networks of **any** level (a level-2 network against itself returns
+`0.0`), so the comparison is well-posed even though 42% of our references are not level-1
+(0/32 at h=1, 14/32 at h=2, 26/32 at h=3). No level flag is stored anywhere: CAMUS emits
+level-1 by definition, and a reference's level is a pure function of a file we already
+have, computable on demand if an analysis wants to stratify.
 
-| h | total | not level-1 |
-|---|---|---|
-| 1 | 32 | **0** — one reticulation is always level-1 |
-| 2 | 32 | 14 (44%) |
-| 3 | 32 | 26 (81%) |
+The interpretive caveat that remains: CAMUS cannot represent a non-level-1 truth at any k,
+so those datasets carry a nonzero error floor. That's the method's hypothesis space, not a
+measurement artefact. h=1 is the only fully level-1 condition.
 
-**CAMUS only ever emits level-1 networks.** For those 40 references the truth is outside
-its hypothesis space, so FN cannot reach 0 no matter how good the method is. An elbow
-computed over all of h=2/h=3 would conflate "CAMUS failed" with "CAMUS could not possibly
-have succeeded".
+Verified contract (against `bin/PhyloNet.jar` 3.8.5 — full detail in `scoring.md`):
 
-Consequences, which are study-design decisions rather than implementation details:
+```
+#NEXUS
+BEGIN NETWORKS;
+Network net1 = ((((B)#H1,C),(#H1,D)),A);
+Network net2 = (((A,B),C),D);
+END;
+BEGIN PHYLONET;
+CmpNets net1 net2 -m tri;
+END;
+```
 
-- **h=1 is the clean primary condition** — all 32 references are level-1.
-- **h=2 and h=3 must be stratified** by whether the truth is level-1. Report the strata
-  separately; a pooled curve is not interpretable.
-- Compute level-1-ness once at simulation time and store it as `is_level_1: Boolean` in
-  `MODEL_GRAPH_REGISTRY` (fold into PR 1's schema task) so the analysis can facet without
-  re-deriving it. The check is ~20 lines and belongs next to the graft code.
+- Arguments are **bare identifiers** from a `NETWORKS` block — not inline newicks, not
+  brace-wrapped sets.
+- **The newick's own `;` is the statement terminator** — doubling it gives a misleading
+  `missing END at ';'`.
+- Methods: `tree`, `tri`, `luay`. Output is
+  `The ...-based distance between two networks: FN FP AVG` (`luay` gives one number).
+- **net1 = truth, net2 = estimate** — swapping them swaps FN and FP, same convention as
+  `RFScorer.R`. Backwards here silently inverts the metric.
+- `-m tree` also enforces identical leaf sets; ours always match, so it's a free safety net.
+
+**Use `-m tri`** — FN/FP directly, level-agnostic. Sanity-check against `-m tree` on a few
+datasets before committing for the paper.
 
 ### Tasks
-
-**A. Confirm the PhyloNet command first — this gates the rest.** We need topological
-comparison of two networks, not likelihood. The paper reports a "cluster metric error
-rate". Run `java -jar bin/PhyloNet.jar` against a hand-written NEXUS and confirm the
-command name and its stdout format before writing the wrapper. Do not assume `cmpnets`;
-verify. Also confirm it accepts a **non-level-1** network as the reference — if it does
-not, the h=2/h=3 strata need a different metric entirely, and that changes the plan.
-Record the confirmed contract in `spec/camus/scoring.md`.
 
 **A2. The contact-network → Rich-newick adapter** (`scripts/lib/inference/network_format.py`).
 The three choices above, made explicitly and documented in the module docstring, with the
@@ -444,15 +445,14 @@ marker at the true edge count. Follow the existing SciencePlots serif theme alre
 for paper figures (see recent commits on `main`). Add it under `scripts/py/analysis/`
 alongside the current sweep figures.
 
-**Stratify by `is_level_1`, and lead with h=1.** Pooling level-1 and non-level-1 truths
-makes the curve uninterpretable, because CAMUS cannot represent a non-level-1 truth at any
-k (PR 4, Fact 2). h=1 is the only condition where every reference is level-1, so it is the
-headline result; h=2 and h=3 are reported as two strata each. Where the truth is not
-level-1, state the achievable floor rather than presenting the residual FN as method error.
+**Lead with h=1**, the only condition whose references are all level-1 and therefore all
+reachable by CAMUS. For h=2/h=3, remember the non-level-1 datasets carry an error floor
+(PR 4, Fact 2); if the curves look like they are flattening above zero, check whether that
+is the floor before reading it as method error. Level is computable on demand from
+`data/base_networks/` if a stratified view is wanted.
 
 **Verification:** run on the smoke experiment; confirm the curve is non-increasing early
-and flattens, and that the flattening point tracks the true reticulation count **on the
-level-1 stratum**.
+and flattens, and that the flattening point tracks the true reticulation count.
 
 ---
 
