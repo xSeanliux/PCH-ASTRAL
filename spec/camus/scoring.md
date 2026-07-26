@@ -139,6 +139,46 @@ in the paper. If the gap turns out large at 30 taxa, switch to `tree` and say wh
 With a deterministic direction rule the artifact is systematic rather than random noise,
 which is the better failure mode either way.
 
+### Rejected: making the truth bidirectional by emitting two copies
+
+The obvious fix for the direction problem is to represent each symmetric contact as *both*
+directed reticulations (A→B and B→A). PhyloNet parses such a network fine (0.0 against
+itself), but **it backfires**, and the FN/FP split shows exactly why:
+
+| comparison | `cluster` FN | `cluster` FP |
+|---|---|---|
+| bidirectional truth vs a *correct* single-direction estimate | **0.43** | 0.00 |
+| single-direction truth vs the same correct estimate | 0.00 | 0.00 |
+
+A CAMUS network that recovered the contact event **perfectly** is charged 43% false
+negatives — purely for missing the second copy it can never produce. FP is 0: the estimate
+invents nothing. Under `-m tree` it's 0.5/0.5.
+
+Two independent reasons it cannot work:
+
+1. **It penalises a perfect answer**, and by far more (0.43) than the direction artifact it
+   was meant to fix (0.25).
+2. **It forces every truth to level ≥2.** The two copies share a cycle, so they land in one
+   biconnected component. CAMUS only emits level-1, so *no* dataset would be reachable —
+   including h=1, which is currently our clean condition.
+
+The instinct is right, though: the truth *is* symmetric, and that should be reflected. The
+fix belongs on the **scoring** side, not in the representation.
+
+### Preferred fix: minimise over orientations
+
+Score the estimate against **every orientation of the truth** (2^h networks; h ≤ 3, so at
+most 8) and keep the best. An estimate matching any consistent orientation scores 0, which
+is exactly the semantics an undirected contact event deserves.
+
+- Keeps the truth level-1, so h=1 stays fully reachable.
+- Keeps k = h, so the elbow's x-axis keeps its meaning.
+- Stays on `-m cluster`, so numbers remain comparable to the published results.
+- Costs ≤8 CmpNets calls per (dataset, guide_tree, k) — negligible beside inference.
+
+`-m tree` remains the cheaper alternative: invariant by construction, one call, no
+enumeration — at the cost of diverging from the paper's metric.
+
 Under either metric the adapter's three choices stay cheap: **γ** is ignored by both
 (topology only), and **`contact_time`** changes topology only when two contacts insert on
 the same branch — sort those by time. Only **direction** carries any weight, and only under
