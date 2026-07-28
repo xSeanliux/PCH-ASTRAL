@@ -76,4 +76,6 @@ there.
 Supporting detail: `inference.md` (real runCAMUS.sh + the rooted-binary constraint),
 `outgroup.md` (simulate an outgroup so PCH trees can be rooted), `registry.md`
 (per-k network registry — CAMUS emits a network family, not one estimate),
-`scoring.md` (PhyloNet scoring; the contact-network adapter and the level-1 problem).
+`scoring.md` (PhyloNet scoring; the contact-network adapter and the level-1 problem),
+`benchmarks.md` (quartet-based network methods to compare against — SNaQ fits, PhyloNet
+doesn't take quartets).
