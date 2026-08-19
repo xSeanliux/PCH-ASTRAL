@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from scripts.lib.types import Polymorphism
+from scripts.lib.inference.inference import TreeInferenceMethod
 from pathlib import Path
 from enum import IntEnum, StrEnum
 
@@ -60,6 +61,58 @@ class GAConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class CamusConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    class GuideTree(StrEnum):
+        """Which tree constrains the CAMUS network search.
+
+        Membership in `_GUIDE_TREE_DEPENDENCY` is the allow-list: a member absent
+        from that map is a guide CAMUS cannot accept (see `supported`).
+        """
+
+        MP = "mp"
+        GA = "ga"
+        ASTRAL3 = "astral3"
+        TRUE_TREE = "true_tree"
+
+        @property
+        def supported(self) -> bool:
+            return self in _GUIDE_TREE_DEPENDENCY
+
+        @property
+        def dependency(self) -> TreeInferenceMethod | None:
+            """The method whose output supplies this guide (None = already have it).
+
+            Only valid for supported guides; the field validator rejects the rest
+            before anything can reach this.
+            """
+            return _GUIDE_TREE_DEPENDENCY[self]
+
+    guide_trees: list[GuideTree]
+
+    @field_validator("guide_trees")
+    @classmethod
+    def _reject_unsupported(cls, v: list[GuideTree]) -> list[GuideTree]:
+        bad = [g for g in v if not g.supported]
+        if bad:
+            raise ValueError(
+                f"unsupported CAMUS guide tree(s): {', '.join(g.value for g in bad)}. "
+                f"Supported: {', '.join(g.value for g in _GUIDE_TREE_DEPENDENCY)}. "
+                "CAMUS requires a rooted binary constraint tree; see "
+                "spec/camus/inference.md."
+            )
+        return v
+
+
+# Guide tree -> the method whose output supplies it (None = already have it).
+# ONLY these are allowed; absent = CAMUS can't use it. See `GuideTree.supported`.
+_GUIDE_TREE_DEPENDENCY: dict[CamusConfig.GuideTree, TreeInferenceMethod | None] = {
+    CamusConfig.GuideTree.ASTRAL3: TreeInferenceMethod.PCH_ASTRAL3,
+    CamusConfig.GuideTree.TRUE_TREE: None,
+}
+
+
 class MethodConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     astral_3: ASTRAL3Config | None = Field(None)
@@ -67,6 +120,7 @@ class MethodConfig(BaseModel):
     w_tree_qmc: WeightedTreeQMCConfig | None = Field(None)
     mp4: MP4Config | None = Field(None)
     gray_atkinson: GAConfig | None = Field(None)
+    camus: CamusConfig | None = Field(None)
 
 
 class ExperimentConfig(BaseModel):
