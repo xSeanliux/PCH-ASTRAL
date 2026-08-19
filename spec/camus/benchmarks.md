@@ -1,33 +1,58 @@
 # Quartet-based network methods to benchmark against
 
-Can PhyloNet or PhyloNetworks infer networks **from quartets**, the way CAMUS does? Short
-answer: **PhyloNet no, SNaQ yes** — and SNaQ fits our pipeline almost exactly.
+Can PhyloNet or PhyloNetworks infer networks **from quartets**, the way CAMUS does?
+**Both can.** PhyloNet takes them as taxon-incomplete gene trees (verified), and SNaQ takes
+them as concordance factors. Two usable baselines, both matching CAMUS's inputs.
 
-## PhyloNet — no
+## PhyloNet — yes, via gene trees (a quartet *is* a taxon-incomplete gene tree)
 
-Zero quartet classes in `bin/PhyloNet.jar` (3.8.5). Every network-inference command takes
-**gene trees** (a NEXUS `TREES` block) or sequences:
+No PhyloNet command advertises quartet input, and none of its classes mention quartets. But
+that framing is a red herring: **a quartet is just a very taxon-incomplete gene tree**,
+which is exactly how `runASTRAL3.sh` already feeds PCH-W quartets to ASTRAL. PhyloNet's
+gene-tree methods accept them the same way.
 
-`InferNetwork_MP`, `InferNetwork_ML`, `InferNetwork_MPL`, `InferNetwork_ML_BootStrap`,
-`InferNetwork_ML_CV`, `InferNetwork_Clustering`, `InferNetwork_NCM`,
-`InferNetwork_ParentalTrees`, `MCMC_GT`, `MCMC_SEQ`, `MCMC_BiMarkers`, `MLE_BiMarkers`,
-`MLE_SEQ`.
+Verified by running `bin/PhyloNet.jar` on eight 4-taxon quartets over a 5-taxon label set:
 
-A quartet *is* a 4-taxon tree, so `InferNetwork_MP`/`MPL` could be fed our quartets as if
-they were gene trees. But that is not a supported input mode, and the pseudo-likelihood
-models assume gene trees generated under the multispecies coalescent — feeding
-polymorphism-derived quartets would be using the model outside its assumptions. Treat this
-as a possible experiment, not a benchmark.
+| command | result on quartet input |
+|---|---|
+| `InferNetwork_MP` | **works**, seconds — returned a 5-taxon network with 1 reticulation |
+| `InferNetwork_MPL` | **works** — returns networks ranked by log pseudo-likelihood |
+| `InferNetwork_MPL -s <tree> -fs` | **works**, k=1 in 15 s, k=2 in 32 s |
+| `InferNetwork_ML` | did **not** finish in 7 min on 5 taxa |
 
-Note the CAMUS paper's `PhyloNet-MPL` baseline was run on **gene trees**, which we do not
-naturally have (our pipeline produces quartets). So it is a poor fit for us regardless.
+`InferNetwork_ML`'s behaviour matches the paper, which excluded unconstrained PhyloNet-MPL
+because it "could not complete within 24 hours". `InferNetwork_Clustering` and
+`InferNetwork_NCM` are untested (the ML hang blocked that batch).
 
-## SNaQ — yes, and it is the natural head-to-head
+### PhyloNet-MPL(FT) is the natural head-to-head with CAMUS
+
+The flags matter and are easy to get wrong: **`-s <id>` only sets the *starting* network and
+still searches** — that is what hung my first attempt. **`-fs` (no value) fixes it.** The
+paper's "PhyloNet-MPL (FT)" is `-s start -fs`; their wrapper's `-f` maps to `-fs`.
+
+With that, MPL(FT) matches CAMUS's shape almost exactly:
+
+| | CAMUS | PhyloNet-MPL(FT) |
+|---|---|---|
+| inputs | guide tree + quartets | fixed start tree + quartets (as gene trees) |
+| k | discovers every k up to m | you specify k per run |
+| output | level-1 networks | networks (not restricted to level-1) |
+
+So sweeping `k = 1..m` gives the *same per-k family* CAMUS produces — the same
+`camus_registry.csv` shape, the same `CmpNets` scoring, the same elbow. That makes it a
+drop-in baseline, and it is the paper's own primary comparison.
+
+**Runtime is the open question.** 15 s and 32 s at 5 taxa is not reassuring for 30 taxa ×
+many k × many replicates; the paper reports MPL(FT) taking hours and failing above 51
+species. Benchmark one 30-taxon dataset before committing to a sweep.
+
+## SNaQ — yes, quartet-native and level-1
 
 `snaq!` estimates a network from **quartet concordance factors** by maximum
 pseudo-likelihood, searching the space of **level-1 networks** — the same hypothesis space
-as CAMUS. That makes it the right comparison: same inputs, same output class, different
-algorithm.
+as CAMUS. Where MPL(FT) matches CAMUS's *interface* (guide tree + k), SNaQ matches its
+*output class*: both are restricted to level-1, so neither can represent a non-level-1
+truth and the two share the same error floor.
 
 - Now its own package: [`JuliaPhylo/SNaQ.jl`](https://github.com/JuliaPhylo/SNaQ.jl),
   split out of PhyloNetworks.jl. Implements Solís-Lemus & Ané (2016).
@@ -61,8 +86,16 @@ reason to prefer one method — but it belongs in the paper's limitations, not i
 
 ## Recommendation
 
-Not part of the five PRs in `PLAN.md`; this is what comes after the elbow works. When a
-baseline is wanted, SNaQ is the one to add: identical input shape, identical hypothesis
-space, one new `--format cf` writer, and a Julia dependency. Compare on the same
-`camus_registry.csv` → `network_scores.csv` path, scoring both with the same `CmpNets`
-settings (see `scoring.md`).
+Neither is part of the five PRs in `PLAN.md` — this is what comes after the elbow works.
+When baselines are wanted, add them in this order:
+
+1. **PhyloNet-MPL(FT)** first. No new dependency (the jar is already installed for
+   scoring), it consumes our quartets unchanged, and per-k runs drop straight into the
+   existing registry and scorer. It is also the paper's own primary baseline, so the
+   comparison is legible to that audience. Settle the runtime question at 30 taxa first.
+2. **SNaQ** second. Stronger scientific pairing — same level-1 hypothesis space, so it
+   shares CAMUS's error floor and isolates the algorithm rather than the hypothesis class.
+   Costs a `--format cf` writer (~15 lines) and a Julia dependency.
+
+Score every method through the same `network_scores.csv` path with identical `CmpNets`
+settings (see `scoring.md`), so the numbers are comparable by construction.
