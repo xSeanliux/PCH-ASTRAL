@@ -86,7 +86,7 @@ reason to prefer one method — but it belongs in the paper's limitations, not i
 
 ## Recommendation
 
-Neither is part of the five PRs in `PLAN.md` — this is what comes after the elbow works.
+Neither is part of the PRs in `PLAN.md` — this is what comes after CAMUS runs end to end.
 When baselines are wanted, add them in this order:
 
 1. **PhyloNet-MPL(FT)** first. No new dependency (the jar is already installed for

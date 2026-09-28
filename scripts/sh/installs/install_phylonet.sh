@@ -1,6 +1,6 @@
 #!/bin/bash
 # Download the PhyloNet jar into bin/PhyloNet.jar. Run via `java -jar
-# bin/PhyloNet.jar cmd.nex`. Used for network scoring (CalGTProb). bin/ is
+# bin/PhyloNet.jar cmd.nex`. Used for network scoring (CmpNets). bin/ is
 # git-ignored; this is the canonical way to (re)produce it.
 set -euo pipefail
 
