@@ -21,8 +21,8 @@ CLI-controlled, matching the existing YAML conventions.
 ### PhyloNet — network scoring / benchmark
 - Repo: https://github.com/NakhlehLab/PhyloNet (Java)
 - Run: `java -jar bin/PhyloNet.jar cmd.nex` (NEXUS command file).
-- Used to **score** an inferred network against gene trees (e.g. `CalGTProb`,
-  pseudo-likelihood added in 3.8.5) — the benchmark scoring the paper uses.
+- Used to **score** an inferred network against the reference network
+  (`CmpNets -m cluster`, FN/FP) — the metric the paper uses.
 - Install: `scripts/sh/installs/install_phylonet.sh` → downloads
   `PhyloNet.jar` (v3.8.5) into `bin/PhyloNet.jar`.
 
@@ -53,12 +53,13 @@ and the rooting plan, are in `inference.md` and `outgroup.md`.
 3. **Root it on the outgroup.** ASTRAL's output is unrooted, so reroot on `OUT`
    (Biopython `root_with_outgroup`). `true_tree` is already rooted — grafting *is* the
    rooting — so this is a no-op for it. Either way CAMUS gets a rooted binary tree.
-4. **Run CAMUS** on that constraint tree plus PCH-W quartets as its gene trees
-   (weights carry over as repeated lines). Out comes a family of networks, one per k.
+4. **Run CAMUS** on that guide tree plus PCH-W quartets as its gene trees. Weights
+   arrive as repeated lines, then pass CAMUS's default quartet filter. Out comes a
+   network family, one network per k.
 5. **Record** the family: CAMUS's own per-k CSV, enriched with our identity columns
    and concatenated → `camus_registry.csv` (`registry.md`).
 6. **Score with PhyloNet**, outgroup retained, per (dataset, guide_tree, k) →
-   `network_scores.csv`, giving the inferred-edges vs error elbow (`scoring.md`).
+   `network_scores.csv` (`scoring.md`). Analysis comes later.
 
 ## This PR's scope (wiring only)
 
@@ -69,13 +70,13 @@ and the rooting plan, are in `inference.md` and `outgroup.md`.
   because the stub emits no network (`api.infer` requires the point-estimate
   file); that's expected until inference lands.
 
-**`PLAN.md` is the plan of record** — five PR milestones from outgroup simulation to the
-elbow figure, with per-PR verification and the settled cross-cutting decisions. Start
-there.
+**`PLAN.md` is the plan of record** — the PR sequence from outgroup simulation to raw
+network scores, with per-PR verification and the settled decisions. Start there. Where
+another file here disagrees with it, `PLAN.md` wins. Terms: `CONTEXT.md`.
 
 Supporting detail: `inference.md` (real runCAMUS.sh + the rooted-binary constraint),
 `outgroup.md` (simulate an outgroup so PCH trees can be rooted), `registry.md`
-(per-k network registry — CAMUS emits a network family, not one estimate),
-`scoring.md` (PhyloNet scoring; the contact-network adapter and the level-1 problem),
-`benchmarks.md` (quartet-based network methods to compare against — SNaQ fits, PhyloNet
-doesn't take quartets).
+(network family registry — CAMUS emits a family, not one estimate),
+`scoring.md` (PhyloNet scoring: the measurements behind the metric choice),
+`benchmarks.md` (quartet-based network methods to compare against — SNaQ, and
+PhyloNet-MPL fed quartets as incomplete gene trees).

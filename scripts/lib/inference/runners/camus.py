@@ -8,9 +8,9 @@ from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
 
 
 class CamusRunner:
-    """CAMUS level-1 network inference. Output is an extended-newick network, not
-    a tree; the point-estimate path holds that network. runCAMUS.sh is a stub for
-    now (see spec/camus/inference.md) — this wires the method into the pipeline."""
+    """CAMUS level-1 network inference. Output is a network family, not a tree;
+    the point-estimate path holds its CSV, one network per k. runCAMUS.sh is a stub
+    for now (see spec/camus/inference.md) — this wires the method into the pipeline."""
 
     @staticmethod
     def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:

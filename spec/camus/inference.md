@@ -10,7 +10,7 @@ implementation, mirroring `runASTRAL3.sh`.
 ```
 bash scripts/sh/runCAMUS.sh \
   --runid <id> --input <dataset.csv> --name <stem> \
-  --output <output_dir> --guide-trees <mp,ga,astral3,true_tree csv>
+  --output <output_dir> --guide-trees <astral3|true_tree>
 ```
 
 Set CAMUS `-o <output_dir>/CAMUS/networks/<name>`. CAMUS then writes:
@@ -29,26 +29,24 @@ impl enriches that CSV and appends it to `camus_registry.csv` — see `registry.
 1. **Quartets** — generate gene-tree quartets from the polymorphic CSV. Reuse the
    PCH quartet generation (`scripts/py/printQuartets`, `scripts/lib/pch.py`);
    CAMUS takes gene trees / quartets as its second argument.
-2. **Guide tree(s)** — resolve each `--guide-trees` token to a rooted binary
-   newick constraint tree:
-   - `mp` / `ga` / `astral3` → the upstream method's point estimate under
-     `<output_dir>/{MP4,GA,PCH_W_ASTRAL3}/trees/<name>.tree`. These are declared
-     dependencies (`CamusRunner.dependencies`), so the scheduler guarantees they
-     exist before CAMUS runs.
+2. **Guide tree** — resolve the `--guide-trees` token to a rooted binary newick.
+   One run per guide tree (`PLAN.md` PR 2).
+   - `astral3` → the point estimate under
+     `<output_dir>/PCH_W_ASTRAL3/trees/<name>.tree`, rooted on `OUT`. A declared
+     dependency (`CamusRunner.dependencies`), so the scheduler guarantees it exists.
    - `true_tree` → the simulation's base tree, via the existing
      `scoring.resolve_reference_newick(experiment_folder, model_tree)` (reads
      `model_graph_registry.csv` for the `horizontal_edges == 0` row). No dependency.
 
    See "The rooted-binary constraint" below — this is the gate on the whole step.
-3. **Run CAMUS** — `bin/camus -n <procs> -t 0.5 -o <prefix> <const_tree> <gene_trees>`.
-   It writes `<prefix>.csv` with every k (the sweep is the point); the writer ingests
-   that CSV into the registry (`registry.md`).
+3. **Run CAMUS** — `bin/camus -n <procs> -o <prefix> <guide_tree> <gene_trees>`.
+   It writes `<prefix>.csv` with every k; the writer ingests that CSV into the
+   registry (`registry.md`).
 
-   `t = 0.5` is the paper's tuned value — supplementary Figure S2 sweeps the quartet
-   filter threshold over {0.0, 0.2, 0.5, 0.8} and 0.5 gives the lowest error. It is
-   also CAMUS's own default, so it can simply be left unset. Their published
-   invocation is `camus -n 32 -q 2 -t $threshold -o $output $const_tree $gene_trees`;
-   `-q 2` is obsolete (quartet filtering is on by default now).
+   No `-t`, no `-q`: CAMUS defaults (`-q 2 -t 0.5`) apply, the paper's values. `-q` is
+   the filter mode — 0 off, 1 threshold only, 2 also drops the rarest topology. The
+   filter matters for quartet input: counts 5/3/2 on one 4-taxon set leave no usable
+   quartet at the default. Making both configurable is a follow-up.
 
 ## The rooted-binary constraint
 
@@ -94,8 +92,5 @@ the uncertain regions.
   is usable only because its output happens to come back with a bifurcating root;
   that is not something to rely on.
 
-## Open questions
-
-- One CAMUS run per guide tree, or one guide tree per config? `guide_trees` is a
-  list → one output family per guide tree. Simplest first cut: one guide tree per
-  `camus:` block.
+- One CAMUS run per guide tree: `guide_trees` stays a list and fans out at
+  scheduling time (`PLAN.md` PR 2).

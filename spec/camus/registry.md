@@ -29,7 +29,7 @@ concatenates shards → `camus_registry.csv` (reuse
 Columns = ours + CAMUS's (renamed to snake_case):
 
 - `dataset_id` — canonical input CSV path (join key, same as tree registry).
-- `guide_tree` — which guide produced it (`mp|ga|astral3|true_tree`).
+- `guide_tree` — which guide produced it (`astral3|true_tree`).
 - `config_hash`, `runtime_seconds`, `status`, `ran_at`, `log_path` — run metadata
   as in the tree registry (runtime is whole-family; see open questions).
 - `k` ← `Number of Branches`.
@@ -65,7 +65,7 @@ new inference commands.
 - `pch experiment score <yaml>` — stays tree RF (`scores.csv`), untouched.
 - `pch experiment network-score <yaml>` — **new.** PhyloNet-based per-k network
   scoring → `network_scores.csv` (see `scoring.md`). Separate command because RF
-  and network likelihood are different metrics on different registries.
+  and network cluster distance are different metrics on different registries.
 - `pch experiment status` — may grow a network-row count; optional, not required
   for the elbow.
 
@@ -73,7 +73,9 @@ Atomic `pch infer --method camus ...` stays tree-shaped (one estimate) and is
 **not** the network entry point — use the experiment path for the family. Revisit
 only if a one-off network run is ever needed.
 
-## Open questions
+## Notes
 
-- Runtime: one CAMUS invocation emits all k at once, so `runtime_seconds` is the
-  whole-family time — repeat it on each row (simpler joins), noting it's not per-k.
+- One CAMUS invocation emits all k at once, so `runtime_seconds` is the whole-family
+  time, repeated on each row.
+- CAMUS stops writing rows when the score stops improving, so families differ in
+  length and may be row 0 alone. Store what CAMUS wrote; pad nothing.

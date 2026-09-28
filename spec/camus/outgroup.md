@@ -19,7 +19,7 @@ outside simulation reads it.
 ```yaml
 simulation:
   n_taxa: 30
-  outgroup: OG        # omit entirely for no outgroup
+  outgroup: OUT       # omit entirely for no outgroup
   base_trees_file: data/trees.txt
 ```
 
@@ -46,7 +46,7 @@ yaml is the record. Add the column if cross-folder analysis needs it.
 
 ## Mechanism
 
-Graft the outgroup as sister to the whole base tree — `(base, OG)` — so it is by
+Graft the outgroup as sister to the whole base tree — `(base, OUT)` — so it is by
 construction the deepest split, then let the simulator evolve characters along its
 branch like any other taxon. `n_taxa: 30` is the ingroup; the base trees are fixed
 files with `t1..t30`, so the outgroup is additive (31 tips simulated).
@@ -61,13 +61,19 @@ t8;((t6:0.0097,t7:0.0101):0.0048,t5:0.0093);0.4502;0.1922        <- source;targe
 ```
 
 The edge's target is a **verbatim substring of line 1** (verified). Wrapping at the
-root only prepends `(` and appends `:len,OG:len)`, so every internal subtree string
-survives byte-identical — **the edge lines need no rewriting at all**. Edge counts
+root only prepends `(` and appends `:len,OUT:len)`, so every internal subtree string
+survives byte-identical — **the clade fields need no rewriting**. Edge counts
 match `h` exactly (net1→1, net2→2, net3→3), and the base tree is shared across `h`
 for a given tree number.
 
-So one function covers both formats. The only real difference is the terminator:
-`trees.txt` lines end with `;`, network line 1 does not — preserve whichever came in.
+**The time field does.** Field 3 is distance from the root (`Network.java:29,312`), and
+the graft puts a stem above the old root, so every contact moves `stem_len` later. Left
+alone, a contact lands before its branch exists and the simulator silently builds a
+negative branch length (`Network.java:352-353`, no bounds check). Add `stem_len` to
+field 3 of every contact line — `graft_network` in `PLAN.md` PR 1.
+
+The terminator differs too: `trees.txt` lines end with `;`, network line 1 does not —
+preserve whichever came in.
 
 ```python
 def graft_outgroup(newick: str, name: str, root_len: float, og_len: float) -> str:
@@ -78,6 +84,11 @@ def graft_outgroup(newick: str, name: str, root_len: float, og_len: float) -> st
 
 Assert the grafted string still contains each edge target, so a future format change
 fails loudly instead of silently producing a network with dangling edges.
+
+Two side effects. The simulator sorts CSV columns lexicographically once any taxon name
+does not start with `t` (`OUT,t1,t10,…`); the GA NEXUS writer labelled rows by position
+and is fixed in its own PR. And the extra edges consume RNG draws, so an outgrouped run
+is not the old run plus one taxon.
 
 ### Where it goes
 
@@ -206,18 +217,13 @@ Existing experiments with `outgroup` absent are untouched.
 
 ## Open questions
 
-- **Verify the paper's lengths hold under our character model.** Start from
-  `U(0.9, 1.0)` / `U(0.0, 0.1)` rather than guessing, but confirm it: graft onto one
-  base tree, simulate a handful of replicates, and check whether MP4/GA/ASTRAL
-  actually place the outgroup as sister to everything else. Too short and its
-  position isn't recovered; too long and homoplasy saturates its characters — either
-  way the rooting is wrong. **Do this before building the rest.** If none of the
-  methods place it reliably at our homoplasy levels, outgroup rooting is no better
-  than midpoint and the approach needs rethinking.
-- Whether keeping the outgroup in the **tree** RF scores (not just network scores)
-  is acceptable long-term, given it breaks comparability with existing numbers. Fine
-  for the CAMUS study, which compares outgrouped runs to each other; revisit if
-  someone wants one table spanning both eras.
+- **Rooting accuracy under our character model.** The outgroup is known, so rooting on
+  it always succeeds; an unrooted tree has `OUT` as a leaf wherever it attaches. What
+  can go wrong is the attachment point: if `OUT` joins the wrong ingroup branch, the
+  ingroup root is wrong. That is pipeline error, to be measured — does the ingroup root
+  split match the base tree's? — not a gate on building the rest.
+- The outgroup stays in the **tree** RF scores too. Outgrouped tree scores are not
+  tabled beside pre-outgroup ones.
 - **Does the outgroup's own polymorphism matter?** It's simulated under the same
   character model as the ingroup; worth confirming that's sensible rather than giving
   it its own settings.

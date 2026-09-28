@@ -1,64 +1,101 @@
-# CAMUS network inference — end-to-end implementation plan
+# CAMUS network inference — implementation plan
 
-## Context
+Terms (contact event, contact edge, h, k, guide tree, base tree, network family): see
+`CONTEXT.md`.
 
-PCH-ASTRAL infers **trees** today. CAMUS (Willson & Warnow, Bioinformatics 2026) extends
-that to **level-1 networks**: given a rooted binary constraint tree plus quartets, it
-returns the optimal network for each k = number of added reticulation edges. The research
-goal is the **elbow** — plot inferred edges (k) against error, per condition, and find
-where adding reticulations stops buying accuracy.
+## Goal
 
-PR #31 (merged/open on `camus-install`) wired the method in: config, runner, install
-scripts, and `spec/camus/`. `scripts/sh/runCAMUS.sh` is still a stub. This plan takes it
-to a working end-to-end pipeline.
+**Run CAMUS end to end and put raw scores on disk.** Analysis, figures, and comparison
+methods come later; this set of PRs lays the groundwork for them.
 
-Three properties of CAMUS drive every design decision below, all verified against its Go
-source rather than its README:
+PCH-ASTRAL infers trees today. CAMUS (Willson & Warnow, Bioinformatics 2026) extends that
+to level-1 networks: given a rooted binary guide tree plus quartets, it returns the
+optimal network for each k.
 
-1. **It returns a family, not an estimate.** `-o <prefix>` writes one `<prefix>.csv` with a
-   row per k (columns `Number of Branches`, `Quartet Satisfied Percent`, `Extended Newick`;
-   row k=0 is the constraint tree), plus `<prefix>.log` and `<prefix>.png`. `m` is
-   *discovered* by the DP, never requested, so row counts vary per dataset.
-2. **It hard-rejects unrooted or non-binary constraint trees** and ships no rooting or
-   refinement code. Measured on our own smoke output: `mp` (majority consensus) has 4 root
-   children and 3 polytomies, `ga` has 3 root children. Only `astral3` and `true_tree`
-   qualify — already enforced by a config validator.
-3. **It deletes every quartet the constraint tree already displays**, so inventing a
-   resolution for a polytomy would suppress conflicting signal exactly where support is
-   weakest. Rooting must come from data, hence the outgroup.
+**Done when:** `experiments/camus_smoke` — with `outgroup: OUT` and both guides — runs
+simulation → inference → network-score on a laptop and writes `network_scores.csv`.
 
-**Decisions taken with the user:** score by **topological distance to the true network**
-(FN/FP, comparable to `scores.csv`), and build the **outgroup first** so both guide trees
-work from PR 2 onward.
+PR #31 (open, branch `camus-install`) wired the method in: config, runner, install
+scripts, `spec/camus/`. `scripts/sh/runCAMUS.sh` is a stub.
 
----
+## What CAMUS does
 
-## Cross-cutting design decisions
+Verified against its Go source and by running `bin/camus`.
 
-These are settled; implementers should not re-litigate them.
+1. **It returns a network family, not an estimate.** `-o <prefix>` writes `<prefix>.csv`
+   with a row per k (columns `Number of Branches`, `Quartet Satisfied Percent`,
+   `Extended Newick`; row 0 is the guide tree, percent hardcoded 0), plus `<prefix>.log`
+   and `<prefix>.png`. Rows stop when the score stops improving, so row counts vary and a
+   family may be row 0 alone.
+2. **It rejects unrooted or non-binary guide trees** (exit 1, no CSV) and ships no rooting
+   or refinement code. `mp` has polytomies and `ga` is unrooted; only `astral3` and
+   `true_tree` qualify — enforced by a config validator.
+3. **It drops every quartet the guide tree already displays**, so inventing a resolution
+   for a polytomy would suppress conflicting signal where support is weakest. Rooting must
+   come from data, hence the outgroup.
+4. **It filters quartets by default** (`-q 2 -t 0.5`). Per 4-taxon set, with topology
+   counts c0 ≤ c1 ≤ c2, the minor topologies survive only if `floor(t·(c0+c1)) < c1−c0`.
+   Duplicate quartets do count separately, so PCH-W weights reach CAMUS — but through this
+   filter, not untouched.
+5. **Rooting is structural.** No outgroup marking; rerooting the same tree changes the
+   network. Branch lengths are stripped.
+
+How we differ from the paper's evaluation:
+
+| | Paper | Us |
+|---|---|---|
+| Metric | CmpNets `cluster`, FN and FP | same |
+| Reference direction | directed | undirected contact events |
+| Reference level | filtered to level-1 | 42% not level-1 |
+| k scored | k = 1 only | every k |
+
+## Settled decisions
 
 | Decision | Rationale |
 |---|---|
-| CAMUS keeps flowing through `api.infer` and keeps a row in `inference_registry.csv` | `scheduler.completed_runs` is the *only* resume/gate/status ledger. Bypassing it means every re-run re-runs the expensive job, submitit's requeue-on-timeout stops being idempotent, and `status` reports `0/N` forever. |
-| `point_estimate_newick` stays **empty** for CAMUS | Choosing a k is an analysis policy, not a registry fact. Empty also makes `handle_score.py:66` skip CAMUS rows automatically — **zero changes to tree scoring**. `tree_set_path` carries the CSV path, which is exactly its existing "no single estimate, here is the set" meaning. |
-| One `api.infer` call **per guide tree** | `guide_trees` is a list but `config_hash` is per-config. Split into single-guide `CamusConfig(guide_trees=[g])` at scheduling time and pass `name=f"{stem}.{guide}"`. Gives per-guide resume, per-guide dependency gating (`true_tree` runs even if `astral3` is blocked), and hashes that don't churn when the YAML list is reordered. |
-| `threshold: float = 0.5` goes into `CamusConfig` **now** | It changes results, so it belongs in `config_hash`. Adding it later invalidates every recorded CAMUS row and orphans registry rows under a dead hash. Process count does **not** go in config — it doesn't change results. |
-| A dedicated `camus_registry.py`, not a generalised `registry.py` | Parameterising `compact` means threading output path, shard dir, schema, and key columns through the pipeline's hot path to save ~40 lines of trivial code. Reuse the *pattern* (and `current_shard_id`), not the function. |
-| The outgroup is **kept, never pruned** | Matches the paper (species counts are n+1). Keeps the taxon set consistent end to end with no pruning step to get wrong. Consequence: outgrouped error rates are not comparable to pre-outgroup numbers — compare like with like. |
+| Record raw, analyse later | We are at "can this run". `network_scores.csv` holds everything CmpNets returns; choosing k, elbow plots, and stratifying by level are analysis. |
+| CAMUS flows through `api.infer` and keeps a row in `inference_registry.csv` | `scheduler.completed_runs` is the only resume/gate/status ledger. |
+| `point_estimate_newick` stays empty for CAMUS | Choosing a k is analysis policy. Empty also makes `handle_score.py:66` skip CAMUS rows — no change to tree scoring. `tree_set_path` carries the CSV path. |
+| One `api.infer` call per guide tree | Per-guide resume, per-guide dependency gating, hashes stable under list reorder. |
+| No `threshold` or filter mode in `CamusConfig` yet | CAMUS defaults apply. Spike data is disposable, so later hash churn is free. Follow-up. |
+| A dedicated `camus_registry.py` | Reuse the shard/compact pattern and `current_shard_id`, not the function. |
+| The outgroup is kept, never pruned | Matches the paper. Outgrouped error rates, tree scores included, are not comparable to pre-outgroup numbers. |
+| The outgroup is known; root on it | Rooting always succeeds mechanically. If ASTRAL attaches `OUT` to the wrong branch, that is pipeline error, measured later — not a gate. |
+| Reference = two contact edges per contact event | `docs/adr/0001-bidirectional-reference-networks.md`. |
+| `-m cluster` only | `-m tree` returns FN = FP, exceeds 1, and grows with edge count — not an error rate. |
+| Networks passed to CmpNets are topology only | Inheritance probabilities crash it (`ExNewickException`). The simulator has no such quantity anyway. |
 
-**Task 0 (any PR, 5 min):** copy this plan to `spec/camus/PLAN.md` and link it from
-`spec/camus/README.md`, so the spec folder is the single source of truth.
+## PR sequence
+
+| PR | Base | Content |
+|---|---|---|
+| 0 | `camus-install` | Doc fixes (this revision), merge #31 |
+| GA | `main` | GA NEXUS label fix |
+| 1 | `main`, after GA | Outgroup simulation |
+| 2 | PR 1 | `runCAMUS.sh`, rooting, guide-tree split |
+| 3 | PR 2 | Network family registry |
+| 4 | PR 3 | Network scoring |
+
+---
+
+## PR GA — NEXUS label fix
+
+`scripts/R/inferenceUtils.R:312` labels GA matrix row *i* as `t<i>` by position. It works
+today only because columns happen to be `t1…t30` in order. With `OUT` present the
+simulator sorts columns lexicographically (`OUT,t1,t10,…`), so OUT's data is labelled
+`t1`, t1's `t2`, and a `t31` appears that is not in taxlabels. GA trees feed ASTRAL3's
+bipartitions, so the whole `astral3` arm inherits the damage.
+
+**Fix:** `'t', i` → `taxa[i]`, as line 313 already does for TraitLab.
+
+**Test:** write a GA NEXUS from a CSV whose columns are not in numeric order; assert the
+matrix row labels equal the taxlabels, in order.
 
 ---
 
 ## PR 1 — Outgroup simulation
 
-**Goal:** simulate an extra taxon so inferred trees can be rooted on it. Unblocks the
-`astral3` guide. No CAMUS code touched — independently reviewable and useful on its own.
-
-**Why first:** `astral3` output is unrooted, so CAMUS rejects it until this lands.
-
-### YAML surface
+Simulate an extra taxon so inferred trees can be rooted on it. No CAMUS code touched.
 
 ```yaml
 simulation:
@@ -66,12 +103,9 @@ simulation:
   outgroup: OUT       # omit entirely for no outgroup
 ```
 
-One optional field — absent means off, present means on with that label. No
-`enabled`/`name` pair, so no inconsistent state is representable.
-
 ### Tasks (A–C in parallel, D depends on all)
 
-**A. `scripts/lib/simulation/outgroup.py`** — the pure graft.
+**A. `scripts/lib/simulation/outgroup.py`**
 
 ```python
 def graft_outgroup(newick: str, name: str, root_len: float, og_len: float) -> str:
@@ -81,47 +115,57 @@ def graft_outgroup(newick: str, name: str, root_len: float, og_len: float) -> st
     return f"({s.rstrip(';')}:{root_len},{name}:{og_len}){term}"
 
 
+def graft_network(lines: list[str], name: str, root_len: float, og_len: float) -> list[str]:
+    """Graft line 1; move each contact `root_len` later, since times count from the root."""
+    out = [graft_outgroup(lines[0], name, root_len, og_len)]
+    for line in lines[1:]:
+        clade_a, clade_b, time, strength = line.split(";")
+        out.append(f"{clade_a};{clade_b};{float(time) + root_len};{strength}")
+    return out
+
+
 def draw_lengths(model_tree: int) -> tuple[float, float]:
     """(root_len, og_len) — deterministic per model tree. Paper's distributions."""
     rng = random.Random(stable_hash_dict({"model_tree": model_tree}))
     return rng.uniform(0.0, 0.1), rng.uniform(0.9, 1.0)
 ```
 
-Branch lengths are the CAMUS paper's, verbatim from their `add-outgroup.py`: outgroup
-`U(0.9, 1.0)`, ingroup stem `U(0.0, 0.1)`. They transfer directly because our base trees
-are normalised to max root-to-tip `1.0`, the same scale. `tree_height` scales
-`height_factor` in the generated *config*, not the newick, so one policy works everywhere.
+**Why the time shift.** `contact_time` is distance from the root (`Network.java:29,312`).
+The graft puts a stem above the old root, so every node moves `root_len` later. An
+unshifted contact lands before its branch exists; the simulator has no bounds check
+(`Network.java:352-353`) and produces a negative branch length silently. 155 of 192
+contacts have under 0.05 of margin; the stem is up to 0.1.
 
-**This is a root-level wrap, which is why it also works on network files.**
-`net{h}-{t}.txt` is base tree on line 1 then one line per reticulation edge, and each
-edge's target is a **verbatim substring of line 1** (verified). Wrapping only prepends `(`
-and appends `:len,OUT:len)`, so every internal subtree survives byte-identical and **the
-edge lines need no rewriting**. Assert each edge target still appears in the grafted
-string, so a future format change fails loudly instead of producing dangling edges.
+The clade fields need no rewriting: the simulator matches them by exact string
+(`Network.java:487-496`) and the wrap leaves every inner substring intact.
 
-Seed on `model_tree` alone — deliberately **not** `horizontal_edges`, since the base tree
-is shared across h (`net1-1`/`net2-1`/`net3-1` have identical line 1). One geometry per
-model tree keeps h=0 vs h>0 comparisons unconfounded.
+Branch lengths are the paper's: outgroup `U(0.9, 1.0)`, stem `U(0.0, 0.1)`. Seed on
+`model_tree` alone — the base tree is shared across h, so one geometry per base tree keeps
+h = 0 vs h > 0 unconfounded.
 
-**B. `scripts/lib/experiment.py`** — add `outgroup: str | None = Field(None)` to
+**B. `scripts/lib/experiment.py`** — `outgroup: str | None = Field(None)` on
 `ExperimentSimulationConfig`.
 
 **C. `scripts/py/cli/schemata.py`** — extend `MODEL_GRAPH_REGISTRY` with `outgroup: String`,
 `outgroup_seed: Int64`, `outgroup_branch_length: Float64`, `ingroup_stem_length: Float64`.
-Deterministic isn't reproducible until it's written down; the realised lengths are also
-exactly what the calibration below plots against. Null `outgroup` records "this run had
-none", so pre-outgroup experiments stay distinguishable from the registry alone.
+Null `outgroup` records "this run had none". The recorded stem makes the time shift
+reversible.
 
-**D. `scripts/py/cli/handle_simulation.py`** — graft at the **existing copy step**, so
-`model_graph_registry` and `resolve_reference_newick` pick up grafted versions for free.
+**D. `scripts/py/cli/handle_simulation.py`** — graft at the existing copy step.
 
-- Trees (`:48-51`): write `graft_outgroup(line, ...)` instead of `line`.
-- Networks (`:76-77`): replace `shutil.copy` with read → graft line 1 → write.
-- **Fix the latent bug at `:65-67` in the same change.** `network_registry` records the
-  *source* path, not the copy it just made, so the network copies are currently decorative
-  and simulation reads the originals. **Grafting would be a silent no-op for h>0 until
-  this is fixed.** Trees already do this correctly; this also stops the two paths
-  disagreeing.
+- Trees (`:48-51`): write `graft_outgroup(line, ...)`.
+- Networks (`:76-77`): replace `shutil.copy` with read → `graft_network` → write.
+- **Fix the bug at `:65-67` in the same change.** `network_registry` records the *source*
+  path, not the copy, so simulation reads the originals and grafting would be a silent
+  no-op for h > 0. Tree scoring depends on this too: `RFScorer.R` asserts equal tip
+  counts, so the registered reference must contain `OUT`.
+
+### Known effects
+
+- Simulator CSV columns become lexicographic (`OUT,t1,t10,…`). Every reader is name-based
+  except the GA writer, fixed in PR GA.
+- An outgrouped run is not the old run plus one taxon: the extra edges consume RNG draws,
+  so the same seed gives different ingroup data.
 
 ### Verification
 
@@ -130,69 +174,49 @@ source scripts/sh/env.sh
 uv run python -m pytest tests/scripts/lib/simulation/test_outgroup.py -q
 ```
 
-Unit tests (no simulator needed): grafting a tree yields 2 root children and 31 tips;
-grafting a network file leaves every edge line byte-identical and every edge target still
-a substring; `draw_lengths` is stable across calls and differs across model trees;
-`outgroup: None` leaves output byte-identical to today.
+Unit: grafting a tree yields 2 root children and 31 tips; `graft_network` leaves clade
+fields and strength byte-identical and each time equals original + `root_len`;
+`draw_lengths` is stable across calls and differs across model trees; `outgroup: None`
+leaves output byte-identical to today.
 
-End-to-end (needs Java):
-```bash
-uv run python -m scripts.py.cli.main simulation experiments/camus_study/experiment_specification.yaml
-# then assert: every model_tree_*.txt and model_networks/*.txt contains OUT,
-# model_graph_registry.csv has non-null outgroup/seed/lengths,
-# and simulated CSVs have 31 taxon columns.
-```
-
-**Review surface:** ~150 lines. One pure function with tests, one config field, four schema
-columns, one integration point, one bug fix.
+End to end (needs Java): run `simulation` on `camus_smoke`, then assert every
+`model_tree_*.txt` and `model_networks/*.txt` contains `OUT`, `model_graph_registry.csv`
+paths point inside the experiment folder with non-null outgroup columns, and simulated
+CSVs have 31 taxon columns.
 
 ---
 
 ## PR 2 — `runCAMUS.sh`, rooting, and the guide-tree split
 
-**Goal:** CAMUS actually runs and produces its CSV. After this PR both guides work.
+CAMUS runs and produces its CSV for both guides.
 
-### Tasks (A, C, D in parallel; B depends on A)
+### Tasks (A, C, D, E in parallel; B depends on A)
 
-**A. Rooting helper + CLI.** `Tree.root_with_outgroup()` from Biopython — already a
-dependency (`scripts/lib/utils.py` imports `Bio.Phylo`), so no TreeSwift. Add
+**A. Rooting helper.** `Tree.root_with_outgroup()` from Biopython, already a dependency.
 `scripts/py/root_tree.py` as the shell entry point:
 
 ```
 python3 -m scripts.py.root_tree -i <tree> -g OUT > rooted.tree
 ```
 
-Must be idempotent: a tree already rooted on the outgroup passes through unchanged (the
-`true_tree` guide arrives rooted, since grafting *is* the rooting).
+Idempotent: `true_tree` arrives rooted, since grafting is the rooting.
 
 **B. `scripts/sh/runCAMUS.sh`** — replace the stub. Match the `runWTREEQMC.sh` /
-`runASTRAL3.sh` skeleton exactly (that agent's report has the full 7-block shape):
-`#!/bin/bash`, vars initialised at top, `while [[ "$#" -gt 0 ]]; do case $1 in` with
-one-line arms, combined required-arg check, `PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"`
-+ `mkdir -p`, `mkdir -p` the output dirs, then steps with `✅` echoes.
-
-Accepts the long flags `CamusRunner.build_argv` already sends: `--runid --input --name
---output --guide-trees`. Steps:
+`runASTRAL3.sh` skeleton. Accepts the flags `CamusRunner.build_argv` already sends:
+`--runid --input --name --output --guide-trees`. Steps:
 
 1. Quartets → `"$PCH_SCRATCH/tmp_quartet_$RUNID.txt"` via
-   `python3 -m scripts.py.printQuartets -i "$INPUT" > ... || exit 1`. PCH-W writes each
-   quartet repeated once per unit of weight and CAMUS counts identical quartets, so
-   **weights carry over untouched** — the same trick that already works for ASTRAL3.
+   `python3 -m scripts.py.printQuartets -i "$INPUT" > ... || exit 1`.
 2. Guide tree → `astral3` reads `<out>/PCH_W_ASTRAL3/trees/<name>.tree`; `true_tree` reads
-   the grafted base tree via `resolve_reference_newick`. Then root it (task A).
-3. `bin/camus -n "$PROCS" -o "$TREEOUTPUT/CAMUS/networks/$NAME" <const_tree> <quartets>`,
-   then `rc=$?`, the `✅` line, `exit $rc`. Do **not** append `|| exit 1` to the final
-   binary — that loses the code. `-t` is omitted (0.5 is CAMUS's default and the paper's
-   tuned value, per supplementary Figure S2); `-q 2` from their published command is
-   obsolete.
+   the grafted base tree via `resolve_reference_newick`. Root it (task A).
+3. `bin/camus -n "$PROCS" -o "$TREEOUTPUT/CAMUS/networks/$NAME" <guide_tree> <quartets>`,
+   then `rc=$?`, the `✅` line, `exit $rc`. No `-t`, no `-q`: CAMUS defaults.
 
-Note `<name>` here is `f"{stem}.{guide}"` (task D), so guides never collide. CAMUS's own
-`<prefix>.log` lands in `networks/` while `api.infer`'s log is in `logs/` — different
-directories, no clash. Add a `SCRIPT_CONTRACTS.md` row (there is currently none for
-TREE-QMC either).
+`<name>` is `f"{stem}.{guide}"` (task D), so guides never collide. Add a
+`SCRIPT_CONTRACTS.md` row.
 
-**C. `api.infer` newick gate.** `scripts/lib/inference/api.py:50` currently reads the point
-estimate unconditionally, which would inline a whole CSV. Gate it:
+**C. `api.infer` newick gate.** `scripts/lib/inference/api.py:50` reads the point estimate
+unconditionally, which would inline a whole CSV:
 
 ```python
 newick = (
@@ -202,10 +226,9 @@ newick = (
 )
 ```
 
-Add `point_estimate_is_newick = False` to `CamusRunner`, and make its
-`group_estimate_path` return the same CSV path so `tree_set_path` is populated. Document
-the optional attribute in the `Runner` protocol docstring but **do not** add it to the
-protocol — five other runners would have to implement it for one method's benefit.
+Add `point_estimate_is_newick = False` to `CamusRunner` and make its
+`group_estimate_path` return the CSV path. Document the attribute in the `Runner` protocol
+docstring; do not add it to the protocol.
 
 **D. Guide-tree split** in `scripts/py/cli/handle_inference.py`:
 
@@ -214,19 +237,17 @@ def _variants(cfg: BaseModel) -> list[tuple[BaseModel, str | None]]:
     """(config, name-suffix) units to run. CAMUS fans out one run per guide tree so
     each guide gets its own output path, config_hash, and dependency gate."""
     if isinstance(cfg, CamusConfig):
-        return [(CamusConfig(guide_trees=[g], threshold=cfg.threshold), g.value)
-                for g in dict.fromkeys(cfg.guide_trees)]
+        return [(CamusConfig(guide_trees=[g]), g.value) for g in dict.fromkeys(cfg.guide_trees)]
     return [(cfg, None)]
 ```
 
 Wrap the inner `for m in methods:` body in `for cfg, suffix in _variants(base_cfg):`,
-compute `ch = config_hash(cfg)` per variant, and pass
-`name=f"{input_path.stem}.{suffix}"` when `suffix`. **Dedupe the guide list** —
-`prior` is snapshotted before the loop, so a duplicated guide would run twice and write
-the same key twice. `select_methods` and `executor._plan` keep using the full config for
-ordering (a superset of each variant's deps), so neither changes.
+compute `ch = config_hash(cfg)` per variant, pass `name=f"{input_path.stem}.{suffix}"`
+when `suffix`. The dedupe matters: `prior` is snapshotted before the loop, so a duplicated
+guide would run twice.
 
-Also add `threshold: float = Field(0.5, ge=0.0, le=1.0)` to `CamusConfig` here.
+**E. Pin CAMUS.** `scripts/sh/installs/install_camus.sh`: `@latest` → `@v1.0.2`. v1.0.1
+lacks two fixes (`scoreEdgesDown`, `MakeNetwork` sort) that can affect rows at k ≥ 2.
 
 ### Verification
 
@@ -236,134 +257,93 @@ uv run python -m pytest tests/scripts/lib/inference/ tests/scripts/py/cli/ -q
 
 Unit: `_variants` splits two guides into two configs with distinct hashes and dedupes
 repeats; `api.infer` returns empty `point_estimate_newick` and a populated `tree_set_path`
-for CAMUS (stub `subprocess.run` per `test_api.py`, writing a fake CSV); rooting is
-idempotent on an already-rooted tree.
+for CAMUS; rooting is idempotent on a rooted tree.
 
-End-to-end smoke — the real proof:
+End to end:
+
 ```bash
 source scripts/sh/env.sh
-uv run python -m scripts.py.cli.main experiment inference experiments/camus_study/experiment_specification.yaml
-ls experiments/camus_study/inference_data/*/CAMUS/networks/    # <stem>.<guide>.csv, .log, .png
-head -3 experiments/camus_study/inference_data/*/CAMUS/networks/*.astral3.csv
+uv run python -m scripts.py.cli.main experiment inference experiments/camus_smoke/experiment_specification.yaml
+head -3 experiments/camus_smoke/inference_data/*/CAMUS/networks/*.astral3.csv
 ```
-Expect a real 3-column CSV with a row per k, and `status == ok` in
-`inference_registry.csv` with an empty `point_estimate_newick`.
 
-**Review surface:** ~250 lines, but the shell script is most of it and the Python changes
-are small and surgical.
+Expect a 3-column CSV and `status == ok` in `inference_registry.csv` with an empty
+`point_estimate_newick`.
 
 ---
 
-## PR 3 — The per-k registry
+## PR 3 — The network family registry
 
-**Goal:** turn each run's CAMUS CSV into a queryable registry. CAMUS's CSV is *already*
-the per-k table, so enrich and concatenate rather than re-derive.
-
-### Tasks
+Turn each run's CAMUS CSV into a queryable registry: enrich and concatenate.
 
 **A. Schema** (`schemata.py`): `CAMUS_REGISTRY_SCHEMA` — `dataset_id`, `guide_tree`,
 `config_hash`, `runtime_seconds`, `status`, `ran_at`, `log_path`, `k: Int64`,
-`qsat_percent: Float64`, `network_newick: String`. Their three columns rename to
-`k` / `qsat_percent` / `network_newick`. No simulation metadata is copied in — the true
-`horizontal_edges` is a `dataset_id` join away, exactly as `scores.csv` does it.
+`qsat_percent: Float64`, `network_newick: String`. `runtime_seconds` is whole-family,
+repeated on each row. Only rows CAMUS wrote are stored; nothing is padded to a common k.
 
-**B. `scripts/lib/inference/camus_registry.py`** (~70 lines), mirroring `registry.py`'s
-pattern:
+**B. `scripts/lib/inference/camus_registry.py`**, mirroring `registry.py`:
 
 - `write_family(result, guide_tree, csv_path, experiment_folder)` — read the CSV, rename,
   prepend identity columns, append one JSON line per row to
-  `inference_data/camus_shards/{registry.current_shard_id()}.jsonl`. One writer per shard,
-  lock-free, same concurrency story as the existing shards. Reuse
-  `registry.current_shard_id()` — the only import needed.
+  `inference_data/camus_shards/{registry.current_shard_id()}.jsonl`.
 - `compact(experiment_folder)` — seed from any existing `camus_registry.csv`, fold in
   shards, key on `dataset_id|config_hash|k`, last-writer-wins by `ran_at`, write
-  `inference_data/camus_registry.csv`, unlink shards. Same crash-tolerant
-  `json.JSONDecodeError` skip as `registry._iter_shard_rows`.
+  `inference_data/camus_registry.csv`, unlink shards.
 
 **C. Wiring** in `handle_inference` and `executor.run_compact`. Guard compaction on "camus
-shards or camus_registry.csv exists" so non-CAMUS experiments don't sprout an empty file.
+shards or camus_registry.csv exists".
 
-### Two traps that must be honoured
+### Two traps
 
-1. **Ingest first, then `registry.write_result`.** If the inference row lands and ingestion
-   then fails, resume permanently skips that unit and the family is lost with no signal.
-   On ingestion failure: warn, count as `failed`, write no inference row, let the next run
-   retry.
-2. **Assert the three expected header names** after `read_csv`. Every newick contains
-   commas, so CAMUS must be RFC4180-quoting that column; combined with trap 1, a broken
-   parse becomes a retryable failure instead of silent garbage.
+1. **Ingest first, then `registry.write_result`.** If the inference row lands and
+   ingestion then fails, resume skips that unit forever. On ingestion failure: warn, count
+   as `failed`, write no inference row.
+2. **Assert the three header names** after `read_csv`. With trap 1, a broken parse becomes
+   a retryable failure.
 
 ### Verification
 
-Unit test feeding a hand-written 3-column CSV through `write_family` + `compact` (no CAMUS
-needed) — assert row count, renamed columns, and that a second `write_family` for the same
-key is deduped rather than duplicated (this is what makes a requeued SLURM batch safe).
-
-```bash
-uv run python -m scripts.py.cli.main experiment inference <spec>
-uv run python -c "import polars as pl; d=pl.read_csv('experiments/camus_study/inference_data/camus_registry.csv'); print(d.group_by('guide_tree').len()); print(d.head())"
-```
-
-**Review surface:** ~110 lines, one new self-contained module plus a schema and two call
-sites.
+Unit: feed a hand-written 3-column CSV through `write_family` + `compact`; assert row
+count, renamed columns, and that a second `write_family` for the same key is deduped. Also
+a family of row 0 alone.
 
 ---
 
 ## PR 4 — Network scoring with PhyloNet
 
-**Goal:** FN/FP per (dataset, guide_tree, k) against the **true network**.
+Everything `CmpNets -m cluster` returns, per (dataset, guide_tree, k), against the
+reference network.
 
-This is the hardest PR, and two facts about our reference networks — both measured, not
-assumed — reshape it. Read this section fully before starting.
+### The reference network
 
-### Fact 1: our reference networks are *contact* networks, not reticulation networks
-
-`net{h}-{t}.txt` is the base tree on line 1, then one line per horizontal edge:
+`net{h}-{t}.txt` is the base tree on line 1, then one line per contact event:
 
 ```
-t26;t27;0.8409474347897394;0.4222755495151269
-((t9:0.0121…,…);(t6:0.0399652665,t4:0.0007173857);0.09405409754271896;0.21922136077561402
+cladeA;cladeB;contact_time;transmission_strength
 ```
 
-Each line is **the two clades that connect to each other** (a bare leaf label or a full
-subtree newick), then **contact time**, then **transmission strength**. Confirmed against
-LingPhyloSimulator `Main/Network.java`: `readFromFile` splits on `;`, asserts 4 fields,
-parses `time` and `strength`; `writeNetwork` emits
-`newick1;newick2;edge.left.Time;edge.transmission_strength`. The two clade fields are
-treated **symmetrically** — there is no donor/recipient direction in the format.
+The clade fields are symmetric. The simulator picks a direction by coin flip per character
+and adds one donor state to the recipient's set (`PolymorphicCharacter.java:123-145`).
+`transmission_strength` scales the borrowing probability; it is not an inheritance
+proportion.
 
-PhyloNet's Rich/extended newick, by contrast, encodes **directed** reticulations: a hybrid
-node `#H1` with two parents and an inheritance probability γ. So the adapter is a genuine
-semantic conversion, not a reformat, and it must make three explicit choices:
+PhyloNet takes Rich newick, where each hybrid node `#Hn` has two parents. The adapter
+writes contact event *i* between clades A and B as two contact edges:
 
-1. **Direction.** An undirected contact event has to become a directed hybrid edge. Pick
-   one direction (arbitrary, discards half the event) or emit both (**two** reticulations
-   per contact event — which changes both k and the network's level, and would make the
-   comparison against a k-edge CAMUS network incoherent). Decide and document; do not let
-   this fall out of the implementation by accident.
-2. **γ.** `transmission_strength` is plausibly the inheritance proportion but is not
-   defined as one. Verify how the simulator actually consumes it before mapping it to γ.
-3. **Hybrid node placement.** `contact_time` positions the event on both branches; Rich
-   newick encodes position topologically. Converting time → topological position needs the
-   branch lengths and a stated convention.
+```
+A_subtree  →  ((A_subtree)#H{2i},#H{2i-1})
+B_subtree  →  ((B_subtree)#H{2i-1},#H{2i})
+```
 
-Getting direction backwards would silently produce plausible-but-wrong scores, so the
-adapter needs a round-trip test on a hand-built two-taxon case where the answer is known
-by inspection.
+The donor point sits above the hybrid point on both branches; the reverse on both makes a
+cycle. Verified on 6 taxa: the reference against itself scores 0.0; either
+single-direction estimate scores FN 0.167, FP 0; the plain tree scores FN 0.333.
 
-### Fact 2: the PhyloNet contract, verified — and it handles arbitrary levels
+Locate each clade the way the simulator does — exact string match on line 1, anchored on
+delimiters so `t2` does not match `t26`. When several contacts land on one branch, nest
+them by `contact_time`, earliest outermost. Strip branch lengths last.
 
-`CmpNets` compares two networks of **any** level (a level-2 network against itself returns
-`0.0`), so the comparison is well-posed even though 42% of our references are not level-1
-(0/32 at h=1, 14/32 at h=2, 26/32 at h=3). No level flag is stored anywhere: CAMUS emits
-level-1 by definition, and a reference's level is a pure function of a file we already
-have, computable on demand if an analysis wants to stratify.
-
-The interpretive caveat that remains: CAMUS cannot represent a non-level-1 truth at any k,
-so those datasets carry a nonzero error floor. That's the method's hypothesis space, not a
-measurement artefact. h=1 is the only fully level-1 condition.
-
-Verified contract (against `bin/PhyloNet.jar` 3.8.5 — full detail in `scoring.md`):
+### The PhyloNet contract (verified, 3.8.5)
 
 ```
 #NEXUS
@@ -376,91 +356,61 @@ CmpNets net1 net2 -m cluster;
 END;
 ```
 
-- Arguments are **bare identifiers** from a `NETWORKS` block — not inline newicks, not
-  brace-wrapped sets.
-- **The newick's own `;` is the statement terminator** — doubling it gives a misleading
-  `missing END at ';'`.
-- Methods: `tree`, `tri`, `luay`. Output is
-  `The ...-based distance between two networks: FN FP AVG` (`luay` gives one number).
-- **net1 = truth, net2 = estimate** — swapping them swaps FN and FP, same convention as
-  `RFScorer.R`. Backwards here silently inverts the metric.
-- `-m tree` also enforces identical leaf sets; ours always match, so it's a free safety net.
-
-**Use `-m cluster` primary, `-m tree` as a control.** The paper says it uses "the cluster
-metric from PhyloNet's CmpNets command". CmpNets actually has nine methods
-(`tree|tri|cluster|luay|rnbs|apd|normapd|wapd|normwapd`). On a direction-flipped pair of the
-same contact event: `tree` 0.0 (invariant), `cluster` 0.25, `tri` 0.82, `luay` 6.0. Our
-contacts have no direction, so `cluster` charges our arbitrary choice as error — but far
-less than the alternatives, and it keeps us comparable to published numbers. The `cluster`
-vs `tree` gap measures the direction artifact. See `scoring.md`.
+- Arguments are bare identifiers from the `NETWORKS` block.
+- The newick's own `;` ends the statement. A second one gives `missing END at ';'`.
+- Output: `The cluster-based distance between two networks: FN FP AVG`.
+- **net1 = reference, net2 = estimate.** Swapping them swaps FN and FP.
+- Any level works: level-1 estimates against level-2 and level-3 references run clean,
+  values in [0, 1].
+- **Mismatched taxon sets return numbers silently.** Guard in Python.
+- A contact between sister lineages (a 3-cycle) is invisible: it scores 0.0 against the
+  plain tree. Distance 0 does not prove two networks identical.
 
 ### Tasks
 
-**A2. The contact-network → Rich-newick adapter** (`scripts/lib/inference/network_format.py`).
-The three choices above, made explicitly and documented in the module docstring, with the
-known-by-inspection round-trip test. This is the piece most likely to be silently wrong,
-so it should be its own reviewable unit and may deserve splitting into its own PR.
+**A. `scripts/lib/inference/network_format.py`** — the adapter above. Tests: the 6-taxon
+case by inspection; two contacts on one branch; a leaf clade whose label prefixes another.
 
-**B. `resolve_reference_network(experiment_folder, horizontal_edges, model_tree)** in
-`scripts/lib/inference/scoring.py`, returning the adapter's output. Note the existing
-`resolve_reference_newick` correctly hardcodes `horizontal_edges == 0` — that is right for
-the **tree** study, where the question is how horizontal transfer degrades *tree* inference
-and the underlying tree is the target. Leave it alone; the network path is a sibling, not a
-replacement. Mirror its `lru_cache` + `MODEL_GRAPH_REGISTRY` read.
+**B. `resolve_reference_network(experiment_folder, horizontal_edges, model_tree)`** in
+`scripts/lib/inference/scoring.py`, returning the adapter's output. Sibling of
+`resolve_reference_newick`, which stays as is. Mirror its `lru_cache` +
+`MODEL_GRAPH_REGISTRY` read.
 
-**C. `network_score(inferred_newick, true_network_path)`** — subprocess wrapper following
-`summarize.py`/`scoring.py`: build a NEXUS command file in a `NamedTemporaryFile`, run the
-jar, parse stdout, raise `RuntimeError` with stderr on non-zero. Returns FN/FP.
+**C. `network_score(inferred_newick, reference_newick)`** — assert equal taxon sets, write
+the NEXUS to a `NamedTemporaryFile`, run the jar with a **2 h timeout**, parse stdout.
+Returns FN, FP, AVG and the call's runtime.
 
-**D. `scripts/py/cli/handle_network_score.py` + CLI.** Clone `handle_score.py`'s shape —
-same two asserts, same `existing`/`already` read-back resume, same per-row
-`try/except → print yellow → continue`, same `pl.concat(...).write_csv(out)` full rewrite.
-Differences: it reads `camus_registry.csv` (not the inference registry), keys on
-`(dataset_id, guide_tree, k)`, and its sim-registry `.select()` **must keep
-`horizontal_edges`** — `handle_score.py:50-53` drops it.
+**D. `scripts/py/cli/handle_network_score.py` + CLI.** Clone `handle_score.py`'s shape:
+same read-back resume, same per-row `try/except → print yellow → continue`, same full
+rewrite. It reads `camus_registry.csv`, keys on `(dataset_id, guide_tree, k)`, and its
+sim-registry `.select()` must keep `horizontal_edges`.
 
-Register as `@experiment.command(name="network-score")` in `main.py` beside
-`score_experiment:182`; `name=` is required to get the hyphen.
+`network_scores.csv`: `dataset_id`, `guide_tree`, `k`, `fn`, `fp`, `avg`,
+`runtime_seconds`, `status` (`ok` | `failed` | `timeout`). Failed and timed-out rows are
+written with null scores so a slow network is visible, not missing.
+
+Register as `@experiment.command(name="network-score")` in `main.py`.
+
+### Runtime
+
+Unknown. The paper reports over 5 hours to score one 51-species network and caps scoring
+there. We have 31 taxa but unbounded k. The 2 h timeout and the per-row runtime exist to
+find out.
 
 ### Verification
 
-Unit tests clone `test_handle_score.py`: monkeypatch the scorer by module attribute, write
-a real `model_graph_registry.csv` with an `horizontal_edges >= 1` row, and cover writes /
-dedup / incremental-no-op. A live test guarded by
+Unit tests clone `test_handle_score.py`: monkeypatch the scorer, write a real
+`model_graph_registry.csv` with an `horizontal_edges >= 1` row, cover writes / dedup /
+incremental no-op / timeout row. A live test guarded by
 `pytest.mark.skipif(shutil.which("java") is None)`.
 
 ```bash
-uv run python -m scripts.py.cli.main experiment network-score <spec>
-uv run python -c "import polars as pl; print(pl.read_csv('experiments/camus_study/inference_data/network_scores.csv').head())"
+uv run python -m scripts.py.cli.main experiment network-score experiments/camus_smoke/experiment_specification.yaml
 ```
-Sanity check: FN should be lowest near k == the dataset's true `horizontal_edges`.
-
-**Review surface:** ~200 lines, closely mirroring an existing reviewed file.
 
 ---
 
-## PR 5 — The elbow
-
-**Goal:** the actual research output.
-
-Join `network_scores.csv` → `camus_registry.csv` → `simulated_data_registry.csv` (on
-`dataset_id`) to recover the true `horizontal_edges`. Plot **x = k, y = FN**, one line per
-condition, faceted by guide tree, with a marker at the true edge count. Follow the existing
-SciencePlots serif theme already used for paper figures (see recent commits on `main`). Add
-it under `scripts/py/analysis/` alongside the current sweep figures.
-
-**Lead with h=1**, the only condition whose references are all level-1 and therefore all
-reachable by CAMUS. For h=2/h=3, remember the non-level-1 datasets carry an error floor
-(PR 4, Fact 2); if the curves look like they are flattening above zero, check whether that
-is the floor before reading it as method error. Level is computable on demand from
-`data/base_networks/` if a stratified view is wanted.
-
-**Verification:** run on the smoke experiment; confirm the curve is non-increasing early
-and flattens, and that the flattening point tracks the true reticulation count.
-
----
-
-## How a user runs the whole thing
+## How a user runs it
 
 ```bash
 # once
@@ -468,28 +418,15 @@ make install-camus install-phylonet
 source scripts/sh/env.sh          # required in EVERY shell, including batch jobs
 
 # per experiment
-uv run python -m scripts.py.cli.main simulation      experiments/camus_study/experiment_specification.yaml
-uv run python -m scripts.py.cli.main experiment inference     experiments/camus_study/experiment_specification.yaml
-uv run python -m scripts.py.cli.main experiment network-score experiments/camus_study/experiment_specification.yaml
-uv run python -m scripts.py.cli.main experiment status        experiments/camus_study/experiment_specification.yaml
+uv run python -m scripts.py.cli.main simulation               experiments/camus_smoke/experiment_specification.yaml
+uv run python -m scripts.py.cli.main experiment inference     experiments/camus_smoke/experiment_specification.yaml
+uv run python -m scripts.py.cli.main experiment network-score experiments/camus_smoke/experiment_specification.yaml
+uv run python -m scripts.py.cli.main experiment status        experiments/camus_smoke/experiment_specification.yaml
 ```
 
-Full spec (`experiments/camus_study/experiment_specification.yaml`):
-
 ```yaml
-experiment_folder: experiments/camus_study
 simulation:
-  n_taxa: 30
-  outgroup: OUT                 # PR 1 — required for the astral3 guide
-  n_horizontal_edges: [0, 1, 2, 3]
-  n_trees: 16
-  n_replicas: 2
-  base_config_dir: data/base_configs
-  base_trees_file: data/trees.txt
-  base_networks_dir: data/base_networks
-  simulation_params:
-    - {poly: high, homoplasy_factor: 0.1, tree_height: 4, n_chars: 320}
-
+  outgroup: OUT
 methods:
   mp4: {}                       # needed for astral_3's bipartitions
   gray_atkinson: {}             # ditto
@@ -498,24 +435,20 @@ methods:
     bipartition_strategies: [mp4_trees, ga_trees]
   camus:
     guide_trees: [astral3, true_tree]
-    threshold: 0.5
 ```
 
-Dependencies resolve themselves: `camus/astral3` gates on `astral_3`, which gates on
-`mp4` + `gray_atkinson`. `camus/true_tree` has no dependency and runs immediately.
-`mp` and `ga` as guides are rejected at config load with an explanation.
+`camus/astral3` gates on `astral_3`, which gates on `mp4` + `gray_atkinson`.
+`camus/true_tree` has no dependency.
 
----
+## Follow-ups, not in this set
 
-## The one experiment to run before PR 2
-
-**Calibrate the outgroup.** The paper's branch lengths are tuned for a molecular pipeline
-(SiPhyNetwork → PhyloCoalSimulations → INDELible under GTR, ~21% gene-tree error). Ours
-feed LingPhyloSimulator's polymorphic character model. The *geometry* transfers because
-the tree scale matches; what a branch length means for character evolution does not.
-
-After PR 1, simulate a handful of replicates and check whether ASTRAL actually places `OUT`
-as sister to everything else. If it doesn't at our homoplasy levels, outgroup rooting is no
-better than midpoint and the approach needs rethinking — far cheaper to learn now than
-after PR 4. The calibration harness will want to *set* the two lengths directly rather than
-hunt for a seed producing them, so keep the random draw the default path, not the only one.
+- `experiments/camus_study` on the cluster: 128 datasets, one condition, then more.
+- Analysis: k against FN and FP, the distribution of family length, stratifying by
+  reference level. Carry the last network forward past the end of a short family, or the
+  mean over datasets has survivorship bias.
+- Rooting accuracy: does the ingroup root split match the base tree's?
+- Quartet filter: `threshold` and filter mode in `CamusConfig`; `-q 0` as an ablation.
+- Minimum over single-direction orientations of the reference, from stored newicks.
+- Comparison methods: PhyloNet-MPL, SNaQ (`benchmarks.md`).
+- How many reference contact events join sister lineages, and are therefore invisible to
+  `cluster`.
