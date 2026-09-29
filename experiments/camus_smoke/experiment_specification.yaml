@@ -6,6 +6,7 @@
 experiment_folder: experiments/camus_smoke
 simulation:
   n_taxa: 30
+  outgroup: OUT # inferred guide trees are rooted on it
   n_horizontal_edges:
     - 1
     - 2
@@ -21,6 +22,16 @@ simulation:
       n_chars: 80
 
 methods:
+  mp4: {} # astral_3's bipartitions
+  gray_atkinson: {} # ditto
+  astral_3:
+    is_exact: false
+    bipartition_strategies:
+      - mp4_trees
+      - ga_trees
+  wastral: {}
   camus:
     guide_trees:
+      - astral3
+      - wastral
       - true_tree
