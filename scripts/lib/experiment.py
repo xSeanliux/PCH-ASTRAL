@@ -19,6 +19,9 @@ class ExperimentSimulationConfig(BaseModel):
     n_trees: int
     n_replicas: int
     n_taxa: int
+    # Label of a taxon grafted as sister to every base tree and network, so
+    # inferred trees can be rooted on it. None = no outgroup.
+    outgroup: str | None = Field(None)
     # bases: trees will be copied, configs used to generate new configs based on simulation configs.
     base_config_dir: Path
     base_trees_file: Path  # expect one file with each line a newick string.
