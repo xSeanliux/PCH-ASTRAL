@@ -25,6 +25,11 @@ MODEL_GRAPH_REGISTRY = pl.Schema(
     {
         **MODEL_NETWORK_KEY,
         "path": String,
+        # The graft, or all null when the experiment has no outgroup.
+        "outgroup": String,
+        "outgroup_seed": Int64,
+        "outgroup_branch_length": Float64,
+        "ingroup_stem_length": Float64,
     }
 )
 

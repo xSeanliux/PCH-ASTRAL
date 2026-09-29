@@ -1,4 +1,9 @@
-from scripts.lib.experiment import ExperimentConfig, SimulationParamSetting
+from scripts.lib.experiment import (
+    ExperimentConfig,
+    ExperimentSimulationConfig,
+    SimulationParamSetting,
+)
+from scripts.lib.simulation.outgroup import draw_lengths, graft_network, graft_outgroup
 from scripts.lib.simulation.types import SimulationConfigFactory
 from scripts.py.cli.schemata import (
     CONFIG_REGISTRY_SCHEMA,
@@ -7,12 +12,11 @@ from scripts.py.cli.schemata import (
 )
 from itertools import product
 from rich import print
-import shutil
 from rich.progress import track
 from pathlib import Path
 import polars as pl
 from hashlib import sha256
-from typing import Any
+from typing import Any, NamedTuple, TypedDict
 import subprocess
 
 
@@ -29,6 +33,93 @@ def stable_hash_dict(d: dict[str, Any]) -> int:
     return int(hex, 16) % (1 << 32 - 1)
 
 
+class Graft(NamedTuple):
+    name: str
+    seed: int
+    stem_len: float
+    og_len: float
+
+
+class ModelGraphRow(TypedDict):
+    """One model_graph_registry.csv row: a base tree or network in the experiment."""
+
+    horizontal_edges: int
+    model_tree: int
+    path: str
+    outgroup: str | None
+    outgroup_seed: int | None
+    outgroup_branch_length: float | None
+    ingroup_stem_length: float | None
+
+
+def copy_model_graphs(
+    simulation_config: ExperimentSimulationConfig, e_folder: Path
+) -> list[ModelGraphRow]:
+    """Write every base tree and network into the experiment folder, grafting the
+    outgroup when one is configured, and return their registry rows."""
+    n_trees = simulation_config.n_trees
+
+    def graft_of(model_tree: int) -> Graft | None:
+        # Seeded on the model tree alone: a base tree is shared across every h,
+        # so each keeps one outgroup geometry.
+        if simulation_config.outgroup is None:
+            return None
+        seed = stable_hash_dict({"model_tree": model_tree})
+        return Graft(simulation_config.outgroup, seed, *draw_lengths(seed))
+
+    def row(h: int, model_tree: int, path: Path) -> ModelGraphRow:
+        graft = graft_of(model_tree)
+        return {
+            "horizontal_edges": h,
+            "model_tree": model_tree,
+            "path": str(path),
+            "outgroup": graft.name if graft else None,
+            "outgroup_seed": graft.seed if graft else None,
+            "ingroup_stem_length": graft.stem_len if graft else None,
+            "outgroup_branch_length": graft.og_len if graft else None,
+        }
+
+    rows: list[ModelGraphRow] = []
+
+    # Base trees, whether or not h = 0 is simulated: they are the reference for
+    # every dataset built on them.
+    trees = simulation_config.base_trees_file.read_text().splitlines(keepends=True)
+    assert len(trees) >= n_trees, f"Wanted {n_trees} but only found {len(trees)} trees."
+    for i, tree in enumerate(trees[:n_trees], 1):
+        graft = graft_of(i)
+        if graft:
+            tree = graft_outgroup(tree, graft.name, graft.stem_len, graft.og_len) + "\n"
+        path = e_folder / f"model_tree_{i}.txt"
+        path.write_text(tree)
+        rows.append(row(0, i, path))
+    print(f"Copied {n_trees} trees over to {_format_path(e_folder)}.")
+
+    network_folder = e_folder / "model_networks"
+    network_folder.mkdir(parents=True, exist_ok=True)
+    networks = [
+        (h, i)
+        for h in simulation_config.n_horizontal_edges
+        for i in range(1, n_trees + 1)
+        if h != 0
+    ]
+    for h, i in track(networks, description="Copying model networks..."):
+        source = simulation_config.base_networks_dir / f"net{h}-{i}.txt"
+        assert source.is_file(), f"No network at {source}."
+        network = source.read_text()
+        graft = graft_of(i)
+        if graft:
+            lines = graft_network(
+                network.splitlines(), graft.name, graft.stem_len, graft.og_len
+            )
+            network = "\n".join(lines) + "\n"
+        # Register the copy, not the source: the copy is what gets simulated.
+        path = network_folder / source.name
+        path.write_text(network)
+        rows.append(row(h, i, path))
+    print(f"Copied {len(networks)} networks over to {_format_path(network_folder)}.")
+    return rows
+
+
 def handle_simulation(config: ExperimentConfig):
 
     simulation_config = config.simulation
@@ -36,55 +127,11 @@ def handle_simulation(config: ExperimentConfig):
     print(f"Creating output folder at {_format_path(str(e_folder))}")
     e_folder.mkdir(parents=True, exist_ok=True)
 
-    # copy trees over
-    tree_registry = []
-    if 0 in simulation_config.n_horizontal_edges:
-        with open(simulation_config.base_trees_file) as model_tree_f:
-            lines: list[str] = model_tree_f.readlines()
-            assert len(lines) >= simulation_config.n_trees, (
-                f"Wanted {simulation_config.n_trees} but only found {len(lines)} trees."
-            )
-            lines_trunc = lines[: simulation_config.n_trees]
-        for i, line in enumerate(lines_trunc, 1):
-            model_tree_path = e_folder / f"model_tree_{i}.txt"
-            with open(model_tree_path, "w") as out_model_tree:
-                out_model_tree.write(line)
-            tree_registry.append(
-                {"horizontal_edges": 0, "model_tree": i, "path": str(model_tree_path)}
-            )
-        print(
-            f"Copied {simulation_config.n_trees} trees over to {_format_path(str(model_tree_path))}."
-        )
-
-    # copy networks over
-
-    network_registry: list[dict[str, str]] = [  # type: ignore
-        {
-            "horizontal_edges": hor_edges,
-            "model_tree": model_tree,
-            "path": str(
-                simulation_config.base_networks_dir / f"net{hor_edges}-{model_tree}.txt"
-            ),
-        }
-        for hor_edges in simulation_config.n_horizontal_edges
-        for model_tree in range(1, simulation_config.n_trees + 1)
-        if hor_edges != 0
-    ]
-    output_network_folder = e_folder / "model_networks"
-    output_network_folder.mkdir(parents=True, exist_ok=True)
-    assert all(Path(p["path"]).is_file() for p in network_registry)
-    for obj in track(network_registry, description="Copying model networks..."):
-        shutil.copy(src=obj["path"], dst=output_network_folder)
-    model_graph_registry = network_registry + tree_registry
-    model_graph_registry_pl = pl.DataFrame(
-        data=model_graph_registry,
-        schema=MODEL_GRAPH_REGISTRY,
+    model_graph_registry = copy_model_graphs(simulation_config, e_folder)
+    pl.DataFrame(data=model_graph_registry, schema=MODEL_GRAPH_REGISTRY).write_csv(
+        e_folder / "model_graph_registry.csv"
     )
-    model_graph_registry_pl.write_csv(e_folder / "model_graph_registry.csv")
-    print(
-        f"Copied {len(network_registry)} networks over to {_format_path(output_network_folder)}."
-    )
-    horedge_treenum_to_path: dict[tuple[int, int], Path] = {
+    horedge_treenum_to_path: dict[tuple[int, int], str] = {
         (x["horizontal_edges"], x["model_tree"]): x["path"]
         for x in model_graph_registry
     }
