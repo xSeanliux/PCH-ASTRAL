@@ -309,8 +309,7 @@ writeNexus <- function(df, criterion, do_weight, is_exhaustive, keep, hash="") {
       
       
     }
-    if (criterion == 'Gray-Atkinson') for (i in 1:length(newstrs)) toprint <- c(toprint, paste0('\t\t', 't', i, '\t', newstrs[i])) # THINK probably this should be like line below?
-    if (criterion == 'TraitLab') for (i in 1:length(newstrs)) toprint <- c(toprint, paste0('\t\t', taxa[i], '\t', newstrs[i]))
+    if (criterion %in% c('Gray-Atkinson', 'TraitLab')) for (i in 1:length(newstrs)) toprint <- c(toprint, paste0('\t\t', taxa[i], '\t', newstrs[i]))
     toprint <- c(toprint, '\t;\nend;')
     
     # Assumption block for dollo only
