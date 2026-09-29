@@ -1,15 +1,14 @@
-# CAMUS inference (future work)
+# CAMUS inference
 
-`scripts/sh/runCAMUS.sh` is a stub. This is the intended contract for the real
-implementation, mirroring `runASTRAL3.sh`.
+What `scripts/sh/runCAMUS.sh` does, and why only some trees can guide it.
 
-## Runner contract (already wired)
+## Runner contract
 
 `CamusRunner` (`scripts/lib/inference/runners/camus.py`) calls:
 
 ```
 bash scripts/sh/runCAMUS.sh \
-  --runid <id> --input <dataset.csv> --name <stem> \
+  --runid <id> --input <dataset.csv> --name <stem>.<guide> \
   --output <output_dir> --guide-tree <pch_astral3|pch_wastral|true_tree>
 ```
 
@@ -24,19 +23,17 @@ Set CAMUS `-o <output_dir>/CAMUS/networks/<name>`. CAMUS then writes:
 newick empty; the registry writer enriches the CSV and appends it to
 `camus_registry.csv` — see `registry.md`.
 
-## What runCAMUS.sh must do
+## What runCAMUS.sh does
 
-1. **Quartets** — generate gene-tree quartets from the polymorphic CSV. Reuse the
-   PCH quartet generation (`scripts/py/printQuartets`, `scripts/lib/pch.py`);
-   CAMUS takes gene trees / quartets as its second argument.
-2. **Guide tree** — resolve the `--guide-tree` token to a rooted binary newick.
+1. **Quartets** — PCH-W quartets from the polymorphic CSV (`scripts/py/printQuartets`),
+   each written once per unit of weight. CAMUS takes them as its gene trees.
+2. **Guide tree** — `scripts/py/guide_tree.py` resolves the `--guide-tree` token to a
+   newick, topology only, rooted on the outgroup recorded for the dataset's model tree.
    - `pch_astral3` / `pch_wastral` → that method's point estimate under
-     `<output_dir>/{PCH_W_ASTRAL3,PCH_W_WASTRAL}/trees/<stem>.tree`,
-     rooted on `OUT`. A declared dependency (`CamusRunner.get_dependencies`), so the
-     scheduler guarantees it exists.
-   - `true_tree` → the simulation's base tree, via the existing
-     `scoring.resolve_reference_newick(experiment_folder, model_tree)` (reads
-     `model_graph_registry.csv` for the `horizontal_edges == 0` row). No dependency.
+     `<output_dir>/{PCH_W_ASTRAL3,PCH_W_WASTRAL}/trees/<stem>.tree`. A declared
+     dependency (`CamusRunner.get_dependencies`), so the scheduler guarantees it exists.
+   - `true_tree` → the dataset's base tree (`model_graph_registry.csv`, the
+     `horizontal_edges == 0` row). No dependency.
 
    See "The rooted-binary constraint" below — this is the gate on the whole step.
 3. **Run CAMUS** — `bin/camus -n <procs> -o <prefix> <guide_tree> <gene_trees>`.

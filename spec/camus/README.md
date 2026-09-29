@@ -75,9 +75,8 @@ family path from `get_group_estimate_path`.
 
 - Install scripts for both binaries + Makefile `install-camus` / `install-phylonet`.
 - `camus:` model extension wired end-to-end into the inference pipeline.
-- `scripts/sh/runCAMUS.sh` is a **stub** (no-op, exits 0) — smoke run in
-  `experiments/camus_smoke/` proves it's invoked per dataset and guide. Runs report
-  FAILED because the stub writes no family; that's expected until inference lands.
+- `scripts/sh/runCAMUS.sh` runs CAMUS: PCH-W quartets plus one rooted guide tree in,
+  one network family out. `experiments/camus_smoke/` runs it per dataset and guide.
 
 **`PLAN.md` is the plan of record** — the PR sequence from outgroup simulation to raw
 network scores, with per-PR verification and the settled decisions. Start there. Where
