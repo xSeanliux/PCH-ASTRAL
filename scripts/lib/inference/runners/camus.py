@@ -1,22 +1,19 @@
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel
 
 from scripts.lib.experiment import CamusConfig
-from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
+from scripts.lib.inference.inference import TreeInferenceMethod
 
 
 class CamusRunner:
-    """CAMUS level-1 network inference. Output is a network family, not a tree;
-    the point-estimate path holds its CSV, one network per k. runCAMUS.sh is a stub
-    for now (see spec/camus/inference.md) — this wires the method into the pipeline."""
+    """CAMUS level-1 network inference: one guide tree in, one network family out."""
 
     @staticmethod
     def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
         # Each guide tree declares its own dependency (None for `true_tree`).
         assert isinstance(config, CamusConfig)
-        deps = (g.dependency for g in config.guide_trees)
+        deps = (g.dependency for g in config.guides)
         return list(dict.fromkeys(d for d in deps if d is not None))  # ordered dedup
 
     @staticmethod
@@ -24,6 +21,8 @@ class CamusRunner:
         runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel
     ) -> list[str]:
         assert isinstance(config, CamusConfig)
+        # CAMUS takes one guide tree; `variants` splits a config before it gets here.
+        (guide,) = config.guide_trees
         return [
             "bash",
             "scripts/sh/runCAMUS.sh",
@@ -35,23 +34,14 @@ class CamusRunner:
             name,
             "--output",
             str(output_dir),
-            "--guide-trees",
-            ",".join(g.value for g in config.guide_trees),
+            "--guide-tree",
+            guide.value,
         ]
 
     @staticmethod
-    def point_estimate_path(output_dir: Path, name: str) -> Path:
-        # CAMUS writes all networks (one row per k) to <prefix>.csv; runCAMUS.sh
-        # sets -o to this stem. Not a single tree — see spec/camus/registry.md.
+    def family_path(output_dir: Path, name: str) -> Path:
+        # CAMUS writes `<prefix>.csv`, one row per k; runCAMUS.sh sets -o to this stem.
         return output_dir / "CAMUS" / "networks" / f"{name}.csv"
-
-    @staticmethod
-    def group_estimate_path(output_dir: Path, name: str) -> Optional[Path]:
-        return None
-
-    @staticmethod
-    def consensus_method() -> Optional[ConsensusMethod]:
-        return None
 
     @staticmethod
     def log_path(output_dir: Path, name: str) -> Path:

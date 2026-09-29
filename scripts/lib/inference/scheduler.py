@@ -8,13 +8,13 @@ caller, never recorded. See docs/ARCHITECTURE.md.
 """
 
 from collections import defaultdict, deque
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
 import polars as pl
 
 from scripts.lib.inference import registry
-from scripts.lib.inference.inference import RunStatus, TreeInferenceMethod
+from scripts.lib.inference.inference import InferenceMethod, RunStatus
 from scripts.lib.inference.registry import Cell
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
@@ -60,9 +60,9 @@ def completed_runs(experiment_folder: Path) -> dict[DatasetKey, set[tuple[str, s
 
 
 def topological_order(
-    enabled: list[TreeInferenceMethod],
-    deps_of: Mapping[TreeInferenceMethod, list[TreeInferenceMethod]],
-) -> list[TreeInferenceMethod]:
+    enabled: Sequence[InferenceMethod],
+    deps_of: Mapping[InferenceMethod, Sequence[InferenceMethod]],
+) -> list[InferenceMethod]:
     """Order the enabled methods so each runs after its dependencies.
 
     `deps_of[x] == [a, b]` means **x depends on a and b** — a and b run before x.
@@ -72,9 +72,7 @@ def topological_order(
     """
     in_run = set(enabled)
     indegree = {m: 0 for m in enabled}
-    dependents: dict[TreeInferenceMethod, list[TreeInferenceMethod]] = {
-        m: [] for m in enabled
-    }
+    dependents: dict[InferenceMethod, list[InferenceMethod]] = {m: [] for m in enabled}
     for m in enabled:
         for dep in deps_of.get(m, []):
             if dep in in_run:
@@ -82,7 +80,7 @@ def topological_order(
                 dependents[dep].append(m)
 
     queue = deque(m for m in enabled if indegree[m] == 0)
-    order: list[TreeInferenceMethod] = []
+    order: list[InferenceMethod] = []
     while queue:
         m = queue.popleft()
         order.append(m)

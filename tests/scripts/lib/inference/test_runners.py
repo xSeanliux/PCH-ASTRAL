@@ -4,12 +4,12 @@ import pytest
 
 from scripts.lib.experiment import ASTRAL3Config, GAConfig, MP4Config
 from scripts.lib.inference import runners
-from scripts.lib.inference.runners import RUNNERS
+from scripts.lib.inference.runners import RUNNERS, TREE_RUNNERS
 from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
 
 
 def test_mp4_runner_build_argv():
-    runner = RUNNERS[TreeInferenceMethod.MP]
+    runner = TREE_RUNNERS[TreeInferenceMethod.MP]
     argv = runner.build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
@@ -32,7 +32,7 @@ def test_mp4_runner_build_argv():
 
 
 def test_mp4_runner_artifact_paths():
-    runner = RUNNERS[TreeInferenceMethod.MP]
+    runner = TREE_RUNNERS[TreeInferenceMethod.MP]
     out = Path("out/high_0.1_4_320")
     assert (
         runner.point_estimate_path(out, "sim_0_1_1")
@@ -47,7 +47,7 @@ def test_mp4_runner_artifact_paths():
 
 
 def test_ga_runner_build_argv():
-    runner = RUNNERS[TreeInferenceMethod.GA]
+    runner = TREE_RUNNERS[TreeInferenceMethod.GA]
     argv = runner.build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
@@ -70,7 +70,7 @@ def test_ga_runner_build_argv():
 
 
 def test_ga_runner_artifact_paths():
-    runner = RUNNERS[TreeInferenceMethod.GA]
+    runner = TREE_RUNNERS[TreeInferenceMethod.GA]
     out = Path("out/high_0.1_4_320")
     assert (
         runner.point_estimate_path(out, "sim_0_1_1")
@@ -85,7 +85,7 @@ def test_ga_runner_artifact_paths():
 
 
 def test_astral3_runner_build_argv_exact():
-    runner = RUNNERS[TreeInferenceMethod.PCH_ASTRAL3]
+    runner = TREE_RUNNERS[TreeInferenceMethod.PCH_ASTRAL3]
     argv = runner.build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
@@ -111,7 +111,7 @@ def test_astral3_runner_build_argv_exact():
 
 
 def test_astral3_runner_build_argv_heuristic_has_no_x():
-    runner = RUNNERS[TreeInferenceMethod.PCH_ASTRAL3]
+    runner = TREE_RUNNERS[TreeInferenceMethod.PCH_ASTRAL3]
     argv = runner.build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
@@ -123,7 +123,7 @@ def test_astral3_runner_build_argv_heuristic_has_no_x():
 
 
 def _astral3_argv(config: ASTRAL3Config) -> list[str]:
-    return RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].build_argv(
+    return TREE_RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].build_argv(
         runid="abc123",
         input_csv=Path("data/sim_0_1_1.csv"),
         name="sim_0_1_1",
@@ -156,7 +156,7 @@ def test_astral3_runner_binary_character_not_implemented():
 
 
 def test_astral3_runner_artifact_paths():
-    runner = RUNNERS[TreeInferenceMethod.PCH_ASTRAL3]
+    runner = TREE_RUNNERS[TreeInferenceMethod.PCH_ASTRAL3]
     out = Path("out/high_0.1_4_320")
     variant = runners.ASTRAL3Runner.VARIANT
     assert (
@@ -169,13 +169,13 @@ def test_astral3_runner_artifact_paths():
 
 
 def test_dependencies_mp_and_ga_are_empty():
-    assert RUNNERS[TreeInferenceMethod.MP].dependencies(MP4Config()) == []
-    assert RUNNERS[TreeInferenceMethod.GA].dependencies(GAConfig()) == []
+    assert TREE_RUNNERS[TreeInferenceMethod.MP].dependencies(MP4Config()) == []
+    assert TREE_RUNNERS[TreeInferenceMethod.GA].dependencies(GAConfig()) == []
 
 
 def test_dependencies_astral3_exact_is_empty():
     assert (
-        RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].dependencies(
+        TREE_RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].dependencies(
             ASTRAL3Config(is_exact=True)
         )
         == []
@@ -183,13 +183,13 @@ def test_dependencies_astral3_exact_is_empty():
 
 
 def test_dependencies_astral3_heuristic_default_is_mp_ga():
-    assert RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].dependencies(
+    assert TREE_RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].dependencies(
         ASTRAL3Config(is_exact=False)
     ) == [TreeInferenceMethod.MP, TreeInferenceMethod.GA]
 
 
 def test_dependencies_astral3_ga_only():
-    assert RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].dependencies(
+    assert TREE_RUNNERS[TreeInferenceMethod.PCH_ASTRAL3].dependencies(
         ASTRAL3Config(is_exact=False, bipartition_strategies=["ga_trees"])
     ) == [TreeInferenceMethod.GA]
 

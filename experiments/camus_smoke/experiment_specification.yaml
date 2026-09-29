@@ -1,20 +1,16 @@
-# Smoke test for the CAMUS wiring: runs `pch experiment inference` so runCAMUS.sh
-# (a stub) is invoked per dataset. Sim data is copied from experiments/smoke_test.
+# Smoke test for CAMUS: networks with 1 and 2 contact events, one run per guide tree.
 #
-# guide_trees is [true_tree] here so CAMUS has no upstream dependency and the stub
-# runs self-contained. The other supported guide is astral3, which additionally
-# needs astral_3 enabled (it becomes a scheduler dependency):
-#   camus:
-#     guide_trees: [astral3, true_tree]
-# mp and ga are rejected at config load — CAMUS requires a rooted binary
-# constraint tree. See spec/camus/inference.md.
+# true_tree needs no upstream method. Guides from a method (astral3, wastral) need
+# that method enabled too; it becomes a scheduler dependency. mp, ga and w_tree_qmc
+# are rejected at config load: CAMUS requires a rooted binary guide tree.
 experiment_folder: experiments/camus_smoke
 simulation:
   n_taxa: 30
   n_horizontal_edges:
-    - 0
+    - 1
+    - 2
   n_trees: 1
-  n_replicas: 4
+  n_replicas: 2
   base_config_dir: data/base_configs
   base_trees_file: data/trees.txt
   base_networks_dir: data/base_networks

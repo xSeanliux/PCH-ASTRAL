@@ -68,16 +68,18 @@ class CamusConfig(BaseModel):
         """Which tree constrains the CAMUS network search.
 
         Membership in `_GUIDE_TREE_DEPENDENCY` is the allow-list: a member absent
-        from that map is a guide CAMUS cannot accept (see `supported`).
+        from that map is a guide CAMUS cannot accept (see `is_supported`).
         """
 
         MP = "mp"
         GA = "ga"
         ASTRAL3 = "astral3"
+        WASTRAL = "wastral"
+        W_TREE_QMC = "w_tree_qmc"
         TRUE_TREE = "true_tree"
 
         @property
-        def supported(self) -> bool:
+        def is_supported(self) -> bool:
             return self in _GUIDE_TREE_DEPENDENCY
 
         @property
@@ -89,26 +91,37 @@ class CamusConfig(BaseModel):
             """
             return _GUIDE_TREE_DEPENDENCY[self]
 
-    guide_trees: list[GuideTree]
+    guide_trees: frozenset[GuideTree] = Field(min_length=1)
 
     @field_validator("guide_trees")
     @classmethod
-    def _reject_unsupported(cls, v: list[GuideTree]) -> list[GuideTree]:
-        bad = [g for g in v if not g.supported]
+    def _reject_unsupported(cls, v: frozenset[GuideTree]) -> frozenset[GuideTree]:
+        bad = sorted(g for g in v if not g.is_supported)
         if bad:
             raise ValueError(
                 f"unsupported CAMUS guide tree(s): {', '.join(g.value for g in bad)}. "
                 f"Supported: {', '.join(g.value for g in _GUIDE_TREE_DEPENDENCY)}. "
-                "CAMUS requires a rooted binary constraint tree; see "
-                "spec/camus/inference.md."
+                "CAMUS requires a rooted binary guide tree."
             )
         return v
 
+    @property
+    def guides(self) -> list[GuideTree]:
+        """The guide trees in a fixed order; a set has none of its own."""
+        return sorted(self.guide_trees)
+
+    def variants(self) -> "list[tuple[CamusConfig, str]]":
+        """(config, name suffix) per guide tree: CAMUS takes one guide per run, so
+        each gets its own output path, config_hash, and dependency gate."""
+        return [(CamusConfig(guide_trees=frozenset({g})), g.value) for g in self.guides]
+
 
 # Guide tree -> the method whose output supplies it (None = already have it).
-# ONLY these are allowed; absent = CAMUS can't use it. See `GuideTree.supported`.
+# ONLY these are allowed; absent = CAMUS can't use it. See `GuideTree.is_supported`.
+# w_tree_qmc is out for now: TREE-QMC can emit polytomies, which CAMUS rejects.
 _GUIDE_TREE_DEPENDENCY: dict[CamusConfig.GuideTree, TreeInferenceMethod | None] = {
     CamusConfig.GuideTree.ASTRAL3: TreeInferenceMethod.PCH_ASTRAL3,
+    CamusConfig.GuideTree.WASTRAL: TreeInferenceMethod.PCH_WASTRAL,
     CamusConfig.GuideTree.TRUE_TREE: None,
 }
 
