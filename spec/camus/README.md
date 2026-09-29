@@ -33,23 +33,31 @@ methods:
   camus:
     guide_trees:
       - astral3     # guide = PCH-ASTRAL3           (dep: pch_astral3)
+      - wastral     # guide = PCH-wASTRAL           (dep: pch_wastral)
       - true_tree   # guide = simulation base tree  (no dep)
 ```
+
+CAMUS takes one guide tree per run; `guide_trees` is a set that fans out to one run
+per guide (`CamusConfig.variants()`), each named `<stem>.<guide>`. `experiment
+status` counts each guide on its own line, `camus.<guide>`.
 
 `CamusConfig` in `scripts/lib/experiment.py`; runner
 `scripts/lib/inference/runners/camus.py`. `_GUIDE_TREE_DEPENDENCY` is both the
 **allow-list** (absent member = unsupported, rejected by a field validator at config
-load) and the scheduler-dependency map — `astral3` gates on PCH_ASTRAL3, `true_tree`
-on nothing. `mp`/`ga` stay enum members only so they fail with an explanation; why,
-and the rooting plan, are in `inference.md` and `outgroup.md`.
+load) and the scheduler-dependency map — a method guide gates on its method,
+`true_tree` on nothing. `mp`/`ga`/`w_tree_qmc` stay enum members only so they fail
+with an explanation; why, and the rooting plan, are in `inference.md` and `outgroup.md`.
+
+CAMUS is a `NetworkInferenceMethod`, not a `TreeInferenceMethod`. Its runner is a
+`NetworkRunner`: it names a family path, not a point estimate.
 
 ## The pipeline, end to end
 
 1. **Simulate with an outgroup.** Graft `OUT` as sister to the old root of the base
    tree/network, then simulate as usual — every dataset now has n+1 taxa. Branch
    lengths and seeding: `outgroup.md`.
-2. **Get a guide tree.** Either `astral3` (inferred) or `true_tree` (the grafted model
-   tree). Only these two — see the rooted-binary constraint in `inference.md`.
+2. **Get a guide tree.** Inferred (`astral3`, `wastral`) or `true_tree`
+   (the grafted base tree). See the rooted-binary constraint in `inference.md`.
 3. **Root it on the outgroup.** ASTRAL's output is unrooted, so reroot on `OUT`
    (Biopython `root_with_outgroup`). `true_tree` is already rooted — grafting *is* the
    rooting — so this is a no-op for it. Either way CAMUS gets a rooted binary tree.
@@ -66,9 +74,8 @@ and the rooting plan, are in `inference.md` and `outgroup.md`.
 - Install scripts for both binaries + Makefile `install-camus` / `install-phylonet`.
 - `camus:` model extension wired end-to-end into the inference pipeline.
 - `scripts/sh/runCAMUS.sh` is a **stub** (no-op, exits 0) — smoke run in
-  `experiments/camus_smoke/` proves it's invoked per dataset. Runs report FAILED
-  because the stub emits no network (`api.infer` requires the point-estimate
-  file); that's expected until inference lands.
+  `experiments/camus_smoke/` proves it's invoked per dataset and guide. Runs report
+  FAILED because the stub writes no family; that's expected until inference lands.
 
 **`PLAN.md` is the plan of record** — the PR sequence from outgroup simulation to raw
 network scores, with per-PR verification and the settled decisions. Start there. Where

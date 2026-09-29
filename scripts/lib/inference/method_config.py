@@ -13,9 +13,13 @@ from scripts.lib.experiment import (
     WeightedASTRALConfig,
     WeightedTreeQMCConfig,
 )
-from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.inference.inference import (
+    InferenceMethod,
+    NetworkInferenceMethod,
+    TreeInferenceMethod,
+)
 
-# The concrete method-config types (one per TreeInferenceMethod).
+# The concrete method-config types (one per InferenceMethod).
 MethodConfigT = (
     ASTRAL3Config
     | WeightedASTRALConfig
@@ -25,19 +29,17 @@ MethodConfigT = (
     | CamusConfig
 )
 
-METHOD_CONFIG: dict[TreeInferenceMethod, type[MethodConfigT]] = {
+METHOD_CONFIG: dict[InferenceMethod, type[MethodConfigT]] = {
     TreeInferenceMethod.PCH_ASTRAL3: ASTRAL3Config,
     TreeInferenceMethod.PCH_WASTRAL: WeightedASTRALConfig,
     TreeInferenceMethod.PCH_W_TREE_QMC: WeightedTreeQMCConfig,
     TreeInferenceMethod.MP: MP4Config,
     TreeInferenceMethod.GA: GAConfig,
-    TreeInferenceMethod.CAMUS: CamusConfig,
+    NetworkInferenceMethod.CAMUS: CamusConfig,
 }
 
 
-def config_for(
-    methods: MethodConfig, method: TreeInferenceMethod
-) -> MethodConfigT | None:
+def config_for(methods: MethodConfig, method: InferenceMethod) -> MethodConfigT | None:
     """The enabled config for `method`, matched by type (None if not enabled).
 
     Keyed off the config class (`METHOD_CONFIG`), not a field name — MethodConfig's
@@ -50,9 +52,7 @@ def config_for(
     return None
 
 
-def resolve_config(
-    method: TreeInferenceMethod, config_file: Path | None
-) -> MethodConfigT:
+def resolve_config(method: InferenceMethod, config_file: Path | None) -> MethodConfigT:
     """Validate the method's config from YAML (or defaults when no file).
 
     `model_validate` returns the concrete config type (no cast needed). Configs

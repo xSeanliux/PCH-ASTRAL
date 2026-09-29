@@ -6,11 +6,18 @@ from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
 from scripts.lib.inference.inference import (
     InferenceResult,
+    NetworkInferenceMethod,
     RunStatus,
     TreeInferenceMethod,
 )
 from scripts.lib.inference.scheduler import DatasetKey
-from scripts.py.cli.handle_status import compute_status, handle_status
+from scripts.py.cli.handle_inference import select_methods
+from scripts.py.cli.handle_status import (
+    compute_status,
+    fan_out,
+    handle_status,
+    labels,
+)
 
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
@@ -107,6 +114,30 @@ def test_compute_status_partial_done(tmp_path: Path) -> None:
 
     assert counts[("cond_a", "mp")] == (1, 3)
     assert set(missing[("cond_a", "mp")]) == {"sim_2", "sim_3"}
+
+
+def test_compute_status_counts_each_guide_tree(tmp_path: Path) -> None:
+    # One guide finishing must not mark the other done.
+    cond = tmp_path / "cond_a"
+    paths = [cond / "sim_1.csv", cond / "sim_2.csv"]
+    methods = {"camus": {"guide_trees": ["true_tree", "astral3"]}}
+    cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
+    selected = select_methods(cfg.methods)
+    fans = fan_out(cfg, selected)
+    hashes = dict(fans[NetworkInferenceMethod.CAMUS])
+
+    done: dict[DatasetKey, set[tuple[str, str]]] = {
+        (registry.canonical_path(str(paths[0])),): {("camus", hashes["true_tree"])}
+    }
+    counts, missing = compute_status(_rows(paths), selected, done, fans)
+
+    assert labels(selected, fans) == ["camus.astral3", "camus.true_tree"]
+    assert counts == {
+        ("cond_a", "camus.astral3"): (0, 2),
+        ("cond_a", "camus.true_tree"): (1, 2),
+    }
+    assert missing[("cond_a", "camus.true_tree")] == ["sim_2"]
+    assert missing[("cond_a", "camus.astral3")] == ["sim_1", "sim_2"]
 
 
 def test_compute_status_all_done(tmp_path: Path) -> None:

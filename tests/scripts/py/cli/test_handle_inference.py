@@ -443,3 +443,49 @@ def test_handle_inference_astral3_runs_from_prior_registry(tmp_path, monkeypatch
     handle_inference(cfg2)
 
     assert calls == [TreeInferenceMethod.PCH_ASTRAL3]  # deps satisfied by run 1
+
+
+def test_handle_inference_runs_camus_once_per_guide(tmp_path: Path, monkeypatch):
+    cond_dir = tmp_path / "simulation_data" / "simulated_data" / "high_0.1_4_320"
+    cond_dir.mkdir(parents=True)
+    dataset = cond_dir / "sim_1_1_1.csv"
+    dataset.write_text("id,feature,weight,A,B\n")
+    pl.DataFrame(
+        {
+            "poly_level": ["high"],
+            "character_count": [320],
+            "min_tree_height": [4],
+            "homoplasy_factor": [0.1],
+            "horizontal_edges": [1],
+            "model_tree": [1],
+            "replica": [1],
+            "path": [str(dataset)],
+        }
+    ).write_csv(tmp_path / "simulation_data" / "simulated_data_registry.csv")
+
+    calls: list[tuple[str | None, list[str]]] = []
+
+    def fake(input_csv, output_dir, method, config, *, name=None):
+        calls.append((name, [g.value for g in config.guides]))
+        return InferenceResult(
+            dataset_id=registry.canonical_path(input_csv),
+            tree_inference_method=method,
+            config_hash=config_hash(config),
+            method_config_json=config.model_dump_json(),
+            point_estimate_newick="",
+            runtime_seconds=1.0,
+            status=RunStatus.OK,
+            ran_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    monkeypatch.setattr(api, "infer", fake)
+    methods = {"camus": {"guide_trees": ["true_tree", "astral3", "true_tree"]}}
+    cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
+    handle_inference(cfg)
+
+    # astral3's guide is blocked (no astral_3 run); true_tree runs once, not twice.
+    assert calls == [("sim_1_1_1.true_tree", ["true_tree"])]
+
+    calls.clear()
+    handle_inference(cfg)
+    assert calls == []  # resume: the true_tree unit is already recorded

@@ -20,11 +20,15 @@ Map of the config-driven inference pipeline (`scripts/lib/inference/` + `scripts
 
 ## Runners (`runners/` package)
 
-- `base.py` — the abstract layer: `Runner` (Protocol) + `_BaseRunner` (shared defaults).
-- `mp4.py` / `ga.py` / `astral3.py` — one runner each (`MP4Runner`, `GARunner`, `ASTRAL3Runner`).
-- `__init__.py` — the `RUNNERS: dict[TreeInferenceMethod, Runner]` registry + public re-exports. **Import surface:** `from scripts.lib.inference.runners import RUNNERS` (etc). `_BaseRunner.missing_prerequisites` uses a function-local `import RUNNERS` to avoid the `__init__ ↔ base` cycle.
+Methods come in two kinds, both subclasses of the memberless `InferenceMethod` enum (`inference.py`): `TreeInferenceMethod` (one tree per run) and `NetworkInferenceMethod` (a network family per run: one network per k).
 
-Each runner is stateless (`@staticmethod` methods; the registry holds a singleton). A runner provides: `build_argv(runid, input_csv, name, output_dir, config)`, `point_estimate_path`, `group_estimate_path` (the tree *set*, or `None`), `consensus_method() -> Optional[ConsensusMethod]`, `log_path`, and `dependencies(config) -> [TreeInferenceMethod]` (upstreams whose output it consumes; ASTRAL3 → MP/GA from its `bipartition_strategies`, `[]` when exact).
+- `base.py` — the protocols: `Runner` (what every method shares), `TreeRunner`, `NetworkRunner`.
+- `mp4.py` / `ga.py` / `astral3.py` / `w_tree_qmc.py` / `wastral.py` / `camus.py` — one runner each.
+- `__init__.py` — `TREE_RUNNERS`, `NETWORK_RUNNERS`, and their union `RUNNERS: dict[InferenceMethod, Runner]`, + public re-exports.
+
+Each runner is stateless (`@staticmethod` methods; the registry holds a singleton). Every runner provides `build_argv(runid, input_csv, name, output_dir, config)`, `log_path`, and `dependencies(config) -> [TreeInferenceMethod]` (upstreams whose output it consumes; ASTRAL3 → MP/GA from its `bipartition_strategies`, `[]` when exact). A `TreeRunner` adds `point_estimate_path`, `group_estimate_path` (the tree *set*, or `None`) and `consensus_method() -> Optional[ConsensusMethod]`. A `NetworkRunner` adds `family_path`.
+
+A method may fan out into several runs per dataset: CAMUS takes one guide tree per run, so `CamusConfig.variants()` yields one single-guide config per guide, each with its own `config_hash` and output name `<stem>.<guide>`. `experiment status` counts such a method per run (`camus.<guide>`), matched on `config_hash`.
 
 ## Scheduling (`scheduler.py`)
 
@@ -63,7 +67,7 @@ Analysis = `inference_registry.csv` ⨝ `simulated_data_registry.csv` (on `datas
 
 - **The registry is the ledger of *successful* results only** — blocks and failures are logged, never written. So a row = analyzable data, and *presence* of `(dataset, method, config_hash)` means "done" (drives both resume and the dependency gate).
 - **`api.infer` always returns an `InferenceResult`** — a nonzero exit or a missing point estimate becomes `status=FAILED`, never an exception; the pipeline just doesn't record it.
-- A run is **OK only if** it exited 0 **and** the point-estimate file exists.
+- A run is **OK only if** it exited 0 **and** its estimate exists: the point-estimate file for a tree method, the family file for a network method. A network row has an empty `point_estimate_newick`; `tree_set_path` holds the family's path.
 - Registry dedup key (`run_key`) includes `config_hash`; `compact` is last-writer-wins (by `ran_at`), seeds from the existing registry, and deletes shards.
 - **Order:** heuristic ASTRAL3 needs MP4 + GA bipartitions, so the scheduler topologically orders it after them (and gates on their success via the registry).
 
@@ -73,8 +77,8 @@ Analysis = `inference_registry.csv` ⨝ `simulated_data_registry.csv` (on `datas
 
 ## Adding a method
 
-1. Add the enum member to `TreeInferenceMethod` (`inference.py`) + its config to `MethodConfigT`/`METHOD_CONFIG` (`method_config.py`) and a field on `MethodConfig` (`experiment.py`).
-2. Add `runners/<method>.py` implementing the `Runner` protocol (incl. `dependencies(config)` if it has upstreams); register it in `runners/__init__.py`.
+1. Add the enum member to `TreeInferenceMethod` or `NetworkInferenceMethod` (`inference.py`) + its config to `MethodConfigT`/`METHOD_CONFIG` (`method_config.py`) and a field on `MethodConfig` (`experiment.py`).
+2. Add `runners/<method>.py` implementing `TreeRunner` or `NetworkRunner` (incl. `dependencies(config)` if it has upstreams); register it in `TREE_RUNNERS` or `NETWORK_RUNNERS` in `runners/__init__.py`.
 3. Document its shell contract in `SCRIPT_CONTRACTS.md`; add tests mirroring `tests/scripts/lib/inference/`.
 
 Enablement is by config type (`config_for`) and order is topological from `dependencies()`, so there's no field-name table or hand-ordering to update.

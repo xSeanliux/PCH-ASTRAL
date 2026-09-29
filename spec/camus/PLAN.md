@@ -28,8 +28,10 @@ Verified against its Go source and by running `bin/camus`.
    and `<prefix>.png`. Rows stop when the score stops improving, so row counts vary and a
    family may be row 0 alone.
 2. **It rejects unrooted or non-binary guide trees** (exit 1, no CSV) and ships no rooting
-   or refinement code. `mp` has polytomies and `ga` is unrooted; only `astral3` and
-   `true_tree` qualify — enforced by a config validator.
+   or refinement code. `mp` is a majority consensus, so polytomies are what it is for, and
+   `ga` is unrooted, and TREE-QMC can emit a polytomy (1 of 8 smoke trees); a config
+   validator rejects `mp`, `ga` and `w_tree_qmc`. `astral3`, `wastral` and `true_tree`
+   are allowed.
 3. **It drops every quartet the guide tree already displays**, so inventing a resolution
    for a polytomy would suppress conflicting signal where support is weakest. Rooting must
    come from data, hence the outgroup.
@@ -56,7 +58,8 @@ How we differ from the paper's evaluation:
 | Record raw, analyse later | We are at "can this run". `network_scores.csv` holds everything CmpNets returns; choosing k, elbow plots, and stratifying by level are analysis. |
 | CAMUS flows through `api.infer` and keeps a row in `inference_registry.csv` | `scheduler.completed_runs` is the only resume/gate/status ledger. |
 | `point_estimate_newick` stays empty for CAMUS | Choosing a k is analysis policy. Empty also makes `handle_score.py:66` skip CAMUS rows — no change to tree scoring. `tree_set_path` carries the CSV path. |
-| One `api.infer` call per guide tree | Per-guide resume, per-guide dependency gating, hashes stable under list reorder. |
+| Tree and network methods are separate types | `TreeInferenceMethod` and `NetworkInferenceMethod` share the base `InferenceMethod`; `TreeRunner` yields a point estimate, `NetworkRunner` a family path. `api.infer` branches on the method's type. |
+| One `api.infer` call per guide tree | CAMUS takes one guide per run. `guide_trees` is a set because `methods:` holds one `camus:` block; `CamusConfig.variants()` splits it. Per-guide resume, dependency gating and status line; hashes do not depend on the order written. |
 | No `threshold` or filter mode in `CamusConfig` yet | CAMUS defaults apply. Spike data is disposable, so later hash churn is free. Follow-up. |
 | A dedicated `camus_registry.py` | Reuse the shard/compact pattern and `current_shard_id`, not the function. |
 | The outgroup is kept, never pruned | Matches the paper. Outgrouped error rates, tree scores included, are not comparable to pre-outgroup numbers. |
@@ -69,10 +72,10 @@ How we differ from the paper's evaluation:
 
 | PR | Base | Content |
 |---|---|---|
-| 0 | `camus-install` | Doc fixes (this revision), merge #31 |
+| 0 | `camus-install` | Doc fixes, method/runner type split, guide-tree split; merge #31 |
 | GA | `main` | GA NEXUS label fix |
 | 1 | `main`, after GA | Outgroup simulation |
-| 2 | PR 1 | `runCAMUS.sh`, rooting, guide-tree split |
+| 2 | PR 1 | `runCAMUS.sh`, rooting, pin CAMUS |
 | 3 | PR 2 | Network family registry |
 | 4 | PR 3 | Network scoring |
 
@@ -186,11 +189,12 @@ CSVs have 31 taxon columns.
 
 ---
 
-## PR 2 — `runCAMUS.sh`, rooting, and the guide-tree split
+## PR 2 — `runCAMUS.sh` and rooting
 
-CAMUS runs and produces its CSV for both guides.
+CAMUS runs and produces its CSV for every guide. The guide-tree split and the
+`api.infer` branch for network methods landed in #31.
 
-### Tasks (A, C, D, E in parallel; B depends on A)
+### Tasks (A, C in parallel; B depends on A)
 
 **A. Rooting helper.** `Tree.root_with_outgroup()` from Biopython, already a dependency.
 `scripts/py/root_tree.py` as the shell entry point:
@@ -203,50 +207,21 @@ Idempotent: `true_tree` arrives rooted, since grafting is the rooting.
 
 **B. `scripts/sh/runCAMUS.sh`** — replace the stub. Match the `runWTREEQMC.sh` /
 `runASTRAL3.sh` skeleton. Accepts the flags `CamusRunner.build_argv` already sends:
-`--runid --input --name --output --guide-trees`. Steps:
+`--runid --input --name --output --guide-tree`. Steps:
 
 1. Quartets → `"$PCH_SCRATCH/tmp_quartet_$RUNID.txt"` via
    `python3 -m scripts.py.printQuartets -i "$INPUT" > ... || exit 1`.
-2. Guide tree → `astral3` reads `<out>/PCH_W_ASTRAL3/trees/<name>.tree`; `true_tree` reads
-   the grafted base tree via `resolve_reference_newick`. Root it (task A).
+2. Guide tree → a method guide reads that method's point estimate,
+   `<out>/<VARIANT>/trees/<stem>.tree` (`PCH_W_ASTRAL3`, `PCH_W_WASTRAL`);
+   `true_tree` reads the grafted base tree via
+   `resolve_reference_newick`. Root it (task A).
 3. `bin/camus -n "$PROCS" -o "$TREEOUTPUT/CAMUS/networks/$NAME" <guide_tree> <quartets>`,
    then `rc=$?`, the `✅` line, `exit $rc`. No `-t`, no `-q`: CAMUS defaults.
 
-`<name>` is `f"{stem}.{guide}"` (task D), so guides never collide. Add a
-`SCRIPT_CONTRACTS.md` row.
+`<name>` is `f"{stem}.{guide}"`, so guides never collide; the upstream tree is named by
+`<stem>` alone. Add a `SCRIPT_CONTRACTS.md` row.
 
-**C. `api.infer` newick gate.** `scripts/lib/inference/api.py:50` reads the point estimate
-unconditionally, which would inline a whole CSV:
-
-```python
-newick = (
-    point_estimate.read_text().strip()
-    if ok and getattr(runner, "point_estimate_is_newick", True)
-    else ""
-)
-```
-
-Add `point_estimate_is_newick = False` to `CamusRunner` and make its
-`group_estimate_path` return the CSV path. Document the attribute in the `Runner` protocol
-docstring; do not add it to the protocol.
-
-**D. Guide-tree split** in `scripts/py/cli/handle_inference.py`:
-
-```python
-def _variants(cfg: BaseModel) -> list[tuple[BaseModel, str | None]]:
-    """(config, name-suffix) units to run. CAMUS fans out one run per guide tree so
-    each guide gets its own output path, config_hash, and dependency gate."""
-    if isinstance(cfg, CamusConfig):
-        return [(CamusConfig(guide_trees=[g]), g.value) for g in dict.fromkeys(cfg.guide_trees)]
-    return [(cfg, None)]
-```
-
-Wrap the inner `for m in methods:` body in `for cfg, suffix in _variants(base_cfg):`,
-compute `ch = config_hash(cfg)` per variant, pass `name=f"{input_path.stem}.{suffix}"`
-when `suffix`. The dedupe matters: `prior` is snapshotted before the loop, so a duplicated
-guide would run twice.
-
-**E. Pin CAMUS.** `scripts/sh/installs/install_camus.sh`: `@latest` → `@v1.0.2`. v1.0.1
+**C. Pin CAMUS.** `scripts/sh/installs/install_camus.sh`: `@latest` → `@v1.0.2`. v1.0.1
 lacks two fixes (`scoreEdgesDown`, `MakeNetwork` sort) that can affect rows at k ≥ 2.
 
 ### Verification
@@ -255,9 +230,7 @@ lacks two fixes (`scoreEdgesDown`, `MakeNetwork` sort) that can affect rows at k
 uv run python -m pytest tests/scripts/lib/inference/ tests/scripts/py/cli/ -q
 ```
 
-Unit: `_variants` splits two guides into two configs with distinct hashes and dedupes
-repeats; `api.infer` returns empty `point_estimate_newick` and a populated `tree_set_path`
-for CAMUS; rooting is idempotent on a rooted tree.
+Unit: rooting is idempotent on a rooted tree.
 
 End to end:
 
