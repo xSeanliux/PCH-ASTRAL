@@ -12,9 +12,10 @@ import polars as pl
 from rich import print
 
 from scripts.lib.experiment import CamusConfig, ExperimentConfig, MethodConfig
-from scripts.lib.inference import api, registry, scheduler
+from scripts.lib.inference import api, camus_registry, registry, scheduler
 from scripts.lib.inference.inference import (
     InferenceMethod,
+    NetworkInferenceMethod,
     RunStatus,
     TreeInferenceMethod,
 )
@@ -129,6 +130,19 @@ def handle_inference(
                     tally["failed"] += 1
                     continue
 
+                if isinstance(m, NetworkInferenceMethod):
+                    # Ingest first: an inference row with no family would make
+                    # resume skip this unit forever.
+                    assert suffix is not None  # CAMUS variants always name a guide
+                    try:
+                        camus_registry.write_family(result, suffix, experiment_folder)
+                    except ValueError as e:
+                        print(
+                            f"[yellow]{m.value} failed on {input_path.name}: {e}[/yellow]"
+                        )
+                        tally["failed"] += 1
+                        continue
+
                 registry.write_result(result, experiment_folder)
                 ok_methods.add(m.value)
                 tally["ok"] += 1
@@ -138,6 +152,7 @@ def handle_inference(
     else:
         registry.finalize_manifest(experiment_folder, tally)
         out = registry.compact(experiment_folder)
+        camus_registry.compact_if_any(experiment_folder)
     print(
         f"Inference: {tally['ok']} ok, {tally['skipped']} skipped, "
         f"{tally['blocked']} blocked, {tally['failed']} failed → [green]{out}[/green]."

@@ -53,8 +53,10 @@ simulation_data/simulated_data_registry.csv
        else api.infer(csv, out_dir, method, config)
          → subprocess(runner.build_argv) → InferenceResult (dataset_id = input path)
          → OK  → registry.write_result → inference_data/shards/{job}.jsonl
+                 (CAMUS also: camus_registry.write_family → inference_data/camus_shards/{job}.jsonl)
          → FAILED → log only (not in the registry)
   └─ registry.compact → inference_data/inference_registry.csv (+ manifest.json)
+  └─ camus_registry.compact_if_any → inference_data/camus_registry.csv
 ```
 
 The registry is **generic** — keyed by `dataset_id` = the input CSV path, source-agnostic (a real CSV runs identically). Sim metadata and FN/FP are decoupled:

@@ -9,7 +9,7 @@ junk files linger.
 
 import json
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -30,7 +30,7 @@ DATASET_KEY_COLUMNS = ["dataset_id"]
 _KEY_COLUMNS = DATASET_KEY_COLUMNS + ["method", "config_hash"]
 
 
-def _keyval(v: object) -> str:
+def _keyval(v: Cell) -> str:
     # Stable across read paths: floats via repr so 1.0 doesn't become "1".
     if v is None:
         return ""
@@ -39,12 +39,12 @@ def _keyval(v: object) -> str:
     return str(v)
 
 
-def run_key(row: Mapping[str, object]) -> str:
+def run_key(row: Mapping[str, Cell]) -> str:
     """Readable dedup key: the join keys + method + config_hash, '|'-joined."""
     return "|".join(_keyval(row.get(c)) for c in _KEY_COLUMNS)
 
 
-def _ran_at(row: Mapping[str, object]) -> datetime:
+def _ran_at(row: Mapping[str, Cell]) -> datetime:
     # Parse the ISO8601 timestamp so the tie-break is correct across offsets,
     # not a lexical string compare that assumes everyone emits +00:00.
     return datetime.fromisoformat(str(row["ran_at"]))
@@ -87,7 +87,7 @@ def write_result(result: InferenceResult, experiment_folder: Path) -> Path:
     return shard
 
 
-def _iter_shard_rows(experiment_folder: Path) -> Iterator[dict[str, Cell]]:
+def _iter_shard_rows(shards: Path) -> Iterator[dict[str, Cell]]:
     """Yield one parsed row (a dict) per line across all shards/*.jsonl (sorted).
 
     Crash-tolerant: a SLURM SIGKILL mid-write can leave a torn/truncated line;
@@ -97,7 +97,6 @@ def _iter_shard_rows(experiment_folder: Path) -> Iterator[dict[str, Cell]]:
     of aborting the loop. Reads each shard whole so a >8KB newick split across
     write() calls still lands on one line.
     """
-    shards = _shards_dir(experiment_folder)
     if not shards.exists():
         return
     for sf in sorted(shards.glob("*.jsonl")):
@@ -122,28 +121,40 @@ def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
     Idempotent. With cleanup=True (default) the shard files are removed after a
     successful merge so no staging junk remains.
     """
-    inference_dir = experiment_folder / "inference_data"
-    shards = _shards_dir(experiment_folder)
-    out = inference_dir / "inference_registry.csv"
+    return merge_shards(
+        _shards_dir(experiment_folder),
+        registry_path(experiment_folder),
+        INFERENCE_REGISTRY_SCHEMA,
+        run_key,
+        cleanup=cleanup,
+    )
 
+
+def merge_shards(
+    shards: Path,
+    out: Path,
+    schema: pl.Schema,
+    key: Callable[[Mapping[str, Cell]], str],
+    *,
+    cleanup: bool = True,
+) -> Path:
+    """Fold shards/*.jsonl into `out` under `schema`, one row per `key`, the
+    newest `ran_at` winning. Seeds from an existing `out` so incremental
+    compaction accumulates. Removes the shards afterwards when `cleanup`."""
     by_key: dict[str, dict[str, Cell]] = {}
-    # Seed from the existing registry so incremental compaction (with shard
-    # cleanup) accumulates instead of replacing prior rows.
     if out.exists():
-        for prev_row in pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).iter_rows(
-            named=True
-        ):
-            by_key[run_key(prev_row)] = prev_row
+        for prev_row in pl.read_csv(out, schema=schema).iter_rows(named=True):
+            by_key[key(prev_row)] = prev_row
 
     shard_files = sorted(shards.glob("*.jsonl")) if shards.exists() else []
-    for row in _iter_shard_rows(experiment_folder):
-        k = run_key(row)
+    for row in _iter_shard_rows(shards):
+        k = key(row)
         prev = by_key.get(k)
         if prev is None or _ran_at(row) >= _ran_at(prev):
             by_key[k] = row
 
-    inference_dir.mkdir(parents=True, exist_ok=True)
-    pl.DataFrame(list(by_key.values()), schema=INFERENCE_REGISTRY_SCHEMA).write_csv(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    pl.DataFrame(list(by_key.values()), schema=schema).write_csv(out)
 
     if cleanup:
         for sf in shard_files:
