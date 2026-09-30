@@ -53,6 +53,22 @@ INFERENCE_REGISTRY_SCHEMA = pl.Schema(
     }
 )
 
+# One row per (dataset, guide tree, k) from a CAMUS run: its network family.
+CAMUS_REGISTRY_SCHEMA = pl.Schema(
+    {
+        "dataset_id": String,
+        "guide_tree": String,
+        "config_hash": String,
+        "runtime_seconds": Float64,  # the whole family's; repeated per row
+        "status": String,
+        "ran_at": String,
+        "log_path": String,
+        "k": Int64,
+        "qsat_percent": Float64,
+        "network_newick": String,
+    }
+)
+
 # FN/FP live here (from `pch experiment score`), joined back on dataset_id/method/config_hash.
 SCORES_SCHEMA = pl.Schema(
     {
