@@ -26,7 +26,7 @@ from submitit import AutoExecutor, Job
 from submitit.helpers import Checkpointable
 
 from scripts.lib.experiment import ExperimentConfig
-from scripts.lib.inference import registry
+from scripts.lib.inference import camus_registry, registry
 from scripts.lib.inference.inference import TreeInferenceMethod
 from scripts.lib.inference.method_config import config_for
 from scripts.lib.inference.runners import RUNNERS
@@ -104,6 +104,7 @@ def run_compact(spec_path: str) -> None:
     methods = [m.value for m in select_methods(config.methods)]
     registry.init_manifest(folder, methods)
     out = registry.compact(folder)
+    camus_registry.compact_if_any(folder)
     ok = (
         pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).height if out.exists() else 0
     )

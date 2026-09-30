@@ -75,3 +75,13 @@ def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
         _family_key,
         cleanup=cleanup,
     )
+
+
+def compact_if_any(experiment_folder: Path) -> Path | None:
+    """Compact when this experiment has ever run CAMUS; else leave no file behind."""
+    if (
+        shards_dir(experiment_folder).exists()
+        or registry_path(experiment_folder).exists()
+    ):
+        return compact(experiment_folder)
+    return None
