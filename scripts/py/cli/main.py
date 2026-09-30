@@ -22,6 +22,7 @@ from scripts.lib.inference import registry
 from scripts.lib.inference.scoring import score
 from scripts.lib.inference.summarize import summarize
 from scripts.py.cli.handle_inference import handle_inference
+from scripts.py.cli.handle_network_score import handle_network_score
 from scripts.py.cli.handle_score import handle_score
 from scripts.py.cli.handle_simulation import handle_simulation
 from scripts.py.cli.handle_status import handle_status
@@ -185,6 +186,13 @@ def inference(
 def score_experiment(config_path: Path):
     out = handle_score(_get_experiment_config(config_path))
     print(f"Scores in [green]{out}[/green] (join to inference_registry.csv).")
+
+
+@experiment.command(name="network-score")
+def network_score_experiment(config_path: Path):
+    """CmpNets every network family row against its reference network."""
+    out = handle_network_score(_get_experiment_config(config_path))
+    print(f"Network scores in [green]{out}[/green] (join to camus_registry.csv).")
 
 
 @experiment.command()
