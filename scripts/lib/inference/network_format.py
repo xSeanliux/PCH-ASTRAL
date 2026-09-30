@@ -20,12 +20,13 @@ def _wrap(tree: str, clade: str, wrapped: str) -> str:
 
 
 def contact_network_to_rich_newick(text: str) -> str:
-    """Line 1 of `text` is the base tree; each later line a contact event."""
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     tree = lines[0].rstrip(";")
     events: list[tuple[float, str, str]] = []
     for line in lines[1:]:
         a, b, time, _strength = line.split(";")
+        if a == b:
+            raise ValueError(f"contact event on one clade: {a!r}")
         events.append((float(time), a, b))
     # Earliest first: an ancestor branch's event wraps before a descendant's
     # clade is looked up, and the descendant is still an exact substring.
