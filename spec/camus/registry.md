@@ -1,4 +1,4 @@
-# CAMUS network registry (future work)
+# CAMUS network registry
 
 CAMUS does **not** produce one point estimate. For a guide tree `T`, it emits a
 *family* of networks `N_1, …, N_m`, where `N_k` is the optimal network
@@ -59,9 +59,10 @@ new inference commands.
   a wired method, so enabling `camus:` runs it here (scheduling/deps reuse). What
   changes internally: `api.infer` returns one `InferenceResult` (one point
   estimate) — that can't hold a network family. CAMUS routes its output to a
-  camus-specific writer that enriches CAMUS's CSV and appends to `camus_registry.csv`
-  instead of `inference_registry.csv`. Tree methods keep writing the tree
-  registry. Same shard/compact model.
+  camus-specific writer that enriches CAMUS's CSV and appends its family rows to
+  `camus_registry.csv`. It also writes a normal (empty-newick) row to
+  `inference_registry.csv` — resume depends on that row, not on the family.
+  Tree methods keep writing the tree registry. Same shard/compact model.
 - `pch experiment score <yaml>` — stays tree RF (`scores.csv`), untouched.
 - `pch experiment network-score <yaml>` — **new.** PhyloNet-based per-k network
   scoring → `network_scores.csv` (see `scoring.md`). Separate command because RF

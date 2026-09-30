@@ -38,8 +38,10 @@ main.py: inference
    │  ├─ resume: (method, hash_config) done?     -> skip
    │  ├─ gate: a dependency has no success?      -> block
    │  ├─ api.infer(input_csv, out_dir, runner)   -> InferenceResult
+   │  ├─ network method: camus_registry.write_family -> camus_shards/{job}.jsonl
    │  └─ OK -> registry.write_result             -> shards/{job}.jsonl
-   └─ registry.compact                           -> inference_registry.csv
+   ├─ registry.compact                           -> inference_registry.csv
+   └─ camus_registry.compact_if_any              -> camus_registry.csv
 ```
 
 ## The runner contract
@@ -130,6 +132,8 @@ inference_data/
 ├─ scores.csv                          # handle_score
 ├─ manifest.json                       # registry.init/finalize_manifest
 ├─ shards/{job}.jsonl                  # registry.write_result; removed by compact
+├─ camus_registry.csv                  # camus_registry.compact; one row per k
+├─ camus_shards/{job}.jsonl            # camus_registry.write_family; removed by compact
 ├─ batches/<cond>.txt, spec.snapshot.*.yaml   # SlurmExecutor
 └─ <cond>/<METHOD>/{trees,logs}/       # runner paths; CAMUS/{networks,logs}/
 ```
@@ -154,7 +158,7 @@ inference_data/
 | Fan-out | Have the config's `get_runners()` return several runners; give each a distinct config and `suffix`. |
 | Dependency | Override `get_dependencies()`; nothing else to order. |
 | Guide tree | Add the method to `SUPPORTED_GUIDE_TREES` (`model/guide_tree.py`); it must emit a rooted binary tree. |
-| Registry table | Schema in `py/cli/schemata.py`; writer reusing the `registry.py` shard/compact pattern; section in `SCHEMAS.md`. |
+| Registry table (network families: `camus_registry.py`) | Schema in `py/cli/schemata.py`; writer reusing the `registry.py` shard/compact pattern; section in `SCHEMAS.md`. |
 
 Also document the shell contract in `SCRIPT_CONTRACTS.md` and add tests mirroring `tests/scripts/lib/inference/`. Field-name tables and hand-ordering do not exist; order comes from `get_dependencies()`.
 

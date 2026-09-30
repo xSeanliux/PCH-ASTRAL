@@ -63,8 +63,10 @@ experiments/my_run/
   simulation_data/  simulated_data_registry.csv, model trees, configs
   inference_data/
     inference_registry.csv            # THE joinable index (one row per dataset×method)
+    camus_registry.csv                # CAMUS's network families, one row per (dataset, guide_tree, k)
     scores.csv                        # FN/FP per (dataset_id, method, config_hash) — `pch experiment score`
     shards/{job}.jsonl                # transient per-job staging; removed by compact
+    camus_shards/{job}.jsonl          # same, for camus_registry.csv
     manifest.json                     # created_at, completed_at, methods, tally
 ```
 Everything lives under `experiment_folder/` — self-contained and portable. The point estimate is stored **inline** in the CSV (`point_estimate_newick`), not as a per-run file.
