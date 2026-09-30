@@ -55,7 +55,9 @@ def completed_runs(experiment_folder: Path) -> dict[DatasetKey, set[tuple[str, s
         rows = pl.read_csv(out, schema=INFERENCE_REGISTRY_SCHEMA).iter_rows(named=True)
         _add_ok_runs(rows, done)
     # _iter_shard_rows now yields dict[str, Cell] directly — no cast needed.
-    _add_ok_runs(registry._iter_shard_rows(experiment_folder), done)
+    _add_ok_runs(
+        registry._iter_shard_rows(registry._shards_dir(experiment_folder)), done
+    )
     return dict(done)
 
 

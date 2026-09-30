@@ -94,7 +94,7 @@ def test_iter_shard_rows_skips_torn_tail(tmp_path: Path):
     )
     # 3rd line is a truncated JSON object — a killed writer's torn tail.
     _write_shard(tmp_path, f"{good1}\n{good2}\n{good2[:20]}")
-    rows = list(_iter_shard_rows(tmp_path))
+    rows = list(_iter_shard_rows(tmp_path / "inference_data" / "shards"))
     assert len(rows) == 2
     assert [r["dataset_id"] for r in rows] == ["ds1", "ds2"]
 
@@ -104,7 +104,7 @@ def test_iter_shard_rows_skips_valid_json_scalars(tmp_path: Path):
     # Yielding it would blow up downstream at row["status"]; it must be skipped.
     good = json.dumps(_result("2026-01-01T00:00:00+00:00").to_registry_row())
     _write_shard(tmp_path, f'{good}\n42\n"stray"')
-    rows = list(_iter_shard_rows(tmp_path))
+    rows = list(_iter_shard_rows(tmp_path / "inference_data" / "shards"))
     assert len(rows) == 1
     assert all(isinstance(r, dict) for r in rows)
     assert rows[0]["dataset_id"] == "ds1"
