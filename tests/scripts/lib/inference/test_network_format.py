@@ -42,3 +42,8 @@ def test_leaf_clade_does_not_match_a_longer_label():
 def test_missing_clade_raises():
     with pytest.raises(ValueError, match="matched 0"):
         contact_network_to_rich_newick(SIX + "\nZ;C;0.5;0.3\n")
+
+
+def test_event_on_one_clade_raises():
+    with pytest.raises(ValueError, match="one clade"):
+        contact_network_to_rich_newick(SIX + "\nB;B;0.5;0.3\n")
