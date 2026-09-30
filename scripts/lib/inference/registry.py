@@ -30,7 +30,7 @@ DATASET_KEY_COLUMNS = ["dataset_id"]
 _KEY_COLUMNS = DATASET_KEY_COLUMNS + ["method", "config_hash"]
 
 
-def _keyval(v: object) -> str:
+def _keyval(v: Cell) -> str:
     # Stable across read paths: floats via repr so 1.0 doesn't become "1".
     if v is None:
         return ""
@@ -39,12 +39,12 @@ def _keyval(v: object) -> str:
     return str(v)
 
 
-def run_key(row: Mapping[str, object]) -> str:
+def run_key(row: Mapping[str, Cell]) -> str:
     """Readable dedup key: the join keys + method + config_hash, '|'-joined."""
     return "|".join(_keyval(row.get(c)) for c in _KEY_COLUMNS)
 
 
-def _ran_at(row: Mapping[str, object]) -> datetime:
+def _ran_at(row: Mapping[str, Cell]) -> datetime:
     # Parse the ISO8601 timestamp so the tie-break is correct across offsets,
     # not a lexical string compare that assumes everyone emits +00:00.
     return datetime.fromisoformat(str(row["ran_at"]))
@@ -134,7 +134,7 @@ def merge_shards(
     shards: Path,
     out: Path,
     schema: pl.Schema,
-    key: Callable[[Mapping[str, object]], str],
+    key: Callable[[Mapping[str, Cell]], str],
     *,
     cleanup: bool = True,
 ) -> Path:
