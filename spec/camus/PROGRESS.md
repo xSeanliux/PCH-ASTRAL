@@ -1,6 +1,6 @@
 # CAMUS — progress
 
-As of 2026-09-30. Plan of record: `PLAN.md`. Terms: `CONTEXT.md`. Next agent: `HANDOFF.md`.
+As of 2026-09-30, PR 4 built. Plan of record: `PLAN.md`. Terms: `CONTEXT.md`. Next agent: `HANDOFF.md`.
 
 ## Goal
 
@@ -12,11 +12,11 @@ measurement are deferred on purpose.
 
 ```
 main ← #32 ga-nexus-labels ← #33 outgroup-simulation
-main ← #31 camus-install ← #34 camus-run ← #35 camus-registry ← (PR 4)
+main ← #31 camus-install ← #34 camus-run ← #35 camus-registry ← camus-scoring/{adapter,scorer,cli}
 ```
 
-Merge order: #32, #33, #31, #34, #35. All open, all CI-green at last check. Each PR's
-body carries its own verification.
+Merge order: #32, #33, #31, #34, #35, then the `camus-scoring` stack bottom to top. Each
+PR's body carries its own verification.
 
 | PR | Branch | Built | State |
 |---|---|---|---|
@@ -25,6 +25,7 @@ body carries its own verification.
 | #33 | `outgroup-simulation` | `simulation.outgroup: OUT`; graft with contact-time shift; registry points at copies; base trees always written; graft recorded in `model_graph_registry.csv` | open |
 | #34 | `camus-run` | real `runCAMUS.sh`; `scripts/py/guide_tree.py` resolves and roots the guide; CAMUS pinned v1.0.2 | open |
 | #35 | `camus-registry` | `camus_registry.py`: `write_family`, `compact`; ingest before the inference row; compaction local and SLURM | open |
+| PR 4 | `camus-scoring/*` (gh-stack, 3 layers) | `network_format.py` adapter; `network_score` + `resolve_reference_network`; `pch experiment network-score` → `network_scores.csv` | built, not pushed |
 
 ## What works, measured
 
@@ -37,6 +38,9 @@ characters), laptop, ~6.5 min for simulation + MP4 + GA + ASTRAL3 + wASTRAL + CA
 - `camus_registry.csv`: 72 rows, no null cells; rerun skips everything, registry
   unchanged.
 - GA runs clean with `OUT` present (the #32 fix, end to end).
+- `network_scores.csv`: 72/72 `ok`, 0.21–0.43 s per CmpNets call, 18 s total; the 2 h
+  timeout is far from binding at 31 taxa, k ≤ 6. `true_tree` k = 0 scores FP 0, FN 2/31
+  at h = 1. Rerun is a no-op.
 
 Facts established along the way, all verified against source or by running:
 
@@ -53,11 +57,9 @@ Facts established along the way, all verified against source or by running:
 | Bidirectional reference vs single-direction estimate: FN 0.167, plain tree 0.333 (6 taxa) | `scoring.md` |
 | Paper scores k = 1 only, level-1 truths only, over 5 h for one 51-species network | `scoring.md` |
 
-## Remaining: PR 4, network scoring
+## Remaining
 
-`PLAN.md` section "PR 4". Adapter (contact network → Rich newick, two contact edges per
-event, topology only), taxon-set guard, `CmpNets -m cluster` with a 2 h timeout and
-per-call runtime, `network_scores.csv`, `pch experiment network-score`.
+Push the `camus-scoring` stack and open its PRs. Plan of record: `plans/pr4-scoring.md`.
 
 ## Follow-ups, deliberately not started
 
