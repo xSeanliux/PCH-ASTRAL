@@ -5,6 +5,7 @@ import polars as pl
 import pytest
 
 from scripts.lib.inference.scoring import (
+    PHYLONET_JAR,
     network_score,
     resolve_reference_network,
     score,
@@ -15,7 +16,7 @@ needs_r = pytest.mark.skipif(
     shutil.which("Rscript") is None, reason="Rscript not installed"
 )
 needs_phylonet = pytest.mark.skipif(
-    shutil.which("java") is None or not Path("bin/PhyloNet.jar").exists(),
+    shutil.which("java") is None or not PHYLONET_JAR.exists(),
     reason="java or bin/PhyloNet.jar missing",
 )
 
