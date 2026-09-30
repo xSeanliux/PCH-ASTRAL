@@ -10,12 +10,13 @@ from scripts.lib.inference import api
 from scripts.lib.inference.inference import InferenceResult
 from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.lib.inference.method_config import hash_config
-from scripts.lib.inference import registry
+from scripts.lib.inference import camus_registry, registry
 from scripts.py.cli.handle_inference import (
     _read_dataset_filter,
     handle_inference,
     select_runners,
 )
+from scripts.py.cli.schemata import CAMUS_REGISTRY_SCHEMA
 
 
 def test_read_dataset_filter_strips_whitespace(tmp_path: Path):
@@ -456,11 +457,12 @@ def test_handle_inference_runs_camus_once_per_guide(tmp_path: Path, monkeypatch)
     calls: list[tuple[str | None, list[str]]] = []
 
     def fake(input_csv, output_dir, runner):
-        calls.append(
-            (
-                runner.get_run_name(input_csv.stem),
-                [str(g) for g in sorted(runner.config.guide_trees)],
-            )
+        name = runner.get_run_name(input_csv.stem)
+        calls.append((name, [str(g) for g in sorted(runner.config.guide_trees)]))
+        csv = output_dir / "CAMUS" / "networks" / f"{name}.csv"
+        csv.parent.mkdir(parents=True, exist_ok=True)
+        csv.write_text(
+            'Number of Branches,Quartet Satisfied Percent,Extended Newick\n0,0,"(A,B);"\n'
         )
         return InferenceResult(
             dataset_id=registry.canonical_path(input_csv),
@@ -471,6 +473,7 @@ def test_handle_inference_runs_camus_once_per_guide(tmp_path: Path, monkeypatch)
             runtime_seconds=1.0,
             status=RunStatus.OK,
             ran_at=datetime.now(timezone.utc).isoformat(),
+            group_estimate_path=str(csv),
         )
 
     monkeypatch.setattr(api, "infer", fake)
@@ -489,3 +492,125 @@ def test_handle_inference_runs_camus_once_per_guide(tmp_path: Path, monkeypatch)
     calls.clear()
     handle_inference(cfg)
     assert calls == []  # resume: the true_tree unit is already recorded
+
+
+FAMILY = (
+    "Number of Branches,Quartet Satisfied Percent,Extended Newick\n"
+    '0,0,"((A,B),OUT);"\n'
+    '1,50.0,"((A,(B)#H1),(#H1,OUT));"\n'
+)
+
+
+def _camus_experiment(tmp_path: Path) -> Path:
+    cond_dir = tmp_path / "simulation_data" / "simulated_data" / "high_0.1_4_320"
+    cond_dir.mkdir(parents=True)
+    dataset = cond_dir / "sim_1_1_1.csv"
+    dataset.write_text("id,feature,weight,A,B,OUT\n")
+    pl.DataFrame(
+        {
+            "poly_level": ["high"],
+            "character_count": [320],
+            "min_tree_height": [4],
+            "homoplasy_factor": [0.1],
+            "horizontal_edges": [1],
+            "model_tree": [1],
+            "replica": [1],
+            "path": [str(dataset)],
+        }
+    ).write_csv(tmp_path / "simulation_data" / "simulated_data_registry.csv")
+    return dataset
+
+
+def _fake_camus(family: str):
+    def fake(input_csv, output_dir, runner):
+        csv = (
+            output_dir
+            / "CAMUS"
+            / "networks"
+            / f"{runner.get_run_name(input_csv.stem)}.csv"
+        )
+        csv.parent.mkdir(parents=True, exist_ok=True)
+        csv.write_text(family)
+        return InferenceResult(
+            dataset_id=registry.canonical_path(input_csv),
+            method=runner.method,
+            config_hash=hash_config(runner.config),
+            method_config_json=runner.config.model_dump_json(),
+            point_estimate_newick="",
+            runtime_seconds=1.0,
+            status=RunStatus.OK,
+            ran_at=datetime.now(timezone.utc).isoformat(),
+            group_estimate_path=str(csv),
+        )
+
+    return fake
+
+
+def test_handle_inference_ingests_each_camus_family(tmp_path: Path, monkeypatch):
+    dataset = _camus_experiment(tmp_path)
+    monkeypatch.setattr(api, "infer", _fake_camus(FAMILY))
+    methods = {"camus": {"guide_trees": ["true_tree"]}}
+    cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
+    out = handle_inference(cfg)
+
+    assert pl.read_csv(out).height == 1  # the inference row
+    df = pl.read_csv(
+        camus_registry.get_registry_path(tmp_path), schema=CAMUS_REGISTRY_SCHEMA
+    )
+    assert df.height == 2
+    assert df["guide_tree"].to_list() == ["true_tree", "true_tree"]
+    assert sorted(df["k"].to_list()) == [0, 1]
+    assert df["dataset_id"][0] == registry.canonical_path(dataset)
+    assert not camus_registry.get_shards_dir(tmp_path).exists()  # compacted
+
+
+def test_handle_inference_skips_inference_row_when_ingest_fails(
+    tmp_path: Path, monkeypatch, capsys
+):
+    _camus_experiment(tmp_path)
+    monkeypatch.setattr(
+        api, "infer", _fake_camus(FAMILY.replace("Extended Newick", "Newick"))
+    )
+    methods = {"camus": {"guide_trees": ["true_tree"]}}
+    cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
+    out = handle_inference(cfg)
+
+    assert pl.read_csv(out).height == 0  # no inference row: the next run retries
+    assert not camus_registry.get_registry_path(tmp_path).exists()
+    assert "failed" in capsys.readouterr().out
+
+
+def test_compact_without_camus_writes_no_camus_registry(tmp_path: Path, monkeypatch):
+    # An mp-only experiment; reuse the fixture the other tests use.
+    sim_dir = tmp_path / "simulation_data" / "simulated_data" / "high_0.1_4_320"
+    sim_dir.mkdir(parents=True)
+    dataset = sim_dir / "sim_0_1_1.csv"
+    dataset.write_text("id,feature,weight,A,B\n")
+    pl.DataFrame(
+        {
+            "poly_level": ["high"],
+            "character_count": [320],
+            "min_tree_height": [4],
+            "homoplasy_factor": [0.1],
+            "horizontal_edges": [0],
+            "model_tree": [1],
+            "replica": [1],
+            "path": [str(dataset)],
+        }
+    ).write_csv(tmp_path / "simulation_data" / "simulated_data_registry.csv")
+
+    def fake(input_csv, output_dir, runner):
+        return InferenceResult(
+            dataset_id=registry.canonical_path(input_csv),
+            method=runner.method,
+            config_hash="h",
+            method_config_json="{}",
+            point_estimate_newick="(A,B);",
+            runtime_seconds=1.0,
+            status=RunStatus.OK,
+            ran_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    monkeypatch.setattr(api, "infer", fake)
+    handle_inference(ExperimentConfig.model_validate(_config(tmp_path)))
+    assert not camus_registry.get_registry_path(tmp_path).exists()

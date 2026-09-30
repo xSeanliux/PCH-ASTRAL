@@ -14,11 +14,15 @@ from pydantic import BaseModel
 from rich import print
 
 from scripts.lib.experiment import ExperimentConfig, MethodConfig
-from scripts.lib.inference import api, registry, scheduler
-from scripts.lib.model.methods import InferenceMethod, RunStatus
+from scripts.lib.inference import api, camus_registry, registry, scheduler
 from scripts.lib.inference.method_config import hash_config
 from scripts.lib.inference.runners import METHOD_TO_RUNNER_CLASS
 from scripts.lib.inference.runners.base import Runner
+from scripts.lib.model.methods import (
+    InferenceMethod,
+    NetworkInferenceMethod,
+    RunStatus,
+)
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 
@@ -131,6 +135,20 @@ def handle_inference(
                 tally["failed"] += 1
                 continue
 
+            # ponytail: CAMUS-shaped family CSV; generalise to network_registry with a 2nd network method
+            if isinstance(r.method, NetworkInferenceMethod):
+                # Ingest first: an inference row with no family would make
+                # resume skip this unit forever.
+                assert r.suffix is not None  # CAMUS runners always name a guide
+                try:
+                    camus_registry.write_family(result, r.suffix, experiment_folder)
+                except ValueError as e:
+                    print(
+                        f"[yellow]{r.method.value} failed on {input_path.name}: {e}[/yellow]"
+                    )
+                    tally["failed"] += 1
+                    continue
+
             registry.write_result(result, experiment_folder)
             ok_methods.add(r.method.value)
             tally["ok"] += 1
@@ -140,6 +158,7 @@ def handle_inference(
     else:
         registry.finalize_manifest(experiment_folder, tally)
         out = registry.compact(experiment_folder)
+        camus_registry.compact_if_any(experiment_folder)
     print(
         f"Inference: {tally['ok']} ok, {tally['skipped']} skipped, "
         f"{tally['blocked']} blocked, {tally['failed']} failed → [green]{out}[/green]."
