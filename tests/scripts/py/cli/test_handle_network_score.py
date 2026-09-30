@@ -16,7 +16,10 @@ REF_TEXT = "((((A:1,B:1):1,C:1):1,(D:1,E:1):1):1,OUT:1)\nB;C;0.5;0.3\n"
 NEWICKS = ["((((A,B),C),(D,E)),OUT);", "((((A,((B)#H1)),(#H1,C)),(D,E)),OUT);"]
 
 
-def _setup(tmp_path: Path) -> ExperimentConfig:
+def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ExperimentConfig:
+    jar = tmp_path / "PhyloNet.jar"
+    jar.touch()
+    monkeypatch.setattr(hns, "PHYLONET_JAR", jar)
     sim_dir = tmp_path / "simulation_data" / "simulated_data" / "high_0.1_4_320"
     sim_dir.mkdir(parents=True)
     dataset = sim_dir / "sim_1_1_1.csv"
@@ -68,7 +71,7 @@ def _setup(tmp_path: Path) -> ExperimentConfig:
 
 
 def test_writes_scores(tmp_path: Path, monkeypatch):
-    cfg = _setup(tmp_path)
+    cfg = _setup(tmp_path, monkeypatch)
     seen: list[tuple[str, str]] = []
     monkeypatch.setattr(
         hns,
@@ -85,10 +88,39 @@ def test_writes_scores(tmp_path: Path, monkeypatch):
     assert all(t >= 0 for t in df["runtime_seconds"].to_list())
     assert [e for e, _ in seen] == NEWICKS
     assert {r for _, r in seen} == {"((((A,((B)#H2,#H1)),((C)#H1,#H2)),(D,E)),OUT);"}
+    # Scoring is its own stage: reads the family registry, writes one file.
+    assert {p.name for p in (tmp_path / "inference_data").iterdir()} == {
+        "camus_registry.csv",
+        "network_scores.csv",
+    }
+
+
+def test_missing_jar_stops_before_scoring(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, monkeypatch)
+    hns.PHYLONET_JAR.unlink()
+    with pytest.raises(AssertionError, match="install-phylonet"):
+        handle_network_score(cfg)
+    assert not (tmp_path / "inference_data" / "network_scores.csv").exists()
+
+
+def test_interrupt_keeps_scored_rows(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, monkeypatch)
+    calls: list[int] = []
+
+    def fake(est: str, ref: str) -> NetworkScore:
+        calls.append(1)
+        if len(calls) == 2:
+            raise KeyboardInterrupt
+        return NetworkScore(0.5, 0.0, 0.25)
+
+    monkeypatch.setattr(hns, "network_score", fake)
+    with pytest.raises(KeyboardInterrupt):
+        handle_network_score(cfg)
+    assert pl.read_csv(tmp_path / "inference_data" / "network_scores.csv").height == 1
 
 
 def test_incremental(tmp_path: Path, monkeypatch):
-    cfg = _setup(tmp_path)
+    cfg = _setup(tmp_path, monkeypatch)
     calls: list[int] = []
     monkeypatch.setattr(
         hns,
@@ -102,7 +134,7 @@ def test_incremental(tmp_path: Path, monkeypatch):
 
 
 def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
-    cfg = _setup(tmp_path)
+    cfg = _setup(tmp_path, monkeypatch)
 
     def fake(est: str, ref: str) -> NetworkScore:
         if "#H1" in est:
