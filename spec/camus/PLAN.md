@@ -16,7 +16,8 @@ optimal network for each k.
 simulation → inference → network-score on a laptop and writes `network_scores.csv`.
 
 PR #31 (branch `camus-install`) wired the method in: config, runner, install scripts,
-`spec/camus/`. PRs GA, 1 and 2 are built; CAMUS runs. PRs 3 and 4 remain.
+`spec/camus/`. PRs GA, 1, 2 and 3 are built; CAMUS runs and its families are registered.
+PR 4 remains. Status and handoff: `PROGRESS.md`, `HANDOFF.md`.
 
 ## What CAMUS does
 
@@ -75,8 +76,8 @@ How we differ from the paper's evaluation:
 | 0 | `camus-install` | Doc fixes, method/runner type split, guide-tree split | #31 |
 | GA | `ga-nexus-labels` | GA NEXUS label fix | #32 |
 | 1 | `outgroup-simulation`, on GA | Outgroup simulation | #33 |
-| 2 | `camus-run`, on #31 and PR 1 | `runCAMUS.sh`, guide tree, pin CAMUS | built |
-| 3 | on PR 2 | Network family registry | to do |
+| 2 | `camus-run`, on #31 and PR 1 | `runCAMUS.sh`, guide tree, pin CAMUS | #34 |
+| 3 | `camus-registry`, on PR 2 | Network family registry | #35 |
 | 4 | on PR 3 | Network scoring | to do |
 
 ---
@@ -249,7 +250,8 @@ repeated on each row. Only rows CAMUS wrote are stored; nothing is padded to a c
 
 **B. `scripts/lib/inference/camus_registry.py`**, mirroring `registry.py`:
 
-- `write_family(result, guide_tree, csv_path, experiment_folder)` — read the CSV, rename,
+- `write_family(result, guide_tree, experiment_folder)` — read the family at
+  `result.tree_set_path`, rename,
   prepend identity columns, append one JSON line per row to
   `inference_data/camus_shards/{registry.current_shard_id()}.jsonl`.
 - `compact(experiment_folder)` — seed from any existing `camus_registry.csv`, fold in
@@ -264,8 +266,13 @@ shards or camus_registry.csv exists".
 1. **Ingest first, then `registry.write_result`.** If the inference row lands and
    ingestion then fails, resume skips that unit forever. On ingestion failure: warn, count
    as `failed`, write no inference row.
-2. **Assert the three header names** after `read_csv`. With trap 1, a broken parse becomes
-   a retryable failure.
+2. **Reject anything but a whole family.** After `read_csv`: the three header names, at
+   least one row, no null cell, first k = 0; Polars errors (empty file, torn quoted
+   newick) become `ValueError` too. With trap 1, every broken parse is a retryable
+   failure.
+3. **Dedup per family, not per k.** After the per-k merge, keep only the newest
+   `ran_at` per (dataset, config), so a rerun that wrote a shorter family leaves no
+   stale higher-k rows.
 
 ### Verification
 
