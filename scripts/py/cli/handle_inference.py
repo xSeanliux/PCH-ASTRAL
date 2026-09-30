@@ -133,10 +133,9 @@ def handle_inference(
                 if isinstance(m, NetworkInferenceMethod):
                     # Ingest first: an inference row with no family would make
                     # resume skip this unit forever.
+                    assert suffix is not None  # CAMUS variants always name a guide
                     try:
-                        camus_registry.write_family(
-                            result, str(suffix), experiment_folder
-                        )
+                        camus_registry.write_family(result, suffix, experiment_folder)
                     except ValueError as e:
                         print(
                             f"[yellow]{m.value} failed on {input_path.name}: {e}[/yellow]"

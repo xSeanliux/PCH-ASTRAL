@@ -87,6 +87,36 @@ def test_write_family_rejects_a_missing_family(tmp_path: Path):
         camus_registry.write_family(result, "true_tree", tmp_path)
 
 
+def test_write_family_rejects_an_empty_file(tmp_path: Path):
+    result = _result(tmp_path, family="")
+    with pytest.raises(ValueError):
+        camus_registry.write_family(result, "true_tree", tmp_path)
+    assert not camus_registry.shards_dir(tmp_path).exists()
+
+
+def test_write_family_rejects_a_header_only_family(tmp_path: Path):
+    result = _result(tmp_path, family=FAMILY.splitlines()[0] + "\n")
+    with pytest.raises(ValueError, match="no rows"):
+        camus_registry.write_family(result, "true_tree", tmp_path)
+    assert not camus_registry.shards_dir(tmp_path).exists()
+
+
+def test_write_family_rejects_a_torn_last_row(tmp_path: Path):
+    torn = FAMILY.splitlines()[0] + "\n" + FAMILY.splitlines()[1] + "\n1,5\n"
+    result = _result(tmp_path, family=torn)
+    with pytest.raises(ValueError, match="null"):
+        camus_registry.write_family(result, "true_tree", tmp_path)
+    assert not camus_registry.shards_dir(tmp_path).exists()
+
+
+def test_write_family_rejects_first_k_not_zero(tmp_path: Path):
+    bad = FAMILY.splitlines()[0] + "\n" + FAMILY.splitlines()[2] + "\n"
+    result = _result(tmp_path, family=bad)
+    with pytest.raises(ValueError, match="k"):
+        camus_registry.write_family(result, "true_tree", tmp_path)
+    assert not camus_registry.shards_dir(tmp_path).exists()
+
+
 def test_compact_dedups_a_requeued_family_keeping_the_newest(tmp_path: Path):
     camus_registry.write_family(
         _result(tmp_path, ran_at="2026-09-29T00:00:00+00:00"), "true_tree", tmp_path
@@ -101,6 +131,28 @@ def test_compact_dedups_a_requeued_family_keeping_the_newest(tmp_path: Path):
     df = pl.read_csv(camus_registry.compact(tmp_path), schema=CAMUS_REGISTRY_SCHEMA)
     assert df.height == 2
     assert df.filter(pl.col("k") == 1)["qsat_percent"][0] == pytest.approx(40.0)
+
+
+def test_compact_dedups_by_family_not_by_k(tmp_path: Path):
+    # A rerun that writes a SHORTER family must drop the earlier run's extra
+    # (higher-k) rows too, not just update the k's the new family shares.
+    three_rows = FAMILY + f'2,50.0,"{NEWICKS[1]}"\n'
+    camus_registry.write_family(
+        _result(tmp_path, family=three_rows, ran_at="2026-09-29T00:00:00+00:00"),
+        "true_tree",
+        tmp_path,
+    )
+    camus_registry.compact(tmp_path)  # 3 rows (k=0,1,2) from the first run
+
+    camus_registry.write_family(
+        _result(tmp_path, ran_at="2026-09-29T01:00:00+00:00"),  # 2 rows: k=0,1
+        "true_tree",
+        tmp_path,
+    )
+    df = pl.read_csv(camus_registry.compact(tmp_path), schema=CAMUS_REGISTRY_SCHEMA)
+
+    assert df.height == 2
+    assert df["ran_at"].to_list() == ["2026-09-29T01:00:00+00:00"] * 2
 
 
 def test_compact_removes_shards(tmp_path: Path):
