@@ -95,6 +95,9 @@ def resolve_reference_network(
     )
 
 
+# Relative to the repo root, like RFScorer.R above: the pipeline runs from there.
+PHYLONET_JAR = Path("bin/PhyloNet.jar")
+
 # A leaf label follows `(` or `,`; a hybrid reference `#H1` starts with `#`.
 _TAXON = re.compile(r"(?<=[(,])[^(),:;#]+")
 _DISTANCE = re.compile(r"distance between two networks:\s*(\S+)\s+(\S+)\s+(\S+)")
@@ -125,7 +128,7 @@ def network_score(
         tmp = Path(f.name)
     try:
         proc = subprocess.run(
-            ["java", "-jar", "bin/PhyloNet.jar", str(tmp)],
+            ["java", "-jar", str(PHYLONET_JAR), str(tmp)],
             capture_output=True,
             text=True,
             check=False,
@@ -133,7 +136,7 @@ def network_score(
         )
         if proc.returncode != 0:
             raise RuntimeError(
-                f"PhyloNet failed (exit {proc.returncode}): {proc.stdout}{proc.stderr}"
+                f"PhyloNet failed (exit {proc.returncode}): {proc.stdout}\n{proc.stderr}"
             )
         m = _DISTANCE.search(proc.stdout)
         if m is None:
