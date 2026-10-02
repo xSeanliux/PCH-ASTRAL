@@ -37,8 +37,6 @@ class ASTRAL3Runner:
 
     @property
     def method(self) -> TreeInferenceMethod:
-        # A `@property` (not a field): fixed per class, can't be overridden at
-        # construction (see `Runner.method` in `runners/base.py`).
         return TreeInferenceMethod.PCH_ASTRAL3
 
     def dependencies(self) -> list[InferenceMethod]:

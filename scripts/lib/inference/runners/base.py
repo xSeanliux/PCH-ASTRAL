@@ -13,28 +13,22 @@ from scripts.lib.model.methods import (
 
 @runtime_checkable
 class Runner(Protocol):
-    """One run of one method: owns its config, so it owns its command and name."""
+    """One run of one method: owns its config, so it owns its command and name.
+
+    `method`, `suffix`, `config` are properties, not attributes: protocol
+    attributes are invariant, and implementers narrow all three."""
 
     @property
-    def method(self) -> InferenceMethod:
-        """The method this runner runs. A read-only `@property` (ty's `ClassVar`
-        check is invariant, so a subclass narrowing to `TreeInferenceMethod`/
-        `NetworkInferenceMethod` would fail the protocol match; `@property`, like
-        `config`/`suffix` below, is covariant)."""
-        ...
+    def method(self) -> InferenceMethod: ...
 
     @property
     def suffix(self) -> str | None:
-        """Distinguishes runs of one method on one dataset. A `@property` (see
-        `config` below) so CamusRunner's narrower (always-`str`) suffix satisfies
-        this read without an invariant attribute-type match."""
+        """Distinguishes runs of one method on one dataset."""
         ...
 
     @property
     def config(self) -> BaseModel:
-        """What `config_hash` hashes. A `@property` (not a plain attribute) so each
-        runner's own `config: ConcreteConfig` field — a narrower type — satisfies
-        this read; a plain attribute would need an exact (invariant) type match."""
+        """What `config_hash` hashes."""
         ...
 
     def build_argv(

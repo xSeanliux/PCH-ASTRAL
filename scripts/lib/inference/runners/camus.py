@@ -17,8 +17,6 @@ class CamusRunner:
 
     @property
     def method(self) -> NetworkInferenceMethod:
-        # A `@property` (not a field): fixed per class, can't be overridden at
-        # construction (see `Runner.method` in `runners/base.py`).
         return NetworkInferenceMethod.CAMUS
 
     @property
