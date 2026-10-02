@@ -15,8 +15,13 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class GARunner:
     config: "GAConfig"
-    method: InferenceMethod = TreeInferenceMethod.GA
     suffix: str | None = None
+
+    @property
+    def method(self) -> TreeInferenceMethod:
+        # A `@property` (not a field): fixed per class, can't be overridden at
+        # construction (see `Runner.method` in `runners/base.py`).
+        return TreeInferenceMethod.GA
 
     def dependencies(self) -> list[InferenceMethod]:
         return []

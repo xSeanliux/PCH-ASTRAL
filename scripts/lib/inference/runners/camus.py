@@ -13,9 +13,18 @@ if TYPE_CHECKING:
 class CamusRunner:
     """CAMUS level-1 network inference: one guide tree in, one network family out."""
 
-    guide: GuideTree
     config: "CamusConfig"  # the single-guide config; what config_hash hashes
-    method: InferenceMethod = NetworkInferenceMethod.CAMUS
+
+    @property
+    def method(self) -> NetworkInferenceMethod:
+        # A `@property` (not a field): fixed per class, can't be overridden at
+        # construction (see `Runner.method` in `runners/base.py`).
+        return NetworkInferenceMethod.CAMUS
+
+    @property
+    def guide(self) -> GuideTree:
+        (guide,) = self.config.guide_trees
+        return guide
 
     @property
     def suffix(self) -> str:

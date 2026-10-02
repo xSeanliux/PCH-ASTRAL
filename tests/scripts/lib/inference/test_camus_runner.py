@@ -6,19 +6,20 @@ from pydantic import ValidationError
 
 from scripts.lib.experiment import CamusConfig
 from scripts.lib.inference import api
+from scripts.lib.model.guide_tree import GuideTree
 from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.lib.inference.method_config import config_hash
 from scripts.lib.inference.runners.camus import CamusRunner
 
-G = CamusConfig.GuideTree
+G = GuideTree
 
 
-def _config(*guides: CamusConfig.GuideTree) -> CamusConfig:
+def _config(*guides: GuideTree) -> CamusConfig:
     return CamusConfig(guide_trees=frozenset(guides))
 
 
 @pytest.mark.parametrize("guide", [G.MP, G.GA, G.W_TREE_QMC])
-def test_unsupported_guides_are_rejected(guide: CamusConfig.GuideTree):
+def test_unsupported_guides_are_rejected(guide: GuideTree):
     # CAMUS refuses a non-binary/unrooted guide tree: mp is a majority consensus
     # (polytomies), ga is unrooted, and TREE-QMC can emit polytomies. Fail at
     # config load, not mid-run.
@@ -56,7 +57,7 @@ def test_get_runners_dependencies_drop_true_tree():
     ],
 )
 def test_each_guide_names_its_source(
-    guide: CamusConfig.GuideTree, dependency: TreeInferenceMethod | None
+    guide: GuideTree, dependency: TreeInferenceMethod | None
 ):
     assert guide.dependency is dependency
 

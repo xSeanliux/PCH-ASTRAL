@@ -38,11 +38,12 @@ methods:
 ```
 
 CAMUS takes one guide tree per run; `guide_trees` is a set that fans out to one run
-per guide (`CamusConfig.variants()`), each named `<stem>.<guide>`. `experiment
+per guide (`CamusConfig.get_runners()`), each named `<stem>.<guide>`. `experiment
 status` counts each guide on its own line, `camus.<guide>`.
 
 `CamusConfig` in `scripts/lib/experiment.py`; runner
-`scripts/lib/inference/runners/camus.py`. `_GUIDE_TREE_DEPENDENCY` is both the
+`scripts/lib/inference/runners/camus.py`. `GUIDE_TREE_DEPENDENCY`
+(`scripts/lib/model/guide_tree.py`) is both the
 **allow-list** (absent member = unsupported, rejected by a field validator at config
 load) and the scheduler-dependency map — a method guide gates on its method,
 `true_tree` on nothing. `mp`/`ga`/`w_tree_qmc` stay enum members only so they fail

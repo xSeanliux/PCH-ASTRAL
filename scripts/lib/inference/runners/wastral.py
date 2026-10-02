@@ -22,8 +22,13 @@ class WASTRALRunner:
     VARIANT = f"{SCHEME.__name__}_WASTRAL"  # -> "PCH_W_WASTRAL"
 
     config: "WeightedASTRALConfig"
-    method: InferenceMethod = TreeInferenceMethod.PCH_WASTRAL
     suffix: str | None = None
+
+    @property
+    def method(self) -> TreeInferenceMethod:
+        # A `@property` (not a field): fixed per class, can't be overridden at
+        # construction (see `Runner.method` in `runners/base.py`).
+        return TreeInferenceMethod.PCH_WASTRAL
 
     def dependencies(self) -> list[InferenceMethod]:
         # Standalone: builds its own quartets, consumes no upstream tree sets.

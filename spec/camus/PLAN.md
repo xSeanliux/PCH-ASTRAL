@@ -59,7 +59,7 @@ How we differ from the paper's evaluation:
 | CAMUS flows through `api.infer` and keeps a row in `inference_registry.csv` | `scheduler.completed_runs` is the only resume/gate/status ledger. |
 | `point_estimate_newick` stays empty for CAMUS | Choosing a k is analysis policy. Empty also makes `handle_score.py:66` skip CAMUS rows — no change to tree scoring. `tree_set_path` carries the CSV path. |
 | Tree and network methods are separate types | `TreeInferenceMethod` and `NetworkInferenceMethod` share the base `InferenceMethod`; `TreeRunner` yields a point estimate, `NetworkRunner` a family path. `api.infer` branches on the method's type. |
-| One `api.infer` call per guide tree | CAMUS takes one guide per run. `guide_trees` is a set because `methods:` holds one `camus:` block; `CamusConfig.variants()` splits it. Per-guide resume, dependency gating and status line; hashes do not depend on the order written. |
+| One `api.infer` call per guide tree | CAMUS takes one guide per run. `guide_trees` is a set because `methods:` holds one `camus:` block; `CamusConfig.get_runners()` splits it. Per-guide resume, dependency gating and status line; hashes do not depend on the order written. |
 | No `threshold` or filter mode in `CamusConfig` yet | CAMUS defaults apply. Spike data is disposable, so later hash churn is free. Follow-up. |
 | A dedicated `camus_registry.py` | Reuse the shard/compact pattern and `current_shard_id`, not the function. |
 | The outgroup is kept, never pruned | Matches the paper. Outgrouped error rates, tree scores included, are not comparable to pre-outgroup numbers. |

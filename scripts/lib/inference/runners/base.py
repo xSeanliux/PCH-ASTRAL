@@ -3,14 +3,25 @@ from typing import Optional, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
-from scripts.lib.model.methods import ConsensusMethod, InferenceMethod
+from scripts.lib.model.methods import (
+    ConsensusMethod,
+    InferenceMethod,
+    NetworkInferenceMethod,
+    TreeInferenceMethod,
+)
 
 
 @runtime_checkable
 class Runner(Protocol):
     """One run of one method: owns its config, so it owns its command and name."""
 
-    method: InferenceMethod
+    @property
+    def method(self) -> InferenceMethod:
+        """The method this runner runs. A read-only `@property` (ty's `ClassVar`
+        check is invariant, so a subclass narrowing to `TreeInferenceMethod`/
+        `NetworkInferenceMethod` would fail the protocol match; `@property`, like
+        `config`/`suffix` below, is covariant)."""
+        ...
 
     @property
     def suffix(self) -> str | None:
@@ -43,6 +54,9 @@ class Runner(Protocol):
 class TreeRunner(Runner, Protocol):
     """A method that returns one tree, optionally with the set it summarises."""
 
+    @property
+    def method(self) -> TreeInferenceMethod: ...
+
     @staticmethod
     def point_estimate_path(output_dir: Path, name: str) -> Path: ...
 
@@ -56,6 +70,9 @@ class TreeRunner(Runner, Protocol):
 @runtime_checkable
 class NetworkRunner(Runner, Protocol):
     """A method that returns a network family: one network per k."""
+
+    @property
+    def method(self) -> NetworkInferenceMethod: ...
 
     @staticmethod
     def family_path(output_dir: Path, name: str) -> Path: ...

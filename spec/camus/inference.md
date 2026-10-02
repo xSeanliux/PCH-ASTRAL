@@ -89,12 +89,12 @@ the uncertain regions.
 
 **Decisions taken:**
 
-- `mp`, `ga` and `w_tree_qmc` are **not** allowed guides. `_GUIDE_TREE_DEPENDENCY` in
-  `scripts/lib/experiment.py` is the allow-list (absent key = unsupported); a
+- `mp`, `ga` and `w_tree_qmc` are **not** allowed guides. `GUIDE_TREE_DEPENDENCY` in
+  `scripts/lib/model/guide_tree.py` is the allow-list (absent key = unsupported); a
   `CamusConfig` field validator rejects them at config load with the reason.
 - Rooting for the PCH methods (`astral3`, `wastral`) will be solved
   **in the simulation: add an outgroup** — see `outgroup.md` for the config,
   mechanism, and cost. Until that lands, they are usable only because their output
   happens to come back with a bifurcating root; that is not something to rely on.
 - One CAMUS run per guide tree: `guide_trees` is a set and fans out at
-  scheduling time (`CamusConfig.variants()`).
+  scheduling time (`CamusConfig.get_runners()`).

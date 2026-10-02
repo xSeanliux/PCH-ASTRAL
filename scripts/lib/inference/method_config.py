@@ -8,7 +8,6 @@ from scripts.lib.experiment import (
     ASTRAL3Config,
     CamusConfig,
     GAConfig,
-    MethodConfig,
     MP4Config,
     WeightedASTRALConfig,
     WeightedTreeQMCConfig,
@@ -37,19 +36,6 @@ METHOD_CONFIG: dict[InferenceMethod, type[MethodConfigT]] = {
     TreeInferenceMethod.GA: GAConfig,
     NetworkInferenceMethod.CAMUS: CamusConfig,
 }
-
-
-def config_for(methods: MethodConfig, method: InferenceMethod) -> MethodConfigT | None:
-    """The enabled config for `method`, matched by type (None if not enabled).
-
-    Keyed off the config class (`METHOD_CONFIG`), not a field name — MethodConfig's
-    fields have distinct types, so isinstance picks the right one.
-    """
-    want = METHOD_CONFIG[method]
-    for value in vars(methods).values():
-        if isinstance(value, want):
-            return value
-    return None
 
 
 def resolve_config(method: InferenceMethod, config_file: Path | None) -> MethodConfigT:

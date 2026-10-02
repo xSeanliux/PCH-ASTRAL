@@ -27,8 +27,12 @@ from submitit.helpers import Checkpointable
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
-from scripts.lib.model.methods import InferenceMethod, TreeInferenceMethod
-from scripts.py.cli.handle_inference import handle_inference, select_runners
+from scripts.lib.model.methods import TreeInferenceMethod
+from scripts.py.cli.handle_inference import (
+    dependencies_by_method,
+    handle_inference,
+    select_runners,
+)
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
 # One sim-registry row (polars iter_rows(named=True)); we only read "path".
@@ -164,12 +168,7 @@ class SlurmExecutor:
                     "cannot restrict the fan-out to it."
                 )
         enabled = {m.value for m in methods}
-        # Union each method's runners' dependencies (two CAMUS guides may differ).
-        deps_of: dict[InferenceMethod, list[InferenceMethod]] = {}
-        for r in runners:
-            deps_of[r.method] = list(
-                dict.fromkeys([*deps_of.get(r.method, []), *r.dependencies()])
-            )
+        deps_of = dependencies_by_method(runners)
         specs: list[JobSpec] = []
         method_labels: list[str] = []
 

@@ -6,6 +6,7 @@ only SUCCESSFUL results (the analyzable ledger): already-done work is skipped
 (their `log_path` has the details). See docs/ARCHITECTURE.md.
 """
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import polars as pl
@@ -20,16 +21,26 @@ from scripts.lib.inference.runners.base import Runner
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 
-def select_runners(methods: MethodConfig) -> list[Runner]:
-    """Every unit of work the config asks for, dependencies first."""
-    runners = [r for cfg in methods.enabled() for r in cfg.get_runners()]
-    # Two runners of one method (e.g. CAMUS's guides) may differ in dependencies;
-    # union them, order-preserving, so the method's node sees every edge.
+def dependencies_by_method(
+    runners: Sequence[Runner],
+) -> dict[InferenceMethod, list[InferenceMethod]]:
+    """Each method's dependencies, unioned order-preserving across its runners.
+
+    Two runners of one method (e.g. CAMUS's guides) may differ in dependencies;
+    the method's scheduler node needs every edge.
+    """
     deps_of: dict[InferenceMethod, list[InferenceMethod]] = {}
     for r in runners:
         deps_of[r.method] = list(
             dict.fromkeys([*deps_of.get(r.method, []), *r.dependencies()])
         )
+    return deps_of
+
+
+def select_runners(methods: MethodConfig) -> list[Runner]:
+    """Every unit of work the config asks for, dependencies first."""
+    runners = [r for cfg in methods.enabled() for r in cfg.get_runners()]
+    deps_of = dependencies_by_method(runners)
     # RUNNERS' insertion order is the canonical method order (fixed regardless of
     # which `methods:` fields are set); it's just the tie-break for independent
     # methods — topological_order still enforces real dependency edges.

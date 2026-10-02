@@ -4,17 +4,11 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from scripts.lib.experiment import (
-    ASTRAL3Config,
-    ExperimentConfig,
-    GAConfig,
-    MethodConfig,
-    MP4Config,
-)
+from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
 from scripts.lib.inference.inference import InferenceResult
 from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
-from scripts.lib.inference.method_config import config_for, config_hash
+from scripts.lib.inference.method_config import config_hash
 from scripts.lib.inference import registry
 from scripts.py.cli.handle_inference import (
     _read_dataset_filter,
@@ -77,20 +71,6 @@ def test_select_runners_astral3_only_ok():
         _config(Path("x"), methods={"astral_3": {"is_exact": False}})
     )
     assert _methods(cfg) == [TreeInferenceMethod.PCH_ASTRAL3]
-
-
-def test_config_for_matches_by_type():
-    methods = MethodConfig(
-        mp4=MP4Config(),
-        gray_atkinson=GAConfig(),
-        astral_3=ASTRAL3Config(is_exact=True),
-    )
-    assert isinstance(config_for(methods, TreeInferenceMethod.MP), MP4Config)
-    assert isinstance(config_for(methods, TreeInferenceMethod.GA), GAConfig)
-    assert isinstance(
-        config_for(methods, TreeInferenceMethod.PCH_ASTRAL3), ASTRAL3Config
-    )
-    assert config_for(MethodConfig(), TreeInferenceMethod.MP) is None
 
 
 def _config(folder: Path, methods: dict | None = None) -> dict:

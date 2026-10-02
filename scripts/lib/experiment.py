@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from scripts.lib.types import Polymorphism
 from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
@@ -10,7 +11,6 @@ from scripts.lib.inference.runners.mp4 import MP4Runner
 from scripts.lib.inference.runners.w_tree_qmc import WTreeQmcRunner
 from scripts.lib.inference.runners.wastral import WASTRALRunner
 from pathlib import Path
-from typing import ClassVar
 
 
 class SimulationParamSetting(BaseModel):
@@ -43,15 +43,11 @@ class RunnableConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    def get_runners(self) -> list[Runner]:
-        raise NotImplementedError
+    @abstractmethod
+    def get_runners(self) -> list[Runner]: ...
 
 
 class ASTRAL3Config(RunnableConfig):
-    BipartitionStrategy: ClassVar[type[BipartitionStrategy]] = (
-        BipartitionStrategy  # alias; enum lives in model/
-    )
-
     bipartition_strategies: list[BipartitionStrategy] = Field(list())
     is_exact: bool
 
@@ -65,10 +61,6 @@ class WeightedASTRALConfig(RunnableConfig):
 
 
 class WeightedTreeQMCConfig(RunnableConfig):
-    NormalisationStrategy: ClassVar[type[NormalisationStrategy]] = (
-        NormalisationStrategy  # alias; enum lives in model/
-    )
-
     normalisation_strategy: NormalisationStrategy = NormalisationStrategy.N2
 
     def get_runners(self) -> list[Runner]:
@@ -86,8 +78,6 @@ class GAConfig(RunnableConfig):
 
 
 class CamusConfig(RunnableConfig):
-    GuideTree: ClassVar[type[GuideTree]] = GuideTree  # alias; the enum lives in model/
-
     guide_trees: frozenset[GuideTree] = Field(min_length=1)
 
     @field_validator("guide_trees")
@@ -111,7 +101,7 @@ class CamusConfig(RunnableConfig):
         # CAMUS takes one guide per run; each gets its own config_hash, so the
         # registry key and resume behaviour match a single-guide YAML exactly.
         return [
-            CamusRunner(guide=g, config=CamusConfig(guide_trees=frozenset({g})))
+            CamusRunner(config=CamusConfig(guide_trees=frozenset({g})))
             for g in self.guides
         ]
 
@@ -127,7 +117,15 @@ class MethodConfig(BaseModel):
 
     def enabled(self) -> list[RunnableConfig]:
         """The configured methods, in field-declaration order."""
-        return [v for v in vars(self).values() if v is not None]
+        fields = [
+            self.astral_3,
+            self.wastral,
+            self.w_tree_qmc,
+            self.mp4,
+            self.gray_atkinson,
+            self.camus,
+        ]
+        return [f for f in fields if f is not None]
 
 
 class ExperimentConfig(BaseModel):

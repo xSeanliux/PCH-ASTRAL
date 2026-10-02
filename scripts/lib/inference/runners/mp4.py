@@ -15,8 +15,13 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class MP4Runner:
     config: "MP4Config"
-    method: InferenceMethod = TreeInferenceMethod.MP
     suffix: str | None = None
+
+    @property
+    def method(self) -> TreeInferenceMethod:
+        # A `@property` (not a field): fixed per class, can't be overridden at
+        # construction (see `Runner.method` in `runners/base.py`).
+        return TreeInferenceMethod.MP
 
     def dependencies(self) -> list[InferenceMethod]:
         return []

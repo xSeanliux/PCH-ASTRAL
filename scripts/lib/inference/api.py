@@ -45,20 +45,20 @@ def infer(
         # A network family has no single estimate: choosing a k is analysis. The
         # registry row carries the family's path and leaves the newick empty.
         # ponytail: family-as-CSV is CAMUS's shape; SNaQ/PhyloNet get their own branch.
-        family = runner.family_path(output_dir, name)
-        ok = proc.returncode == 0 and family.exists()
-        tree_set_path = str(family) if ok else None
+        family_path = runner.family_path(output_dir, name)
+        is_ok = proc.returncode == 0 and family_path.exists()
+        tree_set_path = str(family_path) if is_ok else None
     else:
         assert isinstance(runner, TreeRunner)
-        point_estimate = runner.point_estimate_path(output_dir, name)
-        ok = proc.returncode == 0 and point_estimate.exists()
-        newick = point_estimate.read_text().strip() if ok else ""
+        point_estimate_path = runner.point_estimate_path(output_dir, name)
+        is_ok = proc.returncode == 0 and point_estimate_path.exists()
+        newick = point_estimate_path.read_text().strip() if is_ok else ""
         # tree_set_path only when the file actually exists (None signals "no set").
-        group = runner.group_estimate_path(output_dir, name)
-        if ok and group is not None and group.exists():
-            tree_set_path = str(group)
+        group_estimate_path = runner.group_estimate_path(output_dir, name)
+        if is_ok and group_estimate_path is not None and group_estimate_path.exists():
+            tree_set_path = str(group_estimate_path)
         consensus = runner.consensus_method()
-    status = RunStatus.OK if ok else RunStatus.FAILED
+    status = RunStatus.OK if is_ok else RunStatus.FAILED
 
     # dataset_id = the canonical input path (identity); `name` (stem) only names
     # on-disk files.
