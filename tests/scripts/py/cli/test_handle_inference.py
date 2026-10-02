@@ -12,11 +12,8 @@ from scripts.lib.experiment import (
     MP4Config,
 )
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import (
-    InferenceResult,
-    TreeInferenceMethod,
-    RunStatus,
-)
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.lib.inference.method_config import config_for, config_hash
 from scripts.lib.inference import registry
 from scripts.py.cli.handle_inference import (

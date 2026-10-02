@@ -3,7 +3,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from scripts.lib.experiment import CamusConfig
-from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.model.methods import TreeInferenceMethod
 
 
 class CamusRunner:

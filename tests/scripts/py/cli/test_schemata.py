@@ -1,4 +1,5 @@
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
 

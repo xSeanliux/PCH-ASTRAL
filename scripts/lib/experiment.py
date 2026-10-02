@@ -1,8 +1,9 @@
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from scripts.lib.types import Polymorphism
-from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
+from scripts.lib.model.guide_tree import GuideTree, GUIDE_TREE_DEPENDENCY
 from pathlib import Path
-from enum import IntEnum, StrEnum
+from typing import ClassVar
 
 
 class SimulationParamSetting(BaseModel):
@@ -31,11 +32,9 @@ class ExperimentSimulationConfig(BaseModel):
 
 class ASTRAL3Config(BaseModel):
     model_config = ConfigDict(frozen=True)
-
-    class BipartitionStrategy(StrEnum):
-        BINARY_CHARACTER = "binary_character"
-        MP4_TREES = "mp4_trees"
-        GA_TREES = "ga_trees"
+    BipartitionStrategy: ClassVar[type[BipartitionStrategy]] = (
+        BipartitionStrategy  # alias; enum lives in model/
+    )
 
     bipartition_strategies: list[BipartitionStrategy] = Field(list())
     is_exact: bool
@@ -47,11 +46,9 @@ class WeightedASTRALConfig(BaseModel):
 
 class WeightedTreeQMCConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
-
-    class NormalisationStrategy(IntEnum):
-        # Values are TREE-QMC --norm_atax args; only 0 and 2 valid for quartet input.
-        N0 = 0
-        N2 = 2
+    NormalisationStrategy: ClassVar[type[NormalisationStrategy]] = (
+        NormalisationStrategy  # alias; enum lives in model/
+    )
 
     normalisation_strategy: NormalisationStrategy = NormalisationStrategy.N2
 
@@ -66,33 +63,7 @@ class GAConfig(BaseModel):
 
 class CamusConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
-
-    class GuideTree(StrEnum):
-        """Which tree constrains the CAMUS network search.
-
-        Membership in `_GUIDE_TREE_DEPENDENCY` is the allow-list: a member absent
-        from that map is a guide CAMUS cannot accept (see `is_supported`).
-        """
-
-        MP = "mp"
-        GA = "ga"
-        ASTRAL3 = "astral3"
-        WASTRAL = "wastral"
-        W_TREE_QMC = "w_tree_qmc"
-        TRUE_TREE = "true_tree"
-
-        @property
-        def is_supported(self) -> bool:
-            return self in _GUIDE_TREE_DEPENDENCY
-
-        @property
-        def dependency(self) -> TreeInferenceMethod | None:
-            """The method whose output supplies this guide (None = already have it).
-
-            Only valid for supported guides; the field validator rejects the rest
-            before anything can reach this.
-            """
-            return _GUIDE_TREE_DEPENDENCY[self]
+    GuideTree: ClassVar[type[GuideTree]] = GuideTree  # alias; the enum lives in model/
 
     guide_trees: frozenset[GuideTree] = Field(min_length=1)
 
@@ -103,7 +74,7 @@ class CamusConfig(BaseModel):
         if bad:
             raise ValueError(
                 f"unsupported CAMUS guide tree(s): {', '.join(g.value for g in bad)}. "
-                f"Supported: {', '.join(g.value for g in _GUIDE_TREE_DEPENDENCY)}. "
+                f"Supported: {', '.join(g.value for g in GUIDE_TREE_DEPENDENCY)}. "
                 "CAMUS requires a rooted binary guide tree."
             )
         return v
@@ -117,16 +88,6 @@ class CamusConfig(BaseModel):
         """(config, name suffix) per guide tree: CAMUS takes one guide per run, so
         each gets its own output path, config_hash, and dependency gate."""
         return [(CamusConfig(guide_trees=frozenset({g})), g.value) for g in self.guides]
-
-
-# Guide tree -> the method whose output supplies it (None = already have it).
-# ONLY these are allowed; absent = CAMUS can't use it. See `GuideTree.is_supported`.
-# w_tree_qmc is out for now: TREE-QMC can emit polytomies, which CAMUS rejects.
-_GUIDE_TREE_DEPENDENCY: dict[CamusConfig.GuideTree, TreeInferenceMethod | None] = {
-    CamusConfig.GuideTree.ASTRAL3: TreeInferenceMethod.PCH_ASTRAL3,
-    CamusConfig.GuideTree.WASTRAL: TreeInferenceMethod.PCH_WASTRAL,
-    CamusConfig.GuideTree.TRUE_TREE: None,
-}
 
 
 class MethodConfig(BaseModel):

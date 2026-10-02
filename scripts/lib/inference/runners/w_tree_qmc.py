@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from scripts.lib.experiment import WeightedTreeQMCConfig
-from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
+from scripts.lib.model.methods import ConsensusMethod, TreeInferenceMethod
 from scripts.lib.pch import PCH_W
 
 

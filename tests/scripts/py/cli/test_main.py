@@ -6,7 +6,8 @@ import yaml
 from typer.testing import CliRunner
 
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.py.cli import main
 
 runner = CliRunner()
@@ -140,8 +141,14 @@ def test_experiment_inference_slurm_method_restricts_plan(tmp_path: Path):
     res = runner.invoke(
         main.app,
         [
-            "experiment", "inference", str(spec),
-            "--executor", "slurm", "--dry-run", "--method", "mp",
+            "experiment",
+            "inference",
+            str(spec),
+            "--executor",
+            "slurm",
+            "--dry-run",
+            "--method",
+            "mp",
         ],
     )
     assert res.exit_code == 0, res.output

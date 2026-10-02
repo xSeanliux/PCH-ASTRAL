@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
+from scripts.lib.model.methods import ConsensusMethod, TreeInferenceMethod
 
 
 class GARunner:

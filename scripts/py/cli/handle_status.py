@@ -9,7 +9,7 @@ from rich import print
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry, scheduler
-from scripts.lib.inference.inference import InferenceMethod
+from scripts.lib.model.methods import InferenceMethod
 from scripts.lib.inference.scheduler import DatasetKey
 from scripts.lib.inference.method_config import config_for, config_hash
 from scripts.py.cli.handle_inference import select_methods, variants

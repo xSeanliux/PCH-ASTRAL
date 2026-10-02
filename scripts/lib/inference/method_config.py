@@ -13,7 +13,7 @@ from scripts.lib.experiment import (
     WeightedASTRALConfig,
     WeightedTreeQMCConfig,
 )
-from scripts.lib.inference.inference import (
+from scripts.lib.model.methods import (
     InferenceMethod,
     NetworkInferenceMethod,
     TreeInferenceMethod,

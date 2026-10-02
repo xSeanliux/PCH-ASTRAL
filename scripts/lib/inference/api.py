@@ -9,13 +9,15 @@ import shortuuid
 from pydantic import BaseModel
 
 from scripts.lib.inference import method_config, registry
-from scripts.lib.inference.inference import (
+from scripts.lib.model.methods import (
     ConsensusMethod,
     InferenceMethod,
-    InferenceResult,
     NetworkInferenceMethod,
     RunStatus,
     TreeInferenceMethod,
+)
+from scripts.lib.inference.inference import (
+    InferenceResult,
 )
 from scripts.lib.inference.runners import NETWORK_RUNNERS, RUNNERS, TREE_RUNNERS
 

@@ -27,7 +27,7 @@ from submitit.helpers import Checkpointable
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
-from scripts.lib.inference.inference import TreeInferenceMethod
+from scripts.lib.model.methods import TreeInferenceMethod
 from scripts.lib.inference.method_config import config_for
 from scripts.lib.inference.runners import RUNNERS
 from scripts.py.cli.handle_inference import handle_inference, select_methods

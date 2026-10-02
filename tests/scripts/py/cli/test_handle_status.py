@@ -4,8 +4,8 @@ import polars as pl
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
-from scripts.lib.inference.inference import (
-    InferenceResult,
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import (
     NetworkInferenceMethod,
     RunStatus,
     TreeInferenceMethod,

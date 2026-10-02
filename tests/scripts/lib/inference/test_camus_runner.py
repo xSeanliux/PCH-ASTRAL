@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from scripts.lib.experiment import CamusConfig
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import (
+from scripts.lib.model.methods import (
     NetworkInferenceMethod,
     RunStatus,
     TreeInferenceMethod,

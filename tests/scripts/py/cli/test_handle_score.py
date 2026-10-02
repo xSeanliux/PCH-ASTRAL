@@ -5,7 +5,8 @@ import polars as pl
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import InferenceResult, RunStatus
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import RunStatus
 from scripts.lib.inference.scoring import ScoreResult
 import scripts.py.cli.handle_score as hs
 from scripts.py.cli.handle_inference import handle_inference
@@ -68,7 +69,11 @@ def test_handle_score_writes_fn_fp(tmp_path: Path, monkeypatch):
     assert r["fn_rate"] == 0.25
     assert r["fp_rate"] == 0.5
     assert r["dataset_id"] == str(
-        tmp_path / "simulation_data" / "simulated_data" / "high_0.1_4_320" / "sim_0_1_1.csv"
+        tmp_path
+        / "simulation_data"
+        / "simulated_data"
+        / "high_0.1_4_320"
+        / "sim_0_1_1.csv"
     )
 
 

@@ -5,7 +5,7 @@ import pytest
 from scripts.lib.experiment import ASTRAL3Config, GAConfig, MP4Config
 from scripts.lib.inference import runners
 from scripts.lib.inference.runners import RUNNERS, TREE_RUNNERS
-from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
+from scripts.lib.model.methods import ConsensusMethod, TreeInferenceMethod
 
 
 def test_mp4_runner_build_argv():

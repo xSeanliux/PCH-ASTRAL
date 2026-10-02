@@ -13,7 +13,7 @@ from rich import print
 
 from scripts.lib.experiment import CamusConfig, ExperimentConfig, MethodConfig
 from scripts.lib.inference import api, registry, scheduler
-from scripts.lib.inference.inference import (
+from scripts.lib.model.methods import (
     InferenceMethod,
     RunStatus,
     TreeInferenceMethod,

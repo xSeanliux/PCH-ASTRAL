@@ -14,7 +14,7 @@ from pathlib import Path
 import polars as pl
 
 from scripts.lib.inference import registry
-from scripts.lib.inference.inference import InferenceMethod, RunStatus
+from scripts.lib.model.methods import InferenceMethod, RunStatus
 from scripts.lib.inference.registry import Cell
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 

@@ -16,7 +16,7 @@ from rich import print
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
 from scripts.lib.inference.executor import SlurmExecutor
-from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
+from scripts.lib.model.methods import ConsensusMethod, TreeInferenceMethod
 from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference import registry
 from scripts.lib.inference.scoring import score

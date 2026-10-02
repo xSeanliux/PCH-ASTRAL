@@ -2,12 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from scripts.lib.inference.inference import (
-    InferenceResult,
-    RunStatus,
-    TreeInferenceMethod,
-)
-from scripts.lib.inference.inference import TreeInferenceMethod as T
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
+from scripts.lib.model.methods import TreeInferenceMethod as T
 from scripts.lib.inference.registry import compact, write_result
 from scripts.lib.inference.scheduler import completed_runs, topological_order
 
@@ -56,9 +53,9 @@ def test_topo_orders_deps_before_dependents():
 
 def test_topo_ignores_deps_not_in_the_run():
     # ASTRAL3 alone (MP4/GA run separately) — the missing deps don't hang/cycle.
-    assert topological_order(
-        [T.PCH_ASTRAL3], {T.PCH_ASTRAL3: [T.MP, T.GA]}
-    ) == [T.PCH_ASTRAL3]
+    assert topological_order([T.PCH_ASTRAL3], {T.PCH_ASTRAL3: [T.MP, T.GA]}) == [
+        T.PCH_ASTRAL3
+    ]
 
 
 def test_topo_stable_by_input_order():
