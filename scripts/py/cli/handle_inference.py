@@ -11,41 +11,31 @@ from pathlib import Path
 import polars as pl
 from rich import print
 
-from scripts.lib.experiment import CamusConfig, ExperimentConfig, MethodConfig
+from scripts.lib.experiment import ExperimentConfig, MethodConfig
 from scripts.lib.inference import api, registry, scheduler
-from scripts.lib.model.methods import (
-    InferenceMethod,
-    RunStatus,
-    TreeInferenceMethod,
-)
-from scripts.lib.inference.method_config import (
-    MethodConfigT,
-    config_for,
-    config_hash,
-)
+from scripts.lib.model.methods import InferenceMethod, RunStatus
+from scripts.lib.inference.method_config import config_hash
 from scripts.lib.inference.runners import RUNNERS
+from scripts.lib.inference.runners.base import Runner
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 
-def select_methods(methods: MethodConfig) -> list[InferenceMethod]:
-    # Enabled = a config of the method's type is present (matched by class).
-    # Ordered so dependencies run first; a dependency enabled elsewhere / in a
-    # prior run is handled at run time by the scheduler's registry gate.
-    enabled = [m for m in RUNNERS if config_for(methods, m) is not None]
-    deps_of: dict[InferenceMethod, list[TreeInferenceMethod]] = {}
-    for m in enabled:
-        cfg = config_for(methods, m)
-        assert cfg is not None  # enabled ⇒ present
-        deps_of[m] = RUNNERS[m].dependencies(cfg)
-    return scheduler.topological_order(enabled, deps_of)
-
-
-def variants(cfg: MethodConfigT) -> list[tuple[MethodConfigT, str | None]]:
-    """(config, name suffix) units to run for one method: one, unless the method
-    fans out (CAMUS runs once per guide tree)."""
-    if isinstance(cfg, CamusConfig):
-        return list(cfg.variants())
-    return [(cfg, None)]
+def select_runners(methods: MethodConfig) -> list[Runner]:
+    """Every unit of work the config asks for, dependencies first."""
+    runners = [r for cfg in methods.enabled() for r in cfg.get_runners()]
+    # Two runners of one method (e.g. CAMUS's guides) may differ in dependencies;
+    # union them, order-preserving, so the method's node sees every edge.
+    deps_of: dict[InferenceMethod, list[InferenceMethod]] = {}
+    for r in runners:
+        deps_of[r.method] = list(
+            dict.fromkeys([*deps_of.get(r.method, []), *r.dependencies()])
+        )
+    # RUNNERS' insertion order is the canonical method order (fixed regardless of
+    # which `methods:` fields are set); it's just the tie-break for independent
+    # methods — topological_order still enforces real dependency edges.
+    enabled = [m for m in RUNNERS if m in deps_of]
+    order = scheduler.topological_order(enabled, deps_of)
+    return sorted(runners, key=lambda r: order.index(r.method))
 
 
 def handle_inference(
@@ -65,20 +55,22 @@ def handle_inference(
         f"No simulation registry at {sim_registry}. Run `pch simulation` first."
     )
 
-    methods = select_methods(config.methods)
-    assert methods, (
+    runners = select_runners(config.methods)
+    assert runners, (
         "No runnable inference methods selected — the config's `methods:` block enables "
         "none of the supported methods (mp4, gray_atkinson, astral_3, w_tree_qmc). Nothing to do."
     )
     if method is not None:  # SLURM: pin the run to one enabled method
-        methods = [m for m in methods if method in (m.value, m.name)]
-        assert methods, (
+        runners = [r for r in runners if method in (r.method.value, r.method.name)]
+        assert runners, (
             f"Method {method!r} is not enabled in the config; "
             "cannot restrict the run to it."
         )
     inference_dir = experiment_folder / "inference_data"
     if not no_compact:
-        registry.init_manifest(experiment_folder, [m.value for m in methods])
+        registry.init_manifest(
+            experiment_folder, list(dict.fromkeys(r.method.value for r in runners))
+        )
 
     wanted = _read_dataset_filter(datasets)  # None = all rows
     done = scheduler.completed_runs(experiment_folder)  # {dataset → {(method, cfg)}}
@@ -96,42 +88,37 @@ def handle_inference(
         ok_methods = {m for m, _ in prior}  # this dataset's OK methods; grows below
         out_dir = inference_dir / input_path.parent.name
 
-        for m in methods:
-            base_cfg = config_for(config.methods, m)
-            assert base_cfg is not None  # select_methods only yields enabled methods
-            for cfg, suffix in variants(base_cfg):
-                ch = config_hash(cfg)
+        for r in runners:
+            ch = config_hash(r.config)
 
-                if (m.value, ch) in prior:  # resume: this exact unit already done
-                    tally["skipped"] += 1
-                    continue
+            if (r.method.value, ch) in prior:  # resume: this exact unit already done
+                tally["skipped"] += 1
+                continue
 
-                unmet = [
-                    d for d in RUNNERS[m].dependencies(cfg) if d.value not in ok_methods
-                ]
-                if unmet:
-                    need = ", ".join(d.value for d in unmet)
-                    print(
-                        f"[yellow]{m.value} blocked on {input_path.name}: "
-                        f"missing {need}[/yellow]"
-                    )
-                    tally["blocked"] += 1
-                    continue
+            unmet = [d for d in r.dependencies() if d.value not in ok_methods]
+            if unmet:
+                need = ", ".join(d.value for d in unmet)
+                print(
+                    f"[yellow]{r.method.value} blocked on {input_path.name}: "
+                    f"missing {need}[/yellow]"
+                )
+                tally["blocked"] += 1
+                continue
 
-                name = f"{input_path.stem}.{suffix}" if suffix else None
-                result = api.infer(input_path, out_dir, m, cfg, name=name)
-                if result.status is not RunStatus.OK:
-                    # Not analyzable → not in the registry; the log has the details.
-                    print(
-                        f"[yellow]{m.value} failed on {input_path.name} "
-                        f"(see {result.log_path})[/yellow]"
-                    )
-                    tally["failed"] += 1
-                    continue
+            name = f"{input_path.stem}.{r.suffix}" if r.suffix else None
+            result = api.infer(input_path, out_dir, r, name=name)
+            if result.status is not RunStatus.OK:
+                # Not analyzable → not in the registry; the log has the details.
+                print(
+                    f"[yellow]{r.method.value} failed on {input_path.name} "
+                    f"(see {result.log_path})[/yellow]"
+                )
+                tally["failed"] += 1
+                continue
 
-                registry.write_result(result, experiment_folder)
-                ok_methods.add(m.value)
-                tally["ok"] += 1
+            registry.write_result(result, experiment_folder)
+            ok_methods.add(r.method.value)
+            tally["ok"] += 1
 
     if no_compact:  # SLURM batch: shards only; the compact job owns the manifest
         out = inference_dir / "inference_registry.csv"

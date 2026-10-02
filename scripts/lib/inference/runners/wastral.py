@@ -1,13 +1,19 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from pydantic import BaseModel
-
-from scripts.lib.experiment import WeightedASTRALConfig
-from scripts.lib.model.methods import ConsensusMethod, TreeInferenceMethod
+from scripts.lib.model.methods import (
+    ConsensusMethod,
+    InferenceMethod,
+    TreeInferenceMethod,
+)
 from scripts.lib.pch import PCH_W
 
+if TYPE_CHECKING:
+    from scripts.lib.experiment import WeightedASTRALConfig
 
+
+@dataclass(frozen=True)
 class WASTRALRunner:
     # runWASTRAL.sh generates quartets via PCH_W (scripts.lib.pch --format wastral),
     # then infers a tree with weighted ASTRAL. No config (like MP4).
@@ -15,17 +21,18 @@ class WASTRALRunner:
     # PCH_W (quartet scheme) + WASTRAL; cf. PCH_W_W_TREE_QMC.
     VARIANT = f"{SCHEME.__name__}_WASTRAL"  # -> "PCH_W_WASTRAL"
 
-    @staticmethod
-    def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
+    config: "WeightedASTRALConfig"
+    method: InferenceMethod = TreeInferenceMethod.PCH_WASTRAL
+    suffix: str | None = None
+
+    def dependencies(self) -> list[InferenceMethod]:
         # Standalone: builds its own quartets, consumes no upstream tree sets.
         return []
 
-    @staticmethod
     def build_argv(
-        runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel
+        self, runid: str, input_csv: Path, name: str, output_dir: Path
     ) -> list[str]:
         # -V is the single source of truth for the output folder name.
-        assert isinstance(config, WeightedASTRALConfig)
         return [
             "bash",
             "scripts/sh/runWASTRAL.sh",

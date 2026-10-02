@@ -1,20 +1,28 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from pydantic import BaseModel
+from scripts.lib.model.methods import (
+    ConsensusMethod,
+    InferenceMethod,
+    TreeInferenceMethod,
+)
 
-from scripts.lib.model.methods import ConsensusMethod, TreeInferenceMethod
+if TYPE_CHECKING:
+    from scripts.lib.experiment import MP4Config
 
 
+@dataclass(frozen=True)
 class MP4Runner:
-    # Stateless — methods are static; the registry holds a singleton instance.
-    @staticmethod
-    def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
+    config: "MP4Config"
+    method: InferenceMethod = TreeInferenceMethod.MP
+    suffix: str | None = None
+
+    def dependencies(self) -> list[InferenceMethod]:
         return []
 
-    @staticmethod
     def build_argv(
-        runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel
+        self, runid: str, input_csv: Path, name: str, output_dir: Path
     ) -> list[str]:
         return [
             "bash",

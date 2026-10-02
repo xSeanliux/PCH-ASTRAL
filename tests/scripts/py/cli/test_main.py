@@ -71,8 +71,8 @@ def _result() -> InferenceResult:
 def test_infer_command_invokes_api(tmp_path: Path, monkeypatch):
     calls = {}
 
-    def fake_infer(input_csv, output_dir, method, config, *, name=None):
-        calls["method"] = method
+    def fake_infer(input_csv, output_dir, runner, *, name=None):
+        calls["method"] = runner.method
         return _result()
 
     monkeypatch.setattr(api, "infer", fake_infer)

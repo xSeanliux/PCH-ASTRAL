@@ -27,10 +27,8 @@ from submitit.helpers import Checkpointable
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
-from scripts.lib.model.methods import TreeInferenceMethod
-from scripts.lib.inference.method_config import config_for
-from scripts.lib.inference.runners import RUNNERS
-from scripts.py.cli.handle_inference import handle_inference, select_methods
+from scripts.lib.model.methods import InferenceMethod, TreeInferenceMethod
+from scripts.py.cli.handle_inference import handle_inference, select_runners
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
 # One sim-registry row (polars iter_rows(named=True)); we only read "path".
@@ -101,7 +99,9 @@ def run_compact(spec_path: str) -> None:
     """submitit job body: merge shards + write the manifest (the run that owns it)."""
     config = _load_config(Path(spec_path))
     folder = config.experiment_folder
-    methods = [m.value for m in select_methods(config.methods)]
+    methods = list(
+        dict.fromkeys(r.method.value for r in select_runners(config.methods))
+    )
     registry.init_manifest(folder, methods)
     out = registry.compact(folder)
     ok = (
@@ -154,7 +154,8 @@ class SlurmExecutor:
         """Pure planner (no submitit): ordered JobSpecs, one per (condition, method)
         in topological method order, then a final compact job on all of them.
         `method` restricts to that single enabled method (deps ran in a prior run)."""
-        methods = select_methods(self.config.methods)  # topo order: deps first
+        runners = select_runners(self.config.methods)  # topo order: deps first
+        methods = list(dict.fromkeys(r.method for r in runners))
         if method is not None:
             methods = [m for m in methods if method in (m.value, m.name)]
             if not methods:
@@ -163,17 +164,21 @@ class SlurmExecutor:
                     "cannot restrict the fan-out to it."
                 )
         enabled = {m.value for m in methods}
+        # Union each method's runners' dependencies (two CAMUS guides may differ).
+        deps_of: dict[InferenceMethod, list[InferenceMethod]] = {}
+        for r in runners:
+            deps_of[r.method] = list(
+                dict.fromkeys([*deps_of.get(r.method, []), *r.dependencies()])
+            )
         specs: list[JobSpec] = []
         method_labels: list[str] = []
 
         for condition in conditions:
             for m in methods:
-                cfg = config_for(self.config.methods, m)
-                assert cfg is not None  # select_methods only yields enabled methods
                 # deps present in this run become same-condition afterok edges
                 dep_labels = tuple(
                     self._label(condition, d.value)
-                    for d in RUNNERS[m].dependencies(cfg)
+                    for d in deps_of.get(m, [])
                     if d.value in enabled
                 )
                 heavy = m is TreeInferenceMethod.PCH_ASTRAL3

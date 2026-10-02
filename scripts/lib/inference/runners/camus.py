@@ -1,28 +1,32 @@
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from scripts.lib.model.guide_tree import GuideTree
+from scripts.lib.model.methods import InferenceMethod, NetworkInferenceMethod
 
-from scripts.lib.experiment import CamusConfig
-from scripts.lib.model.methods import TreeInferenceMethod
+if TYPE_CHECKING:
+    from scripts.lib.experiment import CamusConfig
 
 
+@dataclass(frozen=True)
 class CamusRunner:
     """CAMUS level-1 network inference: one guide tree in, one network family out."""
 
-    @staticmethod
-    def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
-        # Each guide tree declares its own dependency (None for `true_tree`).
-        assert isinstance(config, CamusConfig)
-        deps = (g.dependency for g in config.guides)
-        return list(dict.fromkeys(d for d in deps if d is not None))  # ordered dedup
+    guide: GuideTree
+    config: "CamusConfig"  # the single-guide config; what config_hash hashes
+    method: InferenceMethod = NetworkInferenceMethod.CAMUS
 
-    @staticmethod
+    @property
+    def suffix(self) -> str:
+        return self.guide.value
+
+    def dependencies(self) -> list[InferenceMethod]:
+        return [] if self.guide.dependency is None else [self.guide.dependency]
+
     def build_argv(
-        runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel
+        self, runid: str, input_csv: Path, name: str, output_dir: Path
     ) -> list[str]:
-        assert isinstance(config, CamusConfig)
-        # CAMUS takes one guide tree; `variants` splits a config before it gets here.
-        (guide,) = config.guide_trees
         return [
             "bash",
             "scripts/sh/runCAMUS.sh",
@@ -35,7 +39,7 @@ class CamusRunner:
             "--output",
             str(output_dir),
             "--guide-tree",
-            guide.value,
+            self.guide.value,
         ]
 
     @staticmethod

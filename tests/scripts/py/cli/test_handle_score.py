@@ -43,10 +43,10 @@ def _setup(tmp_path: Path) -> ExperimentConfig:
 def test_handle_score_writes_fn_fp(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path)
 
-    def fake_infer(input_csv, output_dir, method, config, *, name=None):
+    def fake_infer(input_csv, output_dir, runner, *, name=None):
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=method,
+            tree_inference_method=runner.method,
             config_hash="hash",
             method_config_json="{}",
             point_estimate_newick="(A,B);",
@@ -85,10 +85,10 @@ def test_handle_score_dedups_duplicate_sim_rows(tmp_path: Path, monkeypatch):
     sim = pl.read_csv(sim_csv)
     pl.concat([sim, sim]).write_csv(sim_csv)  # duplicate every row
 
-    def fake_infer(input_csv, output_dir, method, config, *, name=None):
+    def fake_infer(input_csv, output_dir, runner, *, name=None):
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=method,
+            tree_inference_method=runner.method,
             config_hash="hash",
             method_config_json="{}",
             point_estimate_newick="(A,B);",
@@ -114,10 +114,10 @@ def test_handle_score_incremental(tmp_path: Path, monkeypatch):
     # Re-running score does NOT re-score already-scored entries.
     cfg = _setup(tmp_path)
 
-    def fake_infer(input_csv, output_dir, method, config, *, name=None):
+    def fake_infer(input_csv, output_dir, runner, *, name=None):
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=method,
+            tree_inference_method=runner.method,
             config_hash="hash",
             method_config_json="{}",
             point_estimate_newick="(A,B);",

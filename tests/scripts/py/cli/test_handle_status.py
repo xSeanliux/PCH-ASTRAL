@@ -11,7 +11,7 @@ from scripts.lib.model.methods import (
     TreeInferenceMethod,
 )
 from scripts.lib.inference.scheduler import DatasetKey
-from scripts.py.cli.handle_inference import select_methods
+from scripts.py.cli.handle_inference import select_runners
 from scripts.py.cli.handle_status import (
     compute_status,
     fan_out,
@@ -122,7 +122,7 @@ def test_compute_status_counts_each_guide_tree(tmp_path: Path) -> None:
     paths = [cond / "sim_1.csv", cond / "sim_2.csv"]
     methods = {"camus": {"guide_trees": ["true_tree", "astral3"]}}
     cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
-    selected = select_methods(cfg.methods)
+    selected = list(dict.fromkeys(r.method for r in select_runners(cfg.methods)))
     fans = fan_out(cfg, selected)
     hashes = dict(fans[NetworkInferenceMethod.CAMUS])
 

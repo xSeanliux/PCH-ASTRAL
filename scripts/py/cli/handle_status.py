@@ -11,8 +11,8 @@ from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry, scheduler
 from scripts.lib.model.methods import InferenceMethod
 from scripts.lib.inference.scheduler import DatasetKey
-from scripts.lib.inference.method_config import config_for, config_hash
-from scripts.py.cli.handle_inference import select_methods, variants
+from scripts.lib.inference.method_config import config_hash
+from scripts.py.cli.handle_inference import select_runners
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 _MISSING_CAP = 10
@@ -28,11 +28,14 @@ FanOut = Mapping[InferenceMethod, Sequence[tuple[str, str]]]
 
 def fan_out(config: ExperimentConfig, methods: Sequence[InferenceMethod]) -> FanOut:
     """The methods that run more than once per dataset, with each run's identity."""
+    runners = select_runners(config.methods)
     out: dict[InferenceMethod, list[tuple[str, str]]] = {}
     for m in methods:
-        cfg = config_for(config.methods, m)
-        assert cfg is not None  # select_methods only yields enabled methods
-        runs = [(s, config_hash(c)) for c, s in variants(cfg) if s is not None]
+        runs = [
+            (r.suffix, config_hash(r.config))
+            for r in runners
+            if r.method is m and r.suffix
+        ]
         if runs:
             out[m] = runs
     return out
@@ -124,7 +127,7 @@ def handle_status(config: ExperimentConfig) -> None:
         _status_from_registry(config)
         return
 
-    methods = select_methods(config.methods)
+    methods = list(dict.fromkeys(r.method for r in select_runners(config.methods)))
     if not methods:
         print("[yellow]No methods enabled in config.[/yellow]")
         return

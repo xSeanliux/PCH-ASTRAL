@@ -26,9 +26,9 @@ Methods come in two kinds, both subclasses of the memberless `InferenceMethod` e
 - `mp4.py` / `ga.py` / `astral3.py` / `w_tree_qmc.py` / `wastral.py` / `camus.py` — one runner each.
 - `__init__.py` — `TREE_RUNNERS`, `NETWORK_RUNNERS`, and their union `RUNNERS: dict[InferenceMethod, Runner]`, + public re-exports.
 
-Each runner is stateless (`@staticmethod` methods; the registry holds a singleton). Every runner provides `build_argv(runid, input_csv, name, output_dir, config)`, `log_path`, and `dependencies(config) -> [TreeInferenceMethod]` (upstreams whose output it consumes; ASTRAL3 → MP/GA from its `bipartition_strategies`, `[]` when exact). A `TreeRunner` adds `point_estimate_path`, `group_estimate_path` (the tree *set*, or `None`) and `consensus_method() -> Optional[ConsensusMethod]`. A `NetworkRunner` adds `family_path`.
+Each runner is a frozen dataclass owning its `config` (what `config_hash` hashes), `method`, and `suffix`. Every runner provides `build_argv(runid, input_csv, name, output_dir)`, `log_path`, and `dependencies() -> [InferenceMethod]` (upstreams whose output it consumes; ASTRAL3 → MP/GA from its `bipartition_strategies`, `[]` when exact). A `TreeRunner` adds `point_estimate_path`, `group_estimate_path` (the tree *set*, or `None`) and `consensus_method() -> Optional[ConsensusMethod]`. A `NetworkRunner` adds `family_path`. `MethodConfig`'s per-method config builds its own runner(s) via `get_runners()`.
 
-A method may fan out into several runs per dataset: CAMUS takes one guide tree per run, so `CamusConfig.variants()` yields one single-guide config per guide, each with its own `config_hash` and output name `<stem>.<guide>`. `experiment status` counts such a method per run (`camus.<guide>`), matched on `config_hash`.
+A method may fan out into several runs per dataset: CAMUS takes one guide tree per run, so `CamusConfig.get_runners()` yields one `CamusRunner` per guide, each with its own single-guide config, `config_hash`, and output name `<stem>.<guide>`. `experiment status` counts such a method per run (`camus.<guide>`), matched on `config_hash`. `scripts/lib/model/` owns the run-space enums (methods, guide trees, strategies) so neither `inference/` nor `experiment.py` owns the other.
 
 ## Scheduling (`scheduler.py`)
 
@@ -50,7 +50,7 @@ simulation_data/simulated_data_registry.csv
   └─ for each row (dataset) × each enabled method (topological order):
        already recorded (same config)?           → skip
        a dependency has no success (this run/prior)? → block (log)
-       else api.infer(csv, out_dir, method, config)
+       else api.infer(csv, out_dir, runner)
          → subprocess(runner.build_argv) → InferenceResult (dataset_id = input path)
          → OK  → registry.write_result → inference_data/shards/{job}.jsonl
          → FAILED → log only (not in the registry)

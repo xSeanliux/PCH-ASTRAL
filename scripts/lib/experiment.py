@@ -2,6 +2,13 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 from scripts.lib.types import Polymorphism
 from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
 from scripts.lib.model.guide_tree import GuideTree, GUIDE_TREE_DEPENDENCY
+from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
+from scripts.lib.inference.runners.base import Runner
+from scripts.lib.inference.runners.camus import CamusRunner
+from scripts.lib.inference.runners.ga import GARunner
+from scripts.lib.inference.runners.mp4 import MP4Runner
+from scripts.lib.inference.runners.w_tree_qmc import WTreeQmcRunner
+from scripts.lib.inference.runners.wastral import WASTRALRunner
 from pathlib import Path
 from typing import ClassVar
 
@@ -30,8 +37,17 @@ class ExperimentSimulationConfig(BaseModel):
     simulation_params: list[SimulationParamSetting]
 
 
-class ASTRAL3Config(BaseModel):
+class RunnableConfig(BaseModel):
+    """A method's YAML block. `get_runners` is the layer between what the YAML
+    says and what runs: one runner per unit of work."""
+
     model_config = ConfigDict(frozen=True)
+
+    def get_runners(self) -> list[Runner]:
+        raise NotImplementedError
+
+
+class ASTRAL3Config(RunnableConfig):
     BipartitionStrategy: ClassVar[type[BipartitionStrategy]] = (
         BipartitionStrategy  # alias; enum lives in model/
     )
@@ -39,30 +55,37 @@ class ASTRAL3Config(BaseModel):
     bipartition_strategies: list[BipartitionStrategy] = Field(list())
     is_exact: bool
 
+    def get_runners(self) -> list[Runner]:
+        return [ASTRAL3Runner(config=self)]
 
-class WeightedASTRALConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+
+class WeightedASTRALConfig(RunnableConfig):
+    def get_runners(self) -> list[Runner]:
+        return [WASTRALRunner(config=self)]
 
 
-class WeightedTreeQMCConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class WeightedTreeQMCConfig(RunnableConfig):
     NormalisationStrategy: ClassVar[type[NormalisationStrategy]] = (
         NormalisationStrategy  # alias; enum lives in model/
     )
 
     normalisation_strategy: NormalisationStrategy = NormalisationStrategy.N2
 
-
-class MP4Config(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-
-class GAConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    def get_runners(self) -> list[Runner]:
+        return [WTreeQmcRunner(config=self)]
 
 
-class CamusConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class MP4Config(RunnableConfig):
+    def get_runners(self) -> list[Runner]:
+        return [MP4Runner(config=self)]
+
+
+class GAConfig(RunnableConfig):
+    def get_runners(self) -> list[Runner]:
+        return [GARunner(config=self)]
+
+
+class CamusConfig(RunnableConfig):
     GuideTree: ClassVar[type[GuideTree]] = GuideTree  # alias; the enum lives in model/
 
     guide_trees: frozenset[GuideTree] = Field(min_length=1)
@@ -84,10 +107,13 @@ class CamusConfig(BaseModel):
         """The guide trees in a fixed order; a set has none of its own."""
         return sorted(self.guide_trees)
 
-    def variants(self) -> "list[tuple[CamusConfig, str]]":
-        """(config, name suffix) per guide tree: CAMUS takes one guide per run, so
-        each gets its own output path, config_hash, and dependency gate."""
-        return [(CamusConfig(guide_trees=frozenset({g})), g.value) for g in self.guides]
+    def get_runners(self) -> list[Runner]:
+        # CAMUS takes one guide per run; each gets its own config_hash, so the
+        # registry key and resume behaviour match a single-guide YAML exactly.
+        return [
+            CamusRunner(guide=g, config=CamusConfig(guide_trees=frozenset({g})))
+            for g in self.guides
+        ]
 
 
 class MethodConfig(BaseModel):
@@ -98,6 +124,10 @@ class MethodConfig(BaseModel):
     mp4: MP4Config | None = Field(None)
     gray_atkinson: GAConfig | None = Field(None)
     camus: CamusConfig | None = Field(None)
+
+    def enabled(self) -> list[RunnableConfig]:
+        """The configured methods, in field-declaration order."""
+        return [v for v in vars(self).values() if v is not None]
 
 
 class ExperimentConfig(BaseModel):

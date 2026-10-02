@@ -6,11 +6,7 @@ from pydantic import ValidationError
 
 from scripts.lib.experiment import CamusConfig
 from scripts.lib.inference import api
-from scripts.lib.model.methods import (
-    NetworkInferenceMethod,
-    RunStatus,
-    TreeInferenceMethod,
-)
+from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.lib.inference.method_config import config_hash
 from scripts.lib.inference.runners.camus import CamusRunner
 
@@ -43,12 +39,12 @@ def test_yaml_list_loads_as_a_set():
     assert config.guide_trees == {G.ASTRAL3, G.TRUE_TREE}
 
 
-def test_dependencies_drop_true_tree():
+def test_get_runners_dependencies_drop_true_tree():
     config = _config(G.ASTRAL3, G.TRUE_TREE, G.WASTRAL)
-    assert CamusRunner.dependencies(config) == [
-        TreeInferenceMethod.PCH_ASTRAL3,
-        TreeInferenceMethod.PCH_WASTRAL,
-    ]
+    deps = {r.guide: r.dependencies() for r in config.get_runners()}
+    assert deps[G.ASTRAL3] == [TreeInferenceMethod.PCH_ASTRAL3]
+    assert deps[G.TRUE_TREE] == []
+    assert deps[G.WASTRAL] == [TreeInferenceMethod.PCH_WASTRAL]
 
 
 @pytest.mark.parametrize(
@@ -65,24 +61,23 @@ def test_each_guide_names_its_source(
     assert guide.dependency is dependency
 
 
-def test_variants_split_per_guide_in_fixed_order():
-    variants = _config(G.TRUE_TREE, G.ASTRAL3).variants()
-    assert [suffix for _, suffix in variants] == ["astral3", "true_tree"]
-    assert [cfg.guide_trees for cfg, _ in variants] == [{G.ASTRAL3}, {G.TRUE_TREE}]
-    assert len({config_hash(cfg) for cfg, _ in variants}) == 2
+def test_get_runners_split_per_guide_in_fixed_order():
+    runners = _config(G.TRUE_TREE, G.ASTRAL3).get_runners()
+    assert [r.suffix for r in runners] == ["astral3", "true_tree"]
+    assert [r.config.guide_trees for r in runners] == [{G.ASTRAL3}, {G.TRUE_TREE}]
+    assert len({config_hash(r.config) for r in runners}) == 2
+
+
+def test_camus_runner_config_hash_matches_single_guide_config():
+    (r,) = _config(G.ASTRAL3).get_runners()
+    assert config_hash(r.config) == config_hash(_config(G.ASTRAL3))
+    assert r.config == _config(G.ASTRAL3)
 
 
 def test_build_argv_passes_one_guide(tmp_path: Path):
-    argv = CamusRunner.build_argv(
-        "r1", tmp_path / "d.csv", "d.true_tree", tmp_path, _config(G.TRUE_TREE)
-    )
+    (runner,) = _config(G.TRUE_TREE).get_runners()
+    argv = runner.build_argv("r1", tmp_path / "d.csv", "d.true_tree", tmp_path)
     assert argv[-2:] == ["--guide-tree", "true_tree"]
-
-
-def test_build_argv_rejects_several_guides(tmp_path: Path):
-    config = _config(G.ASTRAL3, G.TRUE_TREE)
-    with pytest.raises(ValueError):
-        CamusRunner.build_argv("r1", tmp_path / "d.csv", "d", tmp_path, config)
 
 
 def test_infer_records_family_path_and_no_newick(
@@ -99,11 +94,11 @@ def test_infer_records_family_path_and_no_newick(
         return subprocess.CompletedProcess(argv, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
+    (runner,) = _config(G.TRUE_TREE).get_runners()
     result = api.infer(
         tmp_path / "d.csv",
         tmp_path,
-        NetworkInferenceMethod.CAMUS,
-        _config(G.TRUE_TREE),
+        runner,
         name="d.true_tree",
     )
     assert result.status is RunStatus.OK
@@ -119,11 +114,7 @@ def test_infer_fails_when_no_family_written(
         return subprocess.CompletedProcess(argv, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    result = api.infer(
-        tmp_path / "d.csv",
-        tmp_path,
-        NetworkInferenceMethod.CAMUS,
-        _config(G.TRUE_TREE),
-    )
+    (runner,) = _config(G.TRUE_TREE).get_runners()
+    result = api.infer(tmp_path / "d.csv", tmp_path, runner)
     assert result.status is RunStatus.FAILED
     assert result.tree_set_path is None
