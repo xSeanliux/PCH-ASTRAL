@@ -10,17 +10,20 @@ from pydantic import BaseModel
 
 from scripts.lib.inference import method_config, registry
 from scripts.lib.inference.inference import (
+    ConsensusMethod,
+    InferenceMethod,
     InferenceResult,
+    NetworkInferenceMethod,
     RunStatus,
     TreeInferenceMethod,
 )
-from scripts.lib.inference.runners import RUNNERS
+from scripts.lib.inference.runners import NETWORK_RUNNERS, RUNNERS, TREE_RUNNERS
 
 
 def infer(
     input_csv: Path,
     output_dir: Path,
-    method: TreeInferenceMethod,
+    method: InferenceMethod,
     config: BaseModel,
     *,
     name: str | None = None,
@@ -43,15 +46,28 @@ def infer(
         )
     elapsed = time.monotonic() - start
 
-    # A run is OK only if it exited 0 AND actually produced its point estimate.
-    point_estimate = runner.point_estimate_path(output_dir, name)
-    ok = proc.returncode == 0 and point_estimate.exists()
+    # A run is OK only if it exited 0 AND actually produced its estimate.
+    newick = ""
+    tree_set_path: str | None = None
+    consensus: ConsensusMethod | None = None
+    if isinstance(method, NetworkInferenceMethod):
+        # A network family has no single estimate: choosing a k is analysis. The
+        # registry row carries the family's path and leaves the newick empty.
+        family = NETWORK_RUNNERS[method].family_path(output_dir, name)
+        ok = proc.returncode == 0 and family.exists()
+        tree_set_path = str(family) if ok else None
+    else:
+        assert isinstance(method, TreeInferenceMethod)
+        tree_runner = TREE_RUNNERS[method]
+        point_estimate = tree_runner.point_estimate_path(output_dir, name)
+        ok = proc.returncode == 0 and point_estimate.exists()
+        newick = point_estimate.read_text().strip() if ok else ""
+        # tree_set_path only when the file actually exists (None signals "no set").
+        group = tree_runner.group_estimate_path(output_dir, name)
+        if ok and group is not None and group.exists():
+            tree_set_path = str(group)
+        consensus = tree_runner.consensus_method()
     status = RunStatus.OK if ok else RunStatus.FAILED
-    newick = point_estimate.read_text().strip() if ok else ""
-
-    # tree_set_path only when the file actually exists (None signals "no set").
-    group = runner.group_estimate_path(output_dir, name)
-    tree_set_path = str(group) if ok and group is not None and group.exists() else None
 
     # dataset_id = the canonical input path (identity); `name` (stem) only names
     # on-disk files.
@@ -65,6 +81,6 @@ def infer(
         status=status,
         ran_at=datetime.now(timezone.utc).isoformat(),
         tree_set_path=tree_set_path,
-        consensus_method=runner.consensus_method(),
+        consensus_method=consensus,
         log_path=str(log),
     )
