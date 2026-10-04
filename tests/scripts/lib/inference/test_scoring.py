@@ -58,7 +58,7 @@ def test_resolve_reference_network_reads_the_registered_file(tmp_path: Path):
             "horizontal_edges": [1],
             "model_tree": [1],
             "path": [str(net)],
-            "outgroup": ["OUT"],
+            "outgroup_label": ["OUT"],
             "outgroup_seed": [1],
             "outgroup_branch_length": [1.0],
             "ingroup_stem_length": [1.0],
