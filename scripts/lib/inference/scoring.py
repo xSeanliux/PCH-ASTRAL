@@ -68,12 +68,6 @@ def score(
         tmp.unlink(missing_ok=True)
 
 
-@dataclass
-class NetworkScore:
-    fn_rate: float
-    fp_rate: float
-
-
 # Cached like resolve_reference_newick: one parse per distinct key per process.
 @functools.lru_cache(maxsize=None)
 def resolve_reference_network(
@@ -107,7 +101,7 @@ def get_taxa(newick: str) -> set[str]:
 
 def score_network(
     estimate_newick: str, reference_newick: str, *, timeout_seconds: float = 7200
-) -> NetworkScore:
+) -> ScoreResult:
     """Score an estimate with `CmpNets -m cluster`, reference as net1.
 
     :raises ValueError: if the taxon sets differ.
@@ -145,6 +139,6 @@ def score_network(
             raise RuntimeError(f"PhyloNet: no distance line in {proc.stdout!r}")
         # The third number is their mean; derivable, so not kept.
         fn, fp, _ = (float(x) for x in m.groups())
-        return NetworkScore(fn_rate=fn, fp_rate=fp)
+        return ScoreResult(fn_rate=fn, fp_rate=fp)
     finally:
         tmp.unlink(missing_ok=True)
