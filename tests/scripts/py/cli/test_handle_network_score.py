@@ -31,7 +31,7 @@ def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ExperimentConfig:
             "horizontal_edges": [1],
             "model_tree": [1],
             "path": [str(net)],
-            "outgroup": ["OUT"],
+            "outgroup_label": ["OUT"],
             "outgroup_seed": [1],
             "outgroup_branch_length": [1.0],
             "ingroup_stem_length": [1.0],
