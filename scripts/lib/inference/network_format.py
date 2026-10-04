@@ -19,7 +19,11 @@ def _wrap(tree: str, clade: str, wrapped: str) -> str:
     return tree
 
 
-def contact_network_to_rich_newick(text: str) -> str:
+def convert_contact_network(text: str) -> str:
+    """Convert a contact network file's text to a Rich newick.
+
+    :raises ValueError: on a missing clade or an event on one clade.
+    """
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     tree = lines[0].rstrip(";")
     events: list[tuple[float, str, str]] = []
