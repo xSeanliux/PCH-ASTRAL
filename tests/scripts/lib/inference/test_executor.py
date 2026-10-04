@@ -157,16 +157,14 @@ def test_run_compact_also_compacts_camus_shards(tmp_path: Path):
     spec_path = folder / "spec.yaml"
     spec_path.write_text(yaml.safe_dump(_config(folder).model_dump(mode="json")))
 
-    shards = camus_registry.shards_dir(folder)
+    shards = camus_registry.get_shards_dir(folder)
     shards.mkdir(parents=True)
     row = {
         "dataset_id": "d.csv",
+        "method": "camus",
         "guide_tree": "true_tree",
         "config_hash": "h",
-        "runtime_seconds": 1.0,
-        "status": "ok",
         "ran_at": "2026-09-29T00:00:00+00:00",
-        "log_path": None,
         "k": 0,
         "qsat_percent": 0.0,
         "network_newick": "((A,B),OUT);",
@@ -177,7 +175,7 @@ def test_run_compact_also_compacts_camus_shards(tmp_path: Path):
 
     assert (
         pl.read_csv(
-            camus_registry.registry_path(folder), schema=CAMUS_REGISTRY_SCHEMA
+            camus_registry.get_registry_path(folder), schema=CAMUS_REGISTRY_SCHEMA
         ).height
         == 1
     )

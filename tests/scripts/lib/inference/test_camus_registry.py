@@ -45,7 +45,7 @@ def _result(
 
 def test_write_family_appends_one_row_per_k(tmp_path: Path):
     shard = camus_registry.write_family(_result(tmp_path), "true_tree", tmp_path)
-    assert shard.parent == camus_registry.shards_dir(tmp_path)
+    assert shard.parent == camus_registry.get_shards_dir(tmp_path)
     assert len(shard.read_text().splitlines()) == 2
 
 
@@ -53,15 +53,15 @@ def test_compact_renames_columns_and_keeps_newicks_intact(tmp_path: Path):
     camus_registry.write_family(_result(tmp_path), "true_tree", tmp_path)
     out = camus_registry.compact(tmp_path)
 
-    assert out == camus_registry.registry_path(tmp_path)
+    assert out == camus_registry.get_registry_path(tmp_path)
     df = pl.read_csv(out, schema=CAMUS_REGISTRY_SCHEMA).sort("k")
     assert df.columns == list(CAMUS_REGISTRY_SCHEMA.keys())
     assert df["k"].to_list() == [0, 1]
     assert df["qsat_percent"].to_list() == pytest.approx([0.0, 36.86453576864536])
     assert df["network_newick"].to_list() == NEWICKS
     assert df["guide_tree"].to_list() == ["true_tree"] * 2
-    assert df["runtime_seconds"].to_list() == [3.5, 3.5]
-    assert df["status"].to_list() == ["ok", "ok"]
+    assert df["method"].to_list() == ["camus"] * 2
+    assert "status" not in df.columns
 
 
 def test_a_family_of_one_row_is_fine(tmp_path: Path):
@@ -77,7 +77,7 @@ def test_write_family_rejects_unexpected_header(tmp_path: Path):
         camus_registry.write_family(
             _result(tmp_path, family=bad), "true_tree", tmp_path
         )
-    assert not camus_registry.shards_dir(tmp_path).exists()
+    assert not camus_registry.get_shards_dir(tmp_path).exists()
 
 
 def test_write_family_rejects_a_missing_family(tmp_path: Path):
@@ -91,14 +91,14 @@ def test_write_family_rejects_an_empty_file(tmp_path: Path):
     result = _result(tmp_path, family="")
     with pytest.raises(ValueError):
         camus_registry.write_family(result, "true_tree", tmp_path)
-    assert not camus_registry.shards_dir(tmp_path).exists()
+    assert not camus_registry.get_shards_dir(tmp_path).exists()
 
 
 def test_write_family_rejects_a_header_only_family(tmp_path: Path):
     result = _result(tmp_path, family=FAMILY.splitlines()[0] + "\n")
     with pytest.raises(ValueError, match="no rows"):
         camus_registry.write_family(result, "true_tree", tmp_path)
-    assert not camus_registry.shards_dir(tmp_path).exists()
+    assert not camus_registry.get_shards_dir(tmp_path).exists()
 
 
 def test_write_family_rejects_a_torn_last_row(tmp_path: Path):
@@ -106,7 +106,7 @@ def test_write_family_rejects_a_torn_last_row(tmp_path: Path):
     result = _result(tmp_path, family=torn)
     with pytest.raises(ValueError, match="null"):
         camus_registry.write_family(result, "true_tree", tmp_path)
-    assert not camus_registry.shards_dir(tmp_path).exists()
+    assert not camus_registry.get_shards_dir(tmp_path).exists()
 
 
 def test_write_family_rejects_first_k_not_zero(tmp_path: Path):
@@ -114,7 +114,7 @@ def test_write_family_rejects_first_k_not_zero(tmp_path: Path):
     result = _result(tmp_path, family=bad)
     with pytest.raises(ValueError, match="k"):
         camus_registry.write_family(result, "true_tree", tmp_path)
-    assert not camus_registry.shards_dir(tmp_path).exists()
+    assert not camus_registry.get_shards_dir(tmp_path).exists()
 
 
 def test_compact_dedups_a_requeued_family_keeping_the_newest(tmp_path: Path):
@@ -158,4 +158,4 @@ def test_compact_dedups_by_family_not_by_k(tmp_path: Path):
 def test_compact_removes_shards(tmp_path: Path):
     camus_registry.write_family(_result(tmp_path), "true_tree", tmp_path)
     camus_registry.compact(tmp_path)
-    assert not camus_registry.shards_dir(tmp_path).exists()
+    assert not camus_registry.get_shards_dir(tmp_path).exists()

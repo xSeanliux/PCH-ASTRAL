@@ -53,16 +53,15 @@ INFERENCE_REGISTRY_SCHEMA = pl.Schema(
     }
 )
 
-# One row per (dataset, guide tree, k) from a CAMUS run: its network family.
+# One row per (dataset, method, config, k): a network run's family. Join
+# inference_registry on (dataset_id, method, config_hash) for status/runtime/log.
 CAMUS_REGISTRY_SCHEMA = pl.Schema(
     {
         "dataset_id": String,
+        "method": String,
         "guide_tree": String,
         "config_hash": String,
-        "runtime_seconds": Float64,  # the whole family's; repeated per row
-        "status": String,
         "ran_at": String,
-        "log_path": String,
         "k": Int64,
         "qsat_percent": Float64,
         "network_newick": String,

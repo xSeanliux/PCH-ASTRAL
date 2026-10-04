@@ -1,4 +1,4 @@
-"""The network family registry: one row per (dataset, guide tree, k).
+"""The network family registry: one row per (dataset, method, config, k).
 
 CAMUS writes each run's family as a CSV. `write_family` reads it, prepends the
 run's identity, and appends JSON lines to this job's shard; `compact` merges
@@ -18,19 +18,22 @@ from scripts.py.cli.schemata import CAMUS_REGISTRY_SCHEMA
 
 # CAMUS's own header, in order. Anything else is a CAMUS we do not know.
 CAMUS_COLUMNS = ["Number of Branches", "Quartet Satisfied Percent", "Extended Newick"]
-_RENAME = dict(zip(CAMUS_COLUMNS, ["k", "qsat_percent", "network_newick"]))
-_KEY_COLUMNS = ["dataset_id", "config_hash", "k"]
+_CAMUS_TO_REGISTRY_COLUMN = dict(
+    zip(CAMUS_COLUMNS, ["k", "qsat_percent", "network_newick"])
+)
+_KEY_COLUMNS = ["dataset_id", "method", "config_hash", "k"]
 
 
-def shards_dir(experiment_folder: Path) -> Path:
+def get_shards_dir(experiment_folder: Path) -> Path:
     return experiment_folder / "inference_data" / "camus_shards"
 
 
-def registry_path(experiment_folder: Path) -> Path:
+def get_registry_path(experiment_folder: Path) -> Path:
     return experiment_folder / "inference_data" / "camus_registry.csv"
 
 
-def _family_key(row: Mapping[str, Cell]) -> str:
+def _build_family_key(row: Mapping[str, Cell]) -> str:
+    """Join the key columns into one dedup key."""
     return "|".join(str(row.get(c)) for c in _KEY_COLUMNS)
 
 
@@ -61,36 +64,34 @@ def write_family(
         raise ValueError(f"first k is {first_k}, not 0, in {result.tree_set_path}")
     identity = {
         "dataset_id": result.dataset_id,
+        "method": result.tree_inference_method.value,
         "guide_tree": guide_tree,
         "config_hash": result.config_hash,
-        "runtime_seconds": result.runtime_seconds,
-        "status": result.status.value,
         "ran_at": result.ran_at,
-        "log_path": result.log_path,
     }
-    shards = shards_dir(experiment_folder)
+    shards = get_shards_dir(experiment_folder)
     shards.mkdir(parents=True, exist_ok=True)
     shard = shards / f"{registry.current_shard_id()}.jsonl"
     with shard.open("a") as f:
-        for row in family.rename(_RENAME).iter_rows(named=True):
+        for row in family.rename(_CAMUS_TO_REGISTRY_COLUMN).iter_rows(named=True):
             f.write(json.dumps({**identity, **row}) + "\n")
     return shard
 
 
 def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
     """Merge camus_shards/*.jsonl -> camus_registry.csv, one row per
-    (dataset, config, k), the newest ran_at winning.
+    (dataset, method, config, k), the newest ran_at winning.
 
     Dedup is per k (merge_shards' key), not per family: a rerun with the same
-    (dataset, config) that writes a SHORTER family would otherwise leave the
+    (dataset, method, config) that writes a SHORTER family would otherwise leave the
     earlier run's higher-k rows beside the new ones. So after merging, drop
-    every row whose ran_at isn't the newest within its (dataset, config).
+    every row whose ran_at isn't the newest within its (dataset, method, config).
     """
     out = registry.merge_shards(
-        shards_dir(experiment_folder),
-        registry_path(experiment_folder),
+        get_shards_dir(experiment_folder),
+        get_registry_path(experiment_folder),
         CAMUS_REGISTRY_SCHEMA,
-        _family_key,
+        _build_family_key,
         cleanup=cleanup,
     )
     df = pl.read_csv(out, schema=CAMUS_REGISTRY_SCHEMA)
@@ -106,8 +107,8 @@ def compact(experiment_folder: Path, *, cleanup: bool = True) -> Path:
 def compact_if_any(experiment_folder: Path) -> Path | None:
     """Compact when this experiment has ever run CAMUS; else leave no file behind."""
     if (
-        shards_dir(experiment_folder).exists()
-        or registry_path(experiment_folder).exists()
+        get_shards_dir(experiment_folder).exists()
+        or get_registry_path(experiment_folder).exists()
     ):
         return compact(experiment_folder)
     return None
