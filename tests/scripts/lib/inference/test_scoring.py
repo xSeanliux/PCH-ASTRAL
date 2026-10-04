@@ -6,10 +6,10 @@ import pytest
 
 from scripts.lib.inference.scoring import (
     PHYLONET_JAR,
-    network_score,
+    score_network,
     resolve_reference_network,
     score,
-    taxa,
+    get_taxa,
 )
 
 needs_r = pytest.mark.skipif(
@@ -41,12 +41,12 @@ REF = "((((A,((B)#H2,#H1)),((C)#H1,#H2)),(D,E)),OUT);"
 
 
 def test_taxa_skips_hybrid_labels_and_lengths():
-    assert taxa("((A:1,(B:1)#H1:1),(#H1,C:1));") == {"A", "B", "C"}
+    assert get_taxa("((A:1,(B:1)#H1:1),(#H1,C:1));") == {"A", "B", "C"}
 
 
-def test_network_score_rejects_mismatched_taxa():
+def test_score_network_rejects_mismatched_taxa():
     with pytest.raises(ValueError, match="taxon sets differ"):
-        network_score("((A,B),C);", REF)
+        score_network("((A,B),C);", REF)
 
 
 def test_resolve_reference_network_reads_the_registered_file(tmp_path: Path):
@@ -70,15 +70,14 @@ def test_resolve_reference_network_reads_the_registered_file(tmp_path: Path):
 
 
 @needs_phylonet
-def test_network_score_reference_against_itself_is_zero():
-    s = network_score(REF, REF)
-    assert (s.fn, s.fp, s.avg) == (0.0, 0.0, 0.0)
+def test_score_network_reference_against_itself_is_zero():
+    s = score_network(REF, REF)
+    assert (s.fn_rate, s.fp_rate) == (0.0, 0.0)
 
 
 @needs_phylonet
-def test_network_score_plain_tree_has_fn():
+def test_score_network_plain_tree_has_fn():
     # scoring.md: the plain tree scores FN 0.333, FP 0.
-    s = network_score("((((A,B),C),(D,E)),OUT);", REF)
-    assert s.fn == pytest.approx(1 / 3)
-    assert s.fp == 0.0
-    assert s.avg == pytest.approx(1 / 6)
+    s = score_network("((((A,B),C),(D,E)),OUT);", REF)
+    assert s.fn_rate == pytest.approx(1 / 3)
+    assert s.fp_rate == 0.0

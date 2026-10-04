@@ -9,7 +9,7 @@ from pathlib import Path
 
 import polars as pl
 
-from scripts.lib.inference.network_format import contact_network_to_rich_newick
+from scripts.lib.inference.network_format import convert_contact_network
 from scripts.py.cli.schemata import MODEL_GRAPH_REGISTRY
 
 
@@ -70,9 +70,8 @@ def score(
 
 @dataclass
 class NetworkScore:
-    fn: float
-    fp: float
-    avg: float
+    fn_rate: float
+    fp_rate: float
 
 
 # Cached like resolve_reference_newick: one parse per distinct key per process.
@@ -90,9 +89,7 @@ def resolve_reference_network(
         raise ValueError(
             f"No network for h={horizontal_edges}, model_tree={model_tree} in {reg}"
         )
-    return contact_network_to_rich_newick(
-        Path(df.row(0, named=True)["path"]).read_text()
-    )
+    return convert_contact_network(Path(df.row(0, named=True)["path"]).read_text())
 
 
 # Relative to the repo root, like RFScorer.R above: the pipeline runs from there.
@@ -103,19 +100,24 @@ _TAXON = re.compile(r"(?<=[(,])[^(),:;#]+")
 _DISTANCE = re.compile(r"distance between two networks:\s*(\S+)\s+(\S+)\s+(\S+)")
 
 
-def taxa(newick: str) -> set[str]:
+def get_taxa(newick: str) -> set[str]:
+    """Return the leaf labels of a Rich newick."""
     return set(_TAXON.findall(newick))
 
 
-def network_score(
+def score_network(
     estimate_newick: str, reference_newick: str, *, timeout_seconds: float = 7200
 ) -> NetworkScore:
-    """`CmpNets -m cluster`, reference as net1. Raises subprocess.TimeoutExpired
-    past `timeout_seconds`."""
-    if taxa(estimate_newick) != taxa(reference_newick):
+    """Score an estimate with `CmpNets -m cluster`, reference as net1.
+
+    :raises ValueError: if the taxon sets differ.
+    :raises RuntimeError: if PhyloNet fails or prints no distance.
+    :raises subprocess.TimeoutExpired: past `timeout_seconds`.
+    """
+    if get_taxa(estimate_newick) != get_taxa(reference_newick):
         # CmpNets returns numbers for mismatched sets; fail loudly instead.
         raise ValueError(
-            f"taxon sets differ: {sorted(taxa(estimate_newick) ^ taxa(reference_newick))}"
+            f"taxon sets differ: {sorted(get_taxa(estimate_newick) ^ get_taxa(reference_newick))}"
         )
     nexus = (
         "#NEXUS\nBEGIN NETWORKS;\n"
@@ -141,7 +143,8 @@ def network_score(
         m = _DISTANCE.search(proc.stdout)
         if m is None:
             raise RuntimeError(f"PhyloNet: no distance line in {proc.stdout!r}")
-        fn, fp, avg = (float(x) for x in m.groups())
-        return NetworkScore(fn=fn, fp=fp, avg=avg)
+        # The third number is their mean; derivable, so not kept.
+        fn, fp, _ = (float(x) for x in m.groups())
+        return NetworkScore(fn_rate=fn, fp_rate=fp)
     finally:
         tmp.unlink(missing_ok=True)
