@@ -10,9 +10,7 @@ from pydantic import BaseModel
 
 from scripts.lib.inference import method_config, registry
 from scripts.lib.model.methods import RunStatus
-from scripts.lib.inference.inference import (
-    InferenceResult,
-)
+from scripts.lib.inference.inference import InferenceResult
 from scripts.lib.inference.runners import Runner
 
 

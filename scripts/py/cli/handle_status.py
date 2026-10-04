@@ -9,7 +9,6 @@ from rich import print
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry, scheduler
-from scripts.lib.model.methods import InferenceMethod
 from scripts.lib.inference.scheduler import DatasetKey
 from scripts.lib.inference.method_config import hash_config
 from scripts.py.cli.handle_inference import select_runners
@@ -17,56 +16,24 @@ from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 _MISSING_CAP = 10
 
-# (condition, label) -> (done_count, expected_count). A label is the method's
-# value, or `<method>.<suffix>` for each run of a method that fans out.
+# (condition, label) -> (done_count, expected_count)
 StatusCounts = dict[tuple[str, str], tuple[int, int]]
 # (condition, label) -> [dataset stems not yet done]
 MissingMap = dict[tuple[str, str], list[str]]
-# method -> [(suffix, config_hash)], one per run of a method that fans out
-MethodToRuns = Mapping[InferenceMethod, Sequence[tuple[str, str]]]
-
-
-def get_fan_out(
-    config: ExperimentConfig, methods: Sequence[InferenceMethod]
-) -> MethodToRuns:
-    """The methods that run more than once per dataset, with each run's identity."""
-    runners = select_runners(config.methods)
-    out: dict[InferenceMethod, list[tuple[str, str]]] = {}
-    for m in methods:
-        runs = [
-            (r.suffix, hash_config(r.config))
-            for r in runners
-            if r.method is m and r.suffix
-        ]
-        if runs:
-            out[m] = runs
-    return out
-
-
-def build_labels(methods: Sequence[InferenceMethod], fans: MethodToRuns) -> list[str]:
-    """Display labels: the method value, or one `<method>.<suffix>` per run."""
-    return [
-        label
-        for m in methods
-        for label in (
-            [f"{m.value}.{s}" for s, _ in fans[m]] if m in fans else [m.value]
-        )
-    ]
+# One unit of work: (label, method value, config hash).
+Unit = tuple[str, str, str]
 
 
 def compute_status(
     sim_rows: Iterable[Mapping[str, str | int | float]],
-    methods: Sequence[InferenceMethod],
+    units: Sequence[Unit],
     done: dict[DatasetKey, set[tuple[str, str]]],
-    fans: MethodToRuns | None = None,
 ) -> tuple[StatusCounts, MissingMap]:
     """Count done/expected per (condition, label); collect missing stems.
 
-    Pure — no I/O. Condition = parent dir name of each sim row's path.
-    A method is done for a dataset if it appears (any config_hash) in `done`. A
-    method in `fans` is counted per run, each done only under its own config_hash.
+    Pure, no I/O. Condition = parent dir name of each sim row's path.
+    A unit is done for a dataset iff `(method, config_hash)` is in `done`.
     """
-    fans = fans or {}
     expected: dict[tuple[str, str], int] = defaultdict(int)
     n_done: dict[tuple[str, str], int] = defaultdict(int)
     missing: MissingMap = defaultdict(list)
@@ -74,27 +41,16 @@ def compute_status(
     for row in sim_rows:
         path = str(row["path"])
         condition = Path(path).parent.name
-        dataset_id = registry.canonical_path(path)
-        dkey = (dataset_id,)
-        ok_runs = done.get(dkey, set())
-        ok_methods = {m for m, _ in ok_runs}
+        ok_runs = done.get((registry.canonical_path(path),), set())
         stem = Path(path).stem
 
-        for method in methods:
-            if method in fans:
-                units = [
-                    (f"{method.value}.{s}", (method.value, h) in ok_runs)
-                    for s, h in fans[method]
-                ]
+        for label, method, config_hash in units:
+            key = (condition, label)
+            expected[key] += 1
+            if (method, config_hash) in ok_runs:
+                n_done[key] += 1
             else:
-                units = [(method.value, method.value in ok_methods)]
-            for label, is_done in units:
-                key = (condition, label)
-                expected[key] += 1
-                if is_done:
-                    n_done[key] += 1
-                else:
-                    missing[key].append(stem)
+                missing[key].append(stem)
 
     counts: StatusCounts = {k: (n_done.get(k, 0), v) for k, v in expected.items()}
     return counts, dict(missing)
@@ -130,8 +86,11 @@ def handle_status(config: ExperimentConfig) -> None:
         _status_from_registry(config)
         return
 
-    methods = list(dict.fromkeys(r.method for r in select_runners(config.methods)))
-    if not methods:
+    units = [
+        (r.get_run_name(r.method.value), r.method.value, hash_config(r.config))
+        for r in select_runners(config.methods)
+    ]
+    if not units:
         print("[yellow]No methods enabled in config.[/yellow]")
         return
 
@@ -141,26 +100,25 @@ def handle_status(config: ExperimentConfig) -> None:
         )
     )
     done = scheduler.get_completed_runs(config.experiment_folder)
-    fans = get_fan_out(config, methods)
-    counts, missing = compute_status(rows, methods, done, fans)
+    counts, missing = compute_status(rows, units, done)
 
     # Unique conditions in insertion order
     conditions: dict[str, None] = {}
     for cond, _ in counts:
         conditions[cond] = None
 
-    method_values = build_labels(methods, fans)
+    labels = [label for label, _, _ in units]
     total_done = total_expected = 0
 
     for cond in conditions:
         print(f"\n[bold]{cond}[/bold]")
-        for mv in method_values:
+        for mv in labels:
             key = (cond, mv)
             d, e = counts.get(key, (0, 0))
             total_done += d
             total_expected += e
             print(f"  {mv}: {d}/{e}")
-        for mv in method_values:
+        for mv in labels:
             stems = missing.get((cond, mv), [])
             if not stems:
                 continue

@@ -106,10 +106,8 @@ def handle_inference(
         for r in runners:
             config_hash = hash_config(r.config)
 
-            if (
-                r.method.value,
-                config_hash,
-            ) in prior:  # resume: this exact unit already done
+            # resume: this exact unit already done
+            if (r.method.value, config_hash) in prior:
                 tally["skipped"] += 1
                 continue
 

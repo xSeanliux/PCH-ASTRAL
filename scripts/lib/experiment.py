@@ -99,20 +99,15 @@ class CamusConfig(RunnableConfig):
             )
         return v
 
-    @property
-    def guides(self) -> list[GuideTree]:
-        """The guide trees in a fixed order; a set has none of its own."""
-        return sorted(self.guide_trees)
-
     def get_runners(self) -> list[Runner[BaseModel]]:
-        """One run per guide.
+        """One run per guide, in sorted order (a set has none).
 
         Each gets its own config hash, so the registry key and resume behaviour
         match a single-guide YAML exactly.
         """
         return [
             CamusRunner(config=CamusConfig(guide_trees=frozenset({g})))
-            for g in self.guides
+            for g in sorted(self.guide_trees)
         ]
 
 

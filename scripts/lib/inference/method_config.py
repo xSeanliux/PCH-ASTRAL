@@ -9,6 +9,7 @@ from scripts.lib.experiment import (
     CamusConfig,
     GAConfig,
     MP4Config,
+    RunnableConfig,
     WeightedASTRALConfig,
     WeightedTreeQMCConfig,
 )
@@ -18,17 +19,7 @@ from scripts.lib.model.methods import (
     TreeInferenceMethod,
 )
 
-# The concrete method-config types (one per InferenceMethod).
-MethodConfigT = (
-    ASTRAL3Config
-    | WeightedASTRALConfig
-    | WeightedTreeQMCConfig
-    | MP4Config
-    | GAConfig
-    | CamusConfig
-)
-
-METHOD_TO_CONFIG_CLASS: dict[InferenceMethod, type[MethodConfigT]] = {
+METHOD_TO_CONFIG_CLASS: dict[InferenceMethod, type[RunnableConfig]] = {
     TreeInferenceMethod.PCH_ASTRAL3: ASTRAL3Config,
     TreeInferenceMethod.PCH_WASTRAL: WeightedASTRALConfig,
     TreeInferenceMethod.PCH_W_TREE_QMC: WeightedTreeQMCConfig,
@@ -38,10 +29,10 @@ METHOD_TO_CONFIG_CLASS: dict[InferenceMethod, type[MethodConfigT]] = {
 }
 
 
-def resolve_config(method: InferenceMethod, config_file: Path | None) -> MethodConfigT:
+def resolve_config(method: InferenceMethod, config_file: Path | None) -> RunnableConfig:
     """Validate the method's config from YAML (or defaults when no file).
 
-    `model_validate` returns the concrete config type (no cast needed). Configs
+    Configs
     with required fields and no `config_file` raise `pydantic.ValidationError`;
     the CLI turns that into a clean `--method-config required` error.
     """

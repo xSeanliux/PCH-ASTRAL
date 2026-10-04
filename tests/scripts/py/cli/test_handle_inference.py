@@ -450,7 +450,7 @@ def test_handle_inference_runs_camus_once_per_guide(tmp_path: Path, monkeypatch)
         calls.append(
             (
                 runner.get_run_name(input_csv.stem),
-                [str(g) for g in runner.config.guides],
+                [str(g) for g in sorted(runner.config.guide_trees)],
             )
         )
         return InferenceResult(
