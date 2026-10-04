@@ -32,6 +32,6 @@ methods:
   wastral: {}
   camus:
     guide_trees:
-      - astral3
-      - wastral
+      - pch_astral3
+      - pch_wastral
       - true_tree

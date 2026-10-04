@@ -1,6 +1,6 @@
 """Print the guide tree for one dataset: topology only, rooted on the outgroup.
 
-    python3 -m scripts.py.guide_tree --guide astral3 --input <dataset.csv> --output <output_dir>
+    python3 -m scripts.py.guide_tree --guide pch_astral3 --input <dataset.csv> --output <output_dir>
 
 A method guide is that method's point estimate for the dataset. `true_tree` is the
 dataset's base tree. The outgroup is the one recorded for the dataset's model tree.
@@ -14,22 +14,22 @@ import polars as pl
 from Bio import Phylo
 from Bio.Phylo.BaseTree import Clade
 
-from scripts.lib.experiment import CamusConfig
 from scripts.lib.inference import registry
-from scripts.lib.inference.runners import TREE_RUNNERS
+from scripts.lib.inference.runners import METHOD_TO_RUNNER_CLASS
+from scripts.lib.model.guide_tree import SUPPORTED_GUIDE_TREES, TRUE_TREE, GuideTree
+from scripts.lib.model.methods import TreeInferenceMethod
 from scripts.py.cli.schemata import MODEL_GRAPH_REGISTRY, SIMULATED_DATA_REGISTRY_SCHEMA
 
-GuideTree = CamusConfig.GuideTree
 
-
-def _topology(clade: Clade) -> str:
+def _write_topology(clade: Clade) -> str:
+    """`clade` as Newick without lengths or support values, no terminator."""
     if clade.is_terminal():
         assert clade.name is not None, "a leaf has no name"
         return clade.name
-    return "(" + ",".join(_topology(c) for c in clade.clades) + ")"
+    return "(" + ",".join(_write_topology(c) for c in clade.clades) + ")"
 
 
-def rooted_topology(newick: str, outgroup: str | None) -> str:
+def root_topology(newick: str, outgroup: str | None) -> str:
     """`newick` without lengths or support values, rooted on `outgroup` if given.
 
     Polytomies are kept: resolving one would invent a split the data never
@@ -41,10 +41,10 @@ def rooted_topology(newick: str, outgroup: str | None) -> str:
         if outgroup not in leaves:
             raise ValueError(f"outgroup {outgroup!r} is not in the tree")
         tree.root_with_outgroup(outgroup)
-    return _topology(tree.root) + ";"
+    return _write_topology(tree.root) + ";"
 
 
-def experiment_of(input_csv: Path) -> Path:
+def find_experiment(input_csv: Path) -> Path:
     """The experiment folder a simulated dataset belongs to."""
     for folder in input_csv.resolve().parents:
         if (folder / "simulation_data" / "simulated_data_registry.csv").is_file():
@@ -52,7 +52,8 @@ def experiment_of(input_csv: Path) -> Path:
     raise ValueError(f"{input_csv} is not inside an experiment's simulation_data")
 
 
-def model_tree_of(experiment: Path, input_csv: Path) -> int:
+def find_model_tree(experiment: Path, input_csv: Path) -> int:
+    """The model tree a dataset was simulated from."""
     sim = pl.read_csv(
         experiment / "simulation_data" / "simulated_data_registry.csv",
         schema=SIMULATED_DATA_REGISTRY_SCHEMA,
@@ -64,7 +65,7 @@ def model_tree_of(experiment: Path, input_csv: Path) -> int:
     raise ValueError(f"{input_csv} is not in the simulation registry")
 
 
-def base_tree_of(experiment: Path, model_tree: int) -> tuple[str, str | None]:
+def find_base_tree(experiment: Path, model_tree: int) -> tuple[str, str | None]:
     """(newick, outgroup label or None) of a model tree's base tree."""
     reg = experiment / "simulation_data" / "model_graph_registry.csv"
     rows = pl.read_csv(reg, schema=MODEL_GRAPH_REGISTRY).filter(
@@ -76,25 +77,51 @@ def base_tree_of(experiment: Path, model_tree: int) -> tuple[str, str | None]:
     return Path(row["path"]).read_text().strip(), row["outgroup"]
 
 
-def guide_newick(guide: GuideTree, input_csv: Path, output_dir: Path) -> str:
-    experiment = experiment_of(input_csv)
-    base_tree, outgroup = base_tree_of(experiment, model_tree_of(experiment, input_csv))
-    method = guide.dependency
-    if method is None:
-        return rooted_topology(base_tree, outgroup)
-    estimate = TREE_RUNNERS[method].point_estimate_path(output_dir, input_csv.stem)
-    return rooted_topology(estimate.read_text().strip(), outgroup)
+def build_guide_newick(guide: GuideTree, input_csv: Path, output_dir: Path) -> str:
+    """The rooted guide tree for one dataset.
+
+    :param guide: `true_tree` or the tree method whose estimate guides.
+    :raises AssertionError: if the method has no point estimate.
+    """
+    experiment = find_experiment(input_csv)
+    base_tree, outgroup = find_base_tree(
+        experiment, find_model_tree(experiment, input_csv)
+    )
+    if guide == TRUE_TREE:
+        return root_topology(base_tree, outgroup)
+    estimate = METHOD_TO_RUNNER_CLASS[guide].get_point_estimate_path(
+        output_dir, input_csv.stem
+    )
+    assert estimate is not None, f"{guide} has no point estimate"
+    return root_topology(estimate.read_text().strip(), outgroup)
+
+
+def parse_guide(value: str) -> GuideTree:
+    """Parse `--guide`: `true_tree` or a supported tree method value.
+
+    :raises argparse.ArgumentTypeError: if unknown or unsupported.
+    """
+    guide: GuideTree | None = None
+    if value == TRUE_TREE:
+        guide = TRUE_TREE
+    elif value in TreeInferenceMethod:
+        guide = TreeInferenceMethod(value)
+    if guide is None or guide not in SUPPORTED_GUIDE_TREES:
+        supported = sorted(str(g) for g in SUPPORTED_GUIDE_TREES)
+        raise argparse.ArgumentTypeError(f"{value!r} is not a guide; use {supported}")
+    return guide
 
 
 def main() -> None:
+    """Print the guide tree named on the command line."""
     parser = argparse.ArgumentParser(
         description="Print one dataset's guide tree, rooted on the outgroup."
     )
-    parser.add_argument("--guide", type=GuideTree, required=True)
+    parser.add_argument("--guide", type=parse_guide, required=True)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    print(guide_newick(args.guide, args.input, args.output))
+    print(build_guide_newick(args.guide, args.input, args.output))
 
 
 if __name__ == "__main__":

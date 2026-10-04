@@ -191,7 +191,7 @@ CAMUS runs and produces its CSV for every guide. The guide-tree split and the
 **A. Guide tree.** `scripts/py/guide_tree.py` resolves and roots in one step:
 
 ```
-python3 -m scripts.py.guide_tree --guide astral3 --input <dataset.csv> --output <dir> > guide.tree
+python3 -m scripts.py.guide_tree --guide pch_astral3 --input <dataset.csv> --output <dir> > guide.tree
 ```
 
 - A method guide is that method's point estimate, `<dir>/<VARIANT>/trees/<stem>.tree`.

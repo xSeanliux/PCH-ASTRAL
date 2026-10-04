@@ -23,7 +23,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -i, --input        Input characters CSV"
             echo "  -o, --output       Output dir"
             echo "  -n, --name         Run name; names the output files"
-            echo "  -g, --guide-tree   Guide tree: astral3, wastral or true_tree"
+            echo "  -g, --guide-tree   Guide tree: pch_astral3, pch_wastral or true_tree"
             echo ""
             echo "Environment:"
             echo "  PCH_CAMUS_PROCS    CAMUS parallel processes (default 1)"
