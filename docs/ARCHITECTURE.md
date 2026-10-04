@@ -1,84 +1,163 @@
 # Inference Architecture
 
-Map of the config-driven inference pipeline (`scripts/lib/inference/` + `scripts/py/cli/`). For join keys see `KEYS.md`; for the shell primitives' I/O see `SCRIPT_CONTRACTS.md`; for CLI usage see `CLI.md`.
+Map of the config-driven pipeline (`scripts/lib/inference/` + `scripts/py/cli/`). Join keys: `KEYS.md`. Tables: `SCHEMAS.md`. Shell primitives: `SCRIPT_CONTRACTS.md`. CLI: `CLI.md`.
 
-## Layers (bottom-up)
+## Layers
 
-| Layer | Where | Responsibility |
-|-------|-------|----------------|
-| **Runners** | `lib/inference/runners/` | Per-method command + artifact-path construction. One file per runner. |
-| **API** | `lib/inference/api.py` | `infer()` — the *only* subprocess site; always returns an `InferenceResult`. |
-| **Config** | `lib/inference/method_config.py` | `MethodConfigT` union, `resolve_config`, `config_hash` (sha256). |
-| **Types** | `lib/inference/inference.py` | `InferenceResult`, `RegistryRow`, and the `StrEnum`s. |
-| **Registry** | `lib/inference/registry.py` | Shard-per-job JSONL → `compact` → joinable `inference_registry.csv`. |
-| **Scoring** | `lib/inference/scoring.py`, `summarize.py` | RF FN/FP scoring; consensus summarization (shell out to R). |
-| **Scheduler** | `lib/inference/scheduler.py` | Dependency order (topo) + the registry-backed ledger (skip/gate). |
-| **Executor** | `lib/inference/executor.py` | `SlurmExecutor`: fans out one submitit job per (condition, method); method deps → `afterok` edges; final `afterany` compact job; requeue-on-timeout (`slurm_max_num_timeout`) absorbs the 4 h `secondary` cap; shard-aware `completed_runs` makes reruns idempotent; 2 resource tiers (heavy ASTRAL3 / light MP4+GA); node-local `PCH_SCRATCH`. See `specs/cli_specs/slurm_fanout_spec.md`. |
-| **Pipeline** | `py/cli/handle_inference.py` | Orchestrates sim-registry → schedule → `api.infer` → registry; dispatches to `SlurmExecutor` when `--executor slurm`. |
-| **Scoring step** | `py/cli/handle_score.py` | `pch experiment score`: join registry→sim, RF-score → `scores.csv`. |
-| **CLI** | `py/cli/main.py` | `pch infer / score / summarize / experiment {inference,score,status,compact}`. |
+Each layer depends only on those to its left.
 
-## Runners (`runners/` package)
+```mermaid
+flowchart LR
+  M["model/<br/>run-space enums"] --> C["config<br/>experiment.py, method_config.py"]
+  C --> R["runners/<br/>argv, paths, deps"]
+  R --> O["orchestration<br/>handle_inference, scheduler,<br/>executor, api.infer"]
+  O --> G["registry.py<br/>shard, compact"]
+  G --> S["scoring<br/>handle_score"]
+```
 
-Methods come in two kinds, both subclasses of the memberless `InferenceMethod` enum (`lib/model/methods.py`): `TreeInferenceMethod` (one tree per run) and `NetworkInferenceMethod` (a network family per run: one network per k).
+| Layer | Files | Owns |
+|---|---|---|
+| model | `lib/model/` | `methods.py` (`TreeInferenceMethod`, `NetworkInferenceMethod`, `RunStatus`, `ConsensusMethod`), `strategies.py`, `guide_tree.py`. Nothing imports upward. |
+| config | `lib/experiment.py`, `lib/inference/method_config.py` | YAML models (`MethodConfig`, one `*Config` per method), `METHOD_TO_CONFIG_CLASS`, `resolve_config`, `hash_config` (sha256 of the config JSON). |
+| runners | `lib/inference/runners/` | One `Runner` subclass per method: argv, output paths, dependencies. |
+| orchestration | `py/cli/handle_inference.py`, `lib/inference/{scheduler,executor,api}.py` | Order, resume, gate, fan-out. `api.infer` is the **only subprocess site**. |
+| registry | `lib/inference/registry.py` | Shard-per-job JSONL, `compact` to CSV, manifest. |
+| scoring | `py/cli/handle_score.py`, `lib/inference/scoring.py` | RF FN/FP vs the base tree (shells out to R). |
 
-- `base.py` — the protocols: `Runner` (what every method shares), `TreeRunner`, `NetworkRunner`.
-- `mp4.py` / `ga.py` / `astral3.py` / `w_tree_qmc.py` / `wastral.py` / `camus.py` — one runner each.
-- `__init__.py` — `TREE_RUNNERS`, `NETWORK_RUNNERS`, and their union `RUNNERS: dict[InferenceMethod, type[Runner]]`, + public re-exports.
+## Call tree: `pch experiment inference`
 
-Each runner is a frozen dataclass owning its `config` (what `config_hash` hashes), `method`, and `suffix`. Every runner provides `build_argv(runid, input_csv, name, output_dir)`, `log_path`, and `dependencies() -> [InferenceMethod]` (upstreams whose output it consumes; ASTRAL3 → MP/GA from its `bipartition_strategies`, `[]` when exact). A `TreeRunner` adds `point_estimate_path`, `group_estimate_path` (the tree *set*, or `None`) and `consensus_method() -> Optional[ConsensusMethod]`. A `NetworkRunner` adds `family_path`. `MethodConfig`'s per-method config builds its own runner(s) via `get_runners()`.
+```
+main.py: inference
+├─ --executor slurm -> SlurmExecutor.fan_out(...)   # its jobs re-enter handle_inference
+└─ handle_inference
+   ├─ select_runners(config.methods)
+   │  ├─ MethodConfig.get_enabled_configs()      # non-None fields
+   │  ├─ cfg.get_runners()                       # config -> units of work
+   │  └─ scheduler.sort_topologically(...)       # METHOD_TO_RUNNER_CLASS order breaks ties
+   ├─ per dataset, per runner:
+   │  ├─ resume: (method, hash_config) done?     -> skip
+   │  ├─ gate: a dependency has no success?      -> block
+   │  ├─ api.infer(input_csv, out_dir, runner)   -> InferenceResult
+   │  └─ OK -> registry.write_result             -> shards/{job}.jsonl
+   └─ registry.compact                           -> inference_registry.csv
+```
 
-A method may fan out into several runs per dataset: CAMUS takes one guide tree per run, so `CamusConfig.get_runners()` yields one `CamusRunner` per guide, each with its own single-guide config, `config_hash`, and output name `<stem>.<guide>`. `experiment status` counts such a method per run (`camus.<guide>`), matched on `config_hash`. `scripts/lib/model/` owns the run-space enums (methods, guide trees, strategies) so neither `inference/` nor `experiment.py` owns the other.
+## The runner contract
+
+One abstract `Runner[ConfigT]` for tree and network methods (`runners/base.py`). A runner owns its `config`, so it owns its command and names.
+
+| Member | Meaning |
+|---|---|
+| `method` | Its `InferenceMethod`; the scheduler keys on it. |
+| `suffix` | Tells apart runs of one method on one dataset (`None` = bare stem). |
+| `get_run_name(stem)` | `stem`, or `stem.suffix`. |
+| `build_argv(...)` | The command `api.infer` runs. |
+| `get_dependencies()` | Methods whose output it consumes. Methods, not runners: the gate is on method names. |
+| `get_log_path` | Static. |
+| `get_point_estimate_path` | Static. One tree, or `None` if the method has no single estimate. |
+| `get_group_estimate_path` | Static. The set the estimate summarises (trees) or the family (networks); default `None`. |
+| `get_consensus_method()` | How a set collapses to the point estimate; default `None`. |
+
+Path getters are static so other code can look a method up without a runner, e.g. `METHOD_TO_RUNNER_CLASS[m].get_point_estimate_path(...)` (guide trees).
+
+| Method | Point estimate | Group estimate |
+|---|---|---|
+| tree (`mp`, `ga`, `pch_*`) | tree file | tree set, if any |
+| network (`camus`) | `None` (picking k is analysis) | `CAMUS/networks/<name>.csv`, one row per k |
+
+### Fan-out
+
+One config may yield several runners. `CamusConfig.get_runners()` returns one `CamusRunner` per guide, each with a single-guide config, its own `hash_config`, and output name `<stem>.<guide>`. `experiment status` counts each as `camus.<guide>`.
+
+### Guide trees
+
+A guide is a tree *method* or `true_tree`; there is no separate guide enum (`model/guide_tree.py`).
+
+| Guide | Dependency |
+|---|---|
+| `pch_astral3`, `pch_wastral` | that method; CAMUS reads its point estimate |
+| `true_tree` | none; the simulation base tree |
+
+`mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: CAMUS needs a rooted binary tree (`spec/camus/inference.md`). A guide names a method, not a config: `MethodConfig` holds one config per method.
 
 ## Scheduling (`scheduler.py`)
 
-The registry holds **only successful results**, so a row for `(dataset, method)` means that method produced usable output for that dataset. The scheduler builds on that ledger:
+The registry holds **only successes**, so a row `(dataset_id, method, config_hash)` means done.
 
-1. **Enabled** = `MethodConfig.enabled()`, the non-`None` fields in declaration order.
-2. **Order** — `topological_order` puts each method after the enabled deps it needs (deps enabled elsewhere / run separately are ignored here; the gate covers them). Cycles raise.
-3. Per `(dataset, method)`, `completed_runs` (the prior registry as `{dataset → {(method, config_hash)}}`, plus this run's successes) decides:
-   - **skip** if `(dataset, method, config_hash)` is already recorded — *resume*, don't redo work;
-   - **block** (log, no row) if a dependency has no successful result — counting this run **and** prior runs;
-   - else **run** `api.infer`; **OK → a registry row**, **failed → log only**.
+1. **Enabled**: `get_enabled_configs()`, in field order.
+2. **Order**: `sort_topologically` puts a method after its enabled dependencies. Dependencies enabled elsewhere are ignored here; the gate covers them. Cycles raise.
+3. Per `(dataset, runner)`, with `get_completed_runs` (registry plus uncompacted shards):
 
-So MP4/GA/ASTRAL3 work whether run together or as separate ordered invocations, and re-running an experiment only fills the gaps. A missing upstream is a *block* (never ran), distinct from a *failure* (ran, errored) — both stay out of the registry. With `--executor slurm`, `SlurmExecutor` translates `dependencies()` into submitit `afterok` edges between per-(condition, method) jobs (see `specs/cli_specs/slurm_fanout_spec.md`).
+| State | Action |
+|---|---|
+| `(method, config_hash)` recorded | **skip** (resume) |
+| a dependency has no success | **block**: log, no row |
+| else | **run**; OK writes a row, failure logs only |
 
-## Data flow (`pch experiment inference`)
+Blocked (never ran) differs from failed (ran, errored); neither is a row. With `--executor slurm`, `get_dependencies()` become `afterok` edges between per-(condition, method) jobs.
+
+## SLURM (`executor.py`)
+
+```mermaid
+flowchart LR
+  A["MP4 @ cond"] --> D["ASTRAL3 @ cond"]
+  B["GA @ cond"] --> D
+  D --> E["compact (afterany)"]
+  A --> E
+  B --> E
+```
+
+- One submitit job per (condition, method); condition = dataset parent dir.
+- Batch jobs write shards only; the compact job alone merges and owns the manifest.
+- Requeue on timeout (`slurm_max_num_timeout`) absorbs the 4 h cap; resume makes it safe.
+- Two tiers: heavy (ASTRAL3), light (the rest). Node-local `PCH_SCRATCH`.
+- Details: `specs/cli_specs/slurm_fanout_spec.md`, `OPERATIONAL_ISSUES.md`.
+
+## Files written
+
+`<experiment>/` is `experiment_folder:` from the YAML.
 
 ```
-simulation_data/simulated_data_registry.csv
-  └─ for each row (dataset) × each enabled method (topological order):
-       already recorded (same config)?           → skip
-       a dependency has no success (this run/prior)? → block (log)
-       else api.infer(csv, out_dir, runner)
-         → subprocess(runner.build_argv) → InferenceResult (dataset_id = input path)
-         → OK  → registry.write_result → inference_data/shards/{job}.jsonl
-         → FAILED → log only (not in the registry)
-  └─ registry.compact → inference_data/inference_registry.csv (+ manifest.json)
+simulation_data/                       # handle_simulation
+├─ model_graph_registry.csv            # base trees + networks
+├─ config_registry.csv                 # sim configs
+├─ simulated_data_registry.csv         # one row per dataset
+├─ model_tree_<i>.txt, model_networks/ # copied bases
+├─ configs/                            # per-condition sim configs
+└─ simulated_data/<cond>/sim_<e>_<t>_<r>.csv
+inference_data/
+├─ inference_registry.csv              # registry.compact
+├─ scores.csv                          # handle_score
+├─ manifest.json                       # registry.init/finalize_manifest
+├─ shards/{job}.jsonl                  # registry.write_result; removed by compact
+├─ batches/<cond>.txt, spec.snapshot.*.yaml   # SlurmExecutor
+└─ <cond>/<METHOD>/{trees,logs}/       # runner paths; CAMUS/{networks,logs}/
 ```
 
-The registry is **generic** — keyed by `dataset_id` = the input CSV path, source-agnostic (a real CSV runs identically). Sim metadata and FN/FP are decoupled:
-- **sim keys** = a join to `simulated_data_registry.csv` on `dataset_id`==`path`.
-- **FN/FP** = `pch experiment score` (`handle_score.py`), a separate step that recovers `model_tree` via that join, resolves the base tree, RF-scores each point estimate, and writes `scores.csv` (`dataset_id, method, config_hash, fn_rate, fp_rate`).
+## Invariants
 
-Analysis = `inference_registry.csv` ⨝ `simulated_data_registry.csv` (on `dataset_id`==`path`) ⨝ `scores.csv` (on `dataset_id, method, config_hash`). See `KEYS.md`.
+- **OK rule**: exit 0 **and** the point estimate exists; else, for a method with none, the group estimate exists.
+- **Resume key** `(dataset_id, method, config_hash)`; `config_hash` is part of row identity.
+- **Success-only ledger**: blocks and failures are logged, never rows. A row is analyzable data.
+- **Dependency gate** is on method name, via the registry (this run or prior).
+- `api.infer` never raises; failure is `status=failed`.
+- A network row has an empty `point_estimate_newick` and a `group_estimate_path`; scoring skips empty newicks.
+- `compact` is last-writer-wins by `ran_at`, seeds from the existing registry, deletes shards.
+- Tree-method `config_hash` must not change across refactors; see `MIGRATIONS.md`.
 
-## Key invariants
+## Seams: where to extend
 
-- **The registry is the ledger of *successful* results only** — blocks and failures are logged, never written. So a row = analyzable data, and *presence* of `(dataset, method, config_hash)` means "done" (drives both resume and the dependency gate).
-- **`api.infer` always returns an `InferenceResult`** — a nonzero exit or a missing point estimate becomes `status=FAILED`, never an exception; the pipeline just doesn't record it.
-- A run is **OK only if** it exited 0 **and** its estimate exists: the point-estimate file for a tree method, the family file for a network method. A network row has an empty `point_estimate_newick`; `tree_set_path` holds the family's path.
-- Registry dedup key (`run_key`) includes `config_hash`; `compact` is last-writer-wins (by `ran_at`), seeds from the existing registry, and deletes shards.
-- **Order:** heuristic ASTRAL3 needs MP4 + GA bipartitions, so the scheduler topologically orders it after them (and gates on their success via the registry).
+| Add | Write |
+|---|---|
+| Tree method | Member in `TreeInferenceMethod` (`model/methods.py`); `*Config` + `MethodConfig` field (`experiment.py`); entry in `METHOD_TO_CONFIG_CLASS`; `runners/<m>.py` subclassing `Runner[<Config>]`; entry in `METHOD_TO_RUNNER_CLASS`. |
+| Network method | Same, member in `NetworkInferenceMethod`; `get_point_estimate_path` returns `None`, set `get_group_estimate_path`. |
+| Fan-out | Have the config's `get_runners()` return several runners; give each a distinct config and `suffix`. |
+| Dependency | Override `get_dependencies()`; nothing else to order. |
+| Guide tree | Add the method to `SUPPORTED_GUIDE_TREES` (`model/guide_tree.py`); it must emit a rooted binary tree. |
+| Registry table | Schema in `py/cli/schemata.py`; writer reusing the `registry.py` shard/compact pattern; section in `SCHEMAS.md`. |
+
+Also document the shell contract in `SCRIPT_CONTRACTS.md` and add tests mirroring `tests/scripts/lib/inference/`. Field-name tables and hand-ordering do not exist; order comes from `get_dependencies()`.
 
 ## Shell primitives
 
-`api.infer` shells out to `scripts/sh/run{MP4,GA}.sh` and `scripts/sh/runASTRAL3.sh` (the CLI ASTRAL variant; legacy `runASTRAL.sh` kept for the old bash pipeline). Contracts in `SCRIPT_CONTRACTS.md`. Env: `$PCH_SCRATCH` (scratch dir), `$PCH_ASTRAL_XMX` (ASTRAL JVM heap, default `8g`). ASTRAL3 output folder name is single-sourced in Python (`ASTRAL3Runner.VARIANT`) and passed to the script via `-V`.
-
-## Adding a method
-
-1. Add the enum member to `TreeInferenceMethod` or `NetworkInferenceMethod` (`lib/model/methods.py`) + its config to `MethodConfigT`/`METHOD_CONFIG` (`method_config.py`) and a field on `MethodConfig` (`experiment.py`) with a `get_runners()`.
-2. Add `runners/<method>.py` implementing `TreeRunner` or `NetworkRunner` (incl. `dependencies()` if it has upstreams); register it in `TREE_RUNNERS` or `NETWORK_RUNNERS` in `runners/__init__.py`.
-3. Document its shell contract in `SCRIPT_CONTRACTS.md`; add tests mirroring `tests/scripts/lib/inference/`.
-
-Enablement is `MethodConfig.enabled()` and order is topological from `dependencies()`, so there's no field-name table or hand-ordering to update.
+`api.infer` runs `scripts/sh/run{MP4,GA,ASTRAL3}.sh` (and `runCAMUS.sh`). Env: `$PCH_SCRATCH`, `$PCH_ASTRAL_XMX` (default `8g`). ASTRAL3's output folder name is single-sourced in `ASTRAL3Runner.VARIANT` and passed with `-V`.

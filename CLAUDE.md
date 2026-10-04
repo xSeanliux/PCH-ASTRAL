@@ -8,6 +8,8 @@ Check `docs/` first for anything not covered here:
 - `docs/RUNNING_INFERENCE.md` — how to run the pipeline end to end (simulate → infer → analyze), reruns/failures, invariants. Start here to *run* it.
 - `docs/ARCHITECTURE.md` — inference pipeline map: runner package, api/config/registry layers, the dependency mechanism, data flow, invariants. Read this first to orient.
 - `docs/KEYS.md` — dataset/sim/inference join keys and what each inference method does.
+- `docs/SCHEMAS.md` — every registry/score table: path, writer, key, columns.
+- `docs/MIGRATIONS.md` — fixing old experiment folders after schema or `config_hash` changes.
 - `docs/HOW_TO_RUN.md` — legacy bash inference scripts: I/O, key lines, caveats (migration reference).
 - `docs/SCRIPT_CONTRACTS.md` — I/O contracts for the primitives the inference API shells out to.
 - `docs/CLI.md` — the config-driven `simulation`/`inference` CLI.

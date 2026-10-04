@@ -32,8 +32,8 @@ CLI-controlled, matching the existing YAML conventions.
 methods:
   camus:
     guide_trees:
-      - astral3     # guide = PCH-ASTRAL3           (dep: pch_astral3)
-      - wastral     # guide = PCH-wASTRAL           (dep: pch_wastral)
+      - pch_astral3 # guide = PCH-ASTRAL3           (dep: pch_astral3)
+      - pch_wastral # guide = PCH-wASTRAL           (dep: pch_wastral)
       - true_tree   # guide = simulation base tree  (no dep)
 ```
 
@@ -42,22 +42,23 @@ per guide (`CamusConfig.get_runners()`), each named `<stem>.<guide>`. `experimen
 status` counts each guide on its own line, `camus.<guide>`.
 
 `CamusConfig` in `scripts/lib/experiment.py`; runner
-`scripts/lib/inference/runners/camus.py`. `GUIDE_TREE_DEPENDENCY`
-(`scripts/lib/model/guide_tree.py`) is both the
-**allow-list** (absent member = unsupported, rejected by a field validator at config
-load) and the scheduler-dependency map — a method guide gates on its method,
-`true_tree` on nothing. `mp`/`ga`/`w_tree_qmc` stay enum members only so they fail
-with an explanation; why, and the rooting plan, are in `inference.md` and `outgroup.md`.
+`scripts/lib/inference/runners/camus.py`. A guide is a `TreeInferenceMethod` or
+`true_tree`. `SUPPORTED_GUIDE_TREES` (`scripts/lib/model/guide_tree.py`) is the
+**allow-list**; a field validator rejects anything else at config load. A method guide
+gates on that method (`CamusRunner.get_dependencies`), `true_tree` on nothing.
+`mp`/`ga`/`pch_w_tree_qmc` fail with an explanation; why, and the rooting plan, are in
+`inference.md` and `outgroup.md`.
 
 CAMUS is a `NetworkInferenceMethod`, not a `TreeInferenceMethod`. Its runner is a
-`NetworkRunner`: it names a family path, not a point estimate.
+`Runner` like the others: no point estimate (`get_point_estimate_path` is `None`), a
+family path from `get_group_estimate_path`.
 
 ## The pipeline, end to end
 
 1. **Simulate with an outgroup.** Graft `OUT` as sister to the old root of the base
    tree/network, then simulate as usual — every dataset now has n+1 taxa. Branch
    lengths and seeding: `outgroup.md`.
-2. **Get a guide tree.** Inferred (`astral3`, `wastral`) or `true_tree`
+2. **Get a guide tree.** Inferred (`pch_astral3`, `pch_wastral`) or `true_tree`
    (the grafted base tree). See the rooted-binary constraint in `inference.md`.
 3. **Root it on the outgroup.** ASTRAL's output is unrooted, so reroot on `OUT`
    (Biopython `root_with_outgroup`). `true_tree` is already rooted — grafting *is* the

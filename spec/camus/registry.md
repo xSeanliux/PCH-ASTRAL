@@ -29,7 +29,7 @@ concatenates shards → `camus_registry.csv` (reuse
 Columns = ours + CAMUS's (renamed to snake_case):
 
 - `dataset_id` — canonical input CSV path (join key, same as tree registry).
-- `guide_tree` — which guide produced it (`astral3|true_tree`).
+- `guide_tree` — which guide produced it (`pch_astral3|pch_wastral|true_tree`).
 - `config_hash`, `runtime_seconds`, `status`, `ran_at`, `log_path` — run metadata
   as in the tree registry (runtime is whole-family; see open questions).
 - `k` ← `Number of Branches`.

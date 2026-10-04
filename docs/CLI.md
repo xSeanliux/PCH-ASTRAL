@@ -56,15 +56,15 @@ pch experiment inference EXPERIMENT.yaml [--executor local|slurm] [--datasets FI
 
 #### SLURM fan-out (`--executor slurm`)
 Fans the work out as **one submitit job per (condition, method)** (condition = the dataset's parent-dir name, as in `run_parallel_sim.sh`). Method dependencies become `afterok` edges within a condition (MP4/GA → ASTRAL3); a final **compact** job depends `afterany` on all method jobs and merges the shards into the registry + manifest. Batch jobs write only per-job JSONL shards; only the compact job compacts — so concurrent jobs never race the manifest.
-- **Requeue-on-timeout** absorbs the `secondary` queue's 4 h cap (`slurm_max_num_timeout=--resubmits`, default 3): a timed-out job auto-requeues, and idempotent `completed_runs` makes the rerun safe (finished datasets are skipped).
+- **Requeue-on-timeout** absorbs the `secondary` queue's 4 h cap (`slurm_max_num_timeout=--resubmits`, default 3): a timed-out job auto-requeues, and idempotent `get_completed_runs` makes the rerun safe (finished datasets are skipped).
 - **Two resource tiers**, not a per-method map: ASTRAL3 is `heavy` (big `mem_gb`/heap; override with `--astral-mem-gb N`), MP4/GA are `light`. Each job exports a short **node-local** scratch (`PCH_SCRATCH=/tmp/pch.$SLURM_JOB_ID`, dodging MrBayes' 99-char cap) and `PCH_ASTRAL_XMX` from its `mem_gb`.
 - `--dry-run` prints the (condition, method) DAG + tiers + `afterok`/`afterany` edges and submits nothing (works without `sbatch`). Without `--dry-run`, a missing `sbatch` errors (no silent local fallback — use `--executor local` for that).
 
 ### `pch experiment score EXPERIMENT.yaml`
-Join the inference registry to `simulated_data_registry.csv` (on `dataset_id`==`path`) to recover the model tree, RF-score each point estimate, and write `inference_data/scores.csv` (`dataset_id, method, config_hash, fn_rate, fp_rate`). Idempotent (rewrites).
+Join the inference registry to `simulated_data_registry.csv` (on `dataset_id`==`path`) to recover the model tree, RF-score each point estimate, and write `inference_data/scores.csv`. Idempotent (rewrites).
 
 ### `pch experiment status EXPERIMENT.yaml`
-Expected-vs-done gap view: per condition, `done/expected` for each enabled method (expected = sim datasets × methods; done = shard-aware `completed_runs`), plus the missing dataset stems. Reads registry ∪ uncompacted shards, so it's accurate mid-batch.
+Expected-vs-done gap view: per condition, `done/expected` for each enabled method (expected = sim datasets × methods; done = shard-aware `get_completed_runs`), plus the missing dataset stems. Reads registry ∪ uncompacted shards, so it's accurate mid-batch.
 
 ### `pch experiment compact EXPERIMENT.yaml`
 Merge the per-job shards into `inference_registry.csv` (normally automatic at the end of a `local` run; run manually after a SLURM batch — though the fan-out's compact job usually handles it).
@@ -74,8 +74,9 @@ Generate the simulated datasets (see `experiments/README.md`).
 
 ## Artifact model (`experiment_folder/inference_data/`)
 
-- **`inference_registry.csv`** — one row per **successful** `(dataset, method, config)` run, **generic** (source-agnostic; the ledger is success-only, failed/blocked runs are logged, not rows). Columns = `dataset_id` (the input CSV path — the identity), `method, config_hash, method_config_json, runtime_seconds, point_estimate_newick, tree_set_path, consensus_method, status, ran_at, log_path`. No sim keys and no FN/FP — those are a join (`simulated_data_registry.csv` on `dataset_id`==`path`) and a separate table (`scores.csv`, from `pch experiment score`). `status` is always `ok` (the scheduler skips already-recorded runs and gates dependents on these rows); `ran_at` is ISO8601 UTC. Schema: `scripts/py/cli/schemata.py`.
-- **`scores.csv`** — FN/FP per `(dataset_id, method, config_hash)`, written by `pch experiment score`. Join to `inference_registry.csv` on those three columns.
+Columns and keys for every table: `SCHEMAS.md`.
+
+- **`inference_registry.csv`** — one row per **successful** `(dataset, method, config)` run; failed/blocked runs are logged, not rows. No sim keys, no FN/FP: join `simulated_data_registry.csv` and `scores.csv`.
 - **`shards/{job}.jsonl`** — transient per-job staging (one writer per SLURM job → lock-free); merged and removed by `compact`.
 - **`manifest.json`** — run context (`created_at` [first run], `completed_at`, `methods`, `tally` = ok/skipped/blocked/failed).
 

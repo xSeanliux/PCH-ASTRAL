@@ -30,7 +30,7 @@ Verified against its Go source and by running `bin/camus`.
 2. **It rejects unrooted or non-binary guide trees** (exit 1, no CSV) and ships no rooting
    or refinement code. `mp` is a majority consensus, so polytomies are what it is for, and
    `ga` is unrooted, and TREE-QMC can emit a polytomy (1 of 8 smoke trees); a config
-   validator rejects `mp`, `ga` and `w_tree_qmc`. `astral3`, `wastral` and `true_tree`
+   validator rejects `mp`, `ga` and `pch_w_tree_qmc`. `pch_astral3`, `pch_wastral` and `true_tree`
    are allowed.
 3. **It drops every quartet the guide tree already displays**, so inventing a resolution
    for a polytomy would suppress conflicting signal where support is weakest. Rooting must
@@ -56,9 +56,9 @@ How we differ from the paper's evaluation:
 | Decision | Rationale |
 |---|---|
 | Record raw, analyse later | We are at "can this run". `network_scores.csv` holds everything CmpNets returns; choosing k, elbow plots, and stratifying by level are analysis. |
-| CAMUS flows through `api.infer` and keeps a row in `inference_registry.csv` | `scheduler.completed_runs` is the only resume/gate/status ledger. |
-| `point_estimate_newick` stays empty for CAMUS | Choosing a k is analysis policy. Empty also makes `handle_score.py:66` skip CAMUS rows — no change to tree scoring. `tree_set_path` carries the CSV path. |
-| Tree and network methods are separate types | `TreeInferenceMethod` and `NetworkInferenceMethod` share the base `InferenceMethod`; `TreeRunner` yields a point estimate, `NetworkRunner` a family path. `api.infer` branches on the method's type. |
+| CAMUS flows through `api.infer` and keeps a row in `inference_registry.csv` | `scheduler.get_completed_runs` is the only resume/gate/status ledger. |
+| `point_estimate_newick` stays empty for CAMUS | Choosing a k is analysis policy. Empty also makes `handle_score.py:66` skip CAMUS rows — no change to tree scoring. `group_estimate_path` carries the CSV path. |
+| Tree and network methods are separate types | `TreeInferenceMethod` and `NetworkInferenceMethod` share the base `InferenceMethod`; one `Runner` base serves both: a tree runner returns a point estimate path, CAMUS returns `None` there and a family path from `get_group_estimate_path`. `api.infer` does not branch on method type. |
 | One `api.infer` call per guide tree | CAMUS takes one guide per run. `guide_trees` is a set because `methods:` holds one `camus:` block; `CamusConfig.get_runners()` splits it. Per-guide resume, dependency gating and status line; hashes do not depend on the order written. |
 | No `threshold` or filter mode in `CamusConfig` yet | CAMUS defaults apply. Spike data is disposable, so later hash churn is free. Follow-up. |
 | A dedicated `camus_registry.py` | Reuse the shard/compact pattern and `current_shard_id`, not the function. |
@@ -87,7 +87,7 @@ How we differ from the paper's evaluation:
 today only because columns happen to be `t1…t30` in order. With `OUT` present the
 simulator sorts columns lexicographically (`OUT,t1,t10,…`), so OUT's data is labelled
 `t1`, t1's `t2`, and a `t31` appears that is not in taxlabels. GA trees feed ASTRAL3's
-bipartitions, so the whole `astral3` arm inherits the damage.
+bipartitions, so the whole `pch_astral3` arm inherits the damage.
 
 **Fix:** `'t', i` → `taxa[i]`, as line 313 already does for TraitLab.
 
@@ -237,7 +237,7 @@ End to end:
 ```bash
 source scripts/sh/env.sh
 uv run python -m scripts.py.cli.main experiment inference experiments/camus_smoke/experiment_specification.yaml
-head -3 experiments/camus_smoke/inference_data/*/CAMUS/networks/*.astral3.csv
+head -3 experiments/camus_smoke/inference_data/*/CAMUS/networks/*.pch_astral3.csv
 ```
 
 Expect a 3-column CSV and `status == ok` in `inference_registry.csv` with an empty
@@ -407,10 +407,10 @@ methods:
     is_exact: false
     bipartition_strategies: [mp4_trees, ga_trees]
   camus:
-    guide_trees: [astral3, true_tree]
+    guide_trees: [pch_astral3, true_tree]
 ```
 
-`camus/astral3` gates on `astral_3`, which gates on `mp4` + `gray_atkinson`.
+`camus/pch_astral3` gates on `astral_3`, which gates on `mp4` + `gray_atkinson`.
 `camus/true_tree` has no dependency.
 
 ## Follow-ups, not in this set

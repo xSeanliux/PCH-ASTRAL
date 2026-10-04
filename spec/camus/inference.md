@@ -10,7 +10,7 @@ implementation, mirroring `runASTRAL3.sh`.
 ```
 bash scripts/sh/runCAMUS.sh \
   --runid <id> --input <dataset.csv> --name <stem> \
-  --output <output_dir> --guide-tree <astral3|wastral|true_tree>
+  --output <output_dir> --guide-tree <pch_astral3|pch_wastral|true_tree>
 ```
 
 Set CAMUS `-o <output_dir>/CAMUS/networks/<name>`. CAMUS then writes:
@@ -20,7 +20,7 @@ Set CAMUS `-o <output_dir>/CAMUS/networks/<name>`. CAMUS then writes:
 - `<name>.log` — CAMUS's own log.
 - `<name>.png` — CAMUS's lineplot (% quartets unsatisfied vs #reticulations).
 
-`CamusRunner.family_path` names that CSV. `api.infer` records its path and leaves the
+`CamusRunner.get_group_estimate_path` names that CSV. `api.infer` records its path and leaves the
 newick empty; the registry writer enriches the CSV and appends it to
 `camus_registry.csv` — see `registry.md`.
 
@@ -30,9 +30,9 @@ newick empty; the registry writer enriches the CSV and appends it to
    PCH quartet generation (`scripts/py/printQuartets`, `scripts/lib/pch.py`);
    CAMUS takes gene trees / quartets as its second argument.
 2. **Guide tree** — resolve the `--guide-tree` token to a rooted binary newick.
-   - `astral3` / `wastral` → that method's point estimate under
+   - `pch_astral3` / `pch_wastral` → that method's point estimate under
      `<output_dir>/{PCH_W_ASTRAL3,PCH_W_WASTRAL}/trees/<stem>.tree`,
-     rooted on `OUT`. A declared dependency (`CamusRunner.dependencies`), so the
+     rooted on `OUT`. A declared dependency (`CamusRunner.get_dependencies`), so the
      scheduler guarantees it exists.
    - `true_tree` → the simulation's base tree, via the existing
      `scoring.resolve_reference_newick(experiment_folder, model_tree)` (reads
@@ -66,14 +66,14 @@ Measured on `experiments/smoke_test` output (`low_0.1_4_80/sim_0_1_1`):
 |---|---|---|---|
 | `mp` (`{name}-maj.tree`) | 4 | 3 | **rejected** |
 | `ga` (MCC) | 3 | 0 | **rejected** (unrooted) |
-| `astral3` | 2 | 0 | accepted |
-| `wastral` | 2 | 0 | accepted |
-| `w_tree_qmc` | 2 | 0 | accepted here, **not allowed** |
+| `pch_astral3` | 2 | 0 | accepted |
+| `pch_wastral` | 2 | 0 | accepted |
+| `pch_w_tree_qmc` | 2 | 0 | accepted here, **not allowed** |
 | `true_tree` (base tree) | 2 | 0 | accepted |
 
-Over all 8 smoke datasets, `astral3` and `wastral` are binary every time; `w_tree_qmc`
+Over all 8 smoke datasets, `pch_astral3` and `pch_wastral` are binary every time; `pch_w_tree_qmc`
 has 2 polytomies in one (`low_0.1_4_80/sim_0_1_4`), which CAMUS would reject. So
-`w_tree_qmc` is not an allowed guide for now.
+`pch_w_tree_qmc` is not an allowed guide for now.
 
 `mp` fails structurally, not by luck: its point estimate is a **majority
 consensus** (`consensus(trees, p=0.5, rooted=FALSE)` in `scripts/R/consensusTree.R`),
@@ -89,10 +89,10 @@ the uncertain regions.
 
 **Decisions taken:**
 
-- `mp`, `ga` and `w_tree_qmc` are **not** allowed guides. `GUIDE_TREE_DEPENDENCY` in
-  `scripts/lib/model/guide_tree.py` is the allow-list (absent key = unsupported); a
+- `mp`, `ga` and `pch_w_tree_qmc` are **not** allowed guides. `SUPPORTED_GUIDE_TREES` in
+  `scripts/lib/model/guide_tree.py` is the allow-list; a
   `CamusConfig` field validator rejects them at config load with the reason.
-- Rooting for the PCH methods (`astral3`, `wastral`) will be solved
+- Rooting for the PCH methods (`pch_astral3`, `pch_wastral`) will be solved
   **in the simulation: add an outgroup** — see `outgroup.md` for the config,
   mechanism, and cost. Until that lands, they are usable only because their output
   happens to come back with a bifurcating root; that is not something to rely on.
