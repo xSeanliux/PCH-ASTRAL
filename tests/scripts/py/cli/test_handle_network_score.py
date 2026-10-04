@@ -6,7 +6,7 @@ import pytest
 
 import scripts.py.cli.handle_network_score as hns
 from scripts.lib.experiment import ExperimentConfig
-from scripts.lib.inference.scoring import NetworkScore
+from scripts.lib.inference.scoring import ScoreResult
 from scripts.py.cli.handle_network_score import handle_network_score
 from scripts.py.cli.schemata import CAMUS_REGISTRY_SCHEMA, NETWORK_SCORES_SCHEMA
 
@@ -74,7 +74,7 @@ def test_writes_scores(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(
         hns,
         "score_network",
-        lambda est, ref: seen.append((est, ref)) or NetworkScore(0.5, 0.0),
+        lambda est, ref: seen.append((est, ref)) or ScoreResult(0.5, 0.0),
     )
     out = handle_network_score(cfg)
 
@@ -108,11 +108,11 @@ def test_interrupt_keeps_scored_rows(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path, monkeypatch)
     calls: list[int] = []
 
-    def fake(est: str, ref: str) -> NetworkScore:
+    def fake(est: str, ref: str) -> ScoreResult:
         calls.append(1)
         if len(calls) == 2:
             raise KeyboardInterrupt
-        return NetworkScore(0.5, 0.0)
+        return ScoreResult(0.5, 0.0)
 
     monkeypatch.setattr(hns, "score_network", fake)
     with pytest.raises(KeyboardInterrupt):
@@ -126,7 +126,7 @@ def test_incremental(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(
         hns,
         "score_network",
-        lambda est, ref: calls.append(1) or NetworkScore(0.5, 0.0),
+        lambda est, ref: calls.append(1) or ScoreResult(0.5, 0.0),
     )
     handle_network_score(cfg)
     handle_network_score(cfg)
@@ -137,7 +137,7 @@ def test_incremental(tmp_path: Path, monkeypatch):
 def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
     cfg = _setup(tmp_path, monkeypatch)
 
-    def fake(est: str, ref: str) -> NetworkScore:
+    def fake(est: str, ref: str) -> ScoreResult:
         if "#H1" in est:
             raise subprocess.TimeoutExpired(["java"], 7200)
         raise RuntimeError("boom")
