@@ -19,14 +19,14 @@ outside simulation reads it.
 ```yaml
 simulation:
   n_taxa: 30
-  outgroup: OUT       # omit entirely for no outgroup
+  outgroup_label: OUT       # omit entirely for no outgroup
   base_trees_file: data/trees.txt
 ```
 
 ```python
 class ExperimentSimulationConfig(BaseModel):
     ...
-    outgroup: str | None = Field(None)   # None = no outgroup
+    outgroup_label: str | None = Field(None)   # None = no outgroup
 ```
 
 One optional field, not an `enabled` + `name` pair: absent means off, present
@@ -76,7 +76,7 @@ The terminator differs too: `trees.txt` lines end with `;`, network line 1 does 
 preserve whichever came in.
 
 ```python
-def graft_outgroup(newick: str, name: str, root_len: float, og_len: float) -> str:
+def graft_tree(newick: str, name: str, root_len: float, og_len: float) -> str:
     s = newick.strip()
     term = ";" if s.endswith(";") else ""
     return f"({s.rstrip(';')}:{root_len},{name}:{og_len}){term}"
@@ -162,7 +162,7 @@ down, or reproducing a run means re-deriving it from source. Record the graft in
 
 | column | type | meaning |
 |---|---|---|
-| `outgroup` | `String` | the label (`OUT`), or null when disabled |
+| `outgroup_label` | `String` | the label (`OUT`), or null when disabled |
 | `outgroup_seed` | `Int64` | the `stable_hash_dict` value the draws came from |
 | `outgroup_branch_length` | `Float64` | realised draw from `U(0.9, 1.0)` |
 | `ingroup_stem_length` | `Float64` | realised draw from `U(0.0, 0.1)` |
@@ -173,7 +173,7 @@ below needs to plot rooting accuracy against. Rows for the same `model_tree` at
 different `h` carry the same values, which is the point: it's one geometry per model
 tree, and joins stay trivial.
 
-Null `outgroup` is the record that a run had none, so old and outgrouped experiments
+Null `outgroup_label` is the record that a run had none, so old and outgrouped experiments
 are distinguishable from the registry alone.
 
 The calibration sweep will want to *set* the lengths rather than search for a seed
@@ -213,7 +213,7 @@ outgrouped runs to outgrouped runs.
 
 Changes `ExperimentSimulationConfig` and the base trees/networks, so **cached
 simulation data for any experiment that turns this on must be regenerated**.
-Existing experiments with `outgroup` absent are untouched.
+Existing experiments with `outgroup_label` absent are untouched.
 
 ## Open questions
 

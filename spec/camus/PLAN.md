@@ -12,7 +12,7 @@ PCH-ASTRAL infers trees today. CAMUS (Willson & Warnow, Bioinformatics 2026) ext
 to level-1 networks: given a rooted binary guide tree plus quartets, it returns the
 optimal network for each k.
 
-**Done when:** `experiments/camus_smoke` — with `outgroup: OUT` and both guides — runs
+**Done when:** `experiments/camus_smoke` — with `outgroup_label: OUT` and both guides — runs
 simulation → inference → network-score on a laptop and writes `network_scores.csv`.
 
 PR #31 (open, branch `camus-install`) wired the method in: config, runner, install
@@ -103,7 +103,7 @@ Simulate an extra taxon so inferred trees can be rooted on it. No CAMUS code tou
 ```yaml
 simulation:
   n_taxa: 30
-  outgroup: OUT       # omit entirely for no outgroup
+  outgroup_label: OUT       # omit entirely for no outgroup
 ```
 
 ### Tasks (A–C in parallel, D depends on all)
@@ -111,7 +111,7 @@ simulation:
 **A. `scripts/lib/simulation/outgroup.py`**
 
 ```python
-def graft_outgroup(newick: str, name: str, root_len: float, og_len: float) -> str:
+def graft_tree(newick: str, name: str, root_len: float, og_len: float) -> str:
     """Wrap `newick` so `name` is sister to everything, preserving the terminator."""
     s = newick.strip()
     term = ";" if s.endswith(";") else ""
@@ -120,7 +120,7 @@ def graft_outgroup(newick: str, name: str, root_len: float, og_len: float) -> st
 
 def graft_network(lines: list[str], name: str, root_len: float, og_len: float) -> list[str]:
     """Graft line 1; move each contact `root_len` later, since times count from the root."""
-    out = [graft_outgroup(lines[0], name, root_len, og_len)]
+    out = [graft_tree(lines[0], name, root_len, og_len)]
     for line in lines[1:]:
         clade_a, clade_b, time, strength = line.split(";")
         out.append(f"{clade_a};{clade_b};{float(time) + root_len};{strength}")
@@ -151,12 +151,12 @@ h = 0 vs h > 0 unconfounded.
 
 **C. `scripts/py/cli/schemata.py`** — extend `MODEL_GRAPH_REGISTRY` with `outgroup: String`,
 `outgroup_seed: Int64`, `outgroup_branch_length: Float64`, `ingroup_stem_length: Float64`.
-Null `outgroup` records "this run had none". The recorded stem makes the time shift
+Null `outgroup_label` records "this run had none". The recorded stem makes the time shift
 reversible.
 
 **D. `scripts/py/cli/handle_simulation.py`** — graft at the existing copy step.
 
-- Trees (`:48-51`): write `graft_outgroup(line, ...)`.
+- Trees (`:48-51`): write `graft_tree(line, ...)`.
 - Networks (`:76-77`): replace `shutil.copy` with read → `graft_network` → write.
 - **Fix the bug at `:65-67` in the same change.** `network_registry` records the *source*
   path, not the copy, so simulation reads the originals and grafting would be a silent
@@ -399,7 +399,7 @@ uv run python -m scripts.py.cli.main experiment status        experiments/camus_
 
 ```yaml
 simulation:
-  outgroup: OUT
+  outgroup_label: OUT
 methods:
   mp4: {}                       # needed for astral_3's bipartitions
   gray_atkinson: {}             # ditto
