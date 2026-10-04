@@ -16,7 +16,7 @@ NETWORK = "((t1:0.1,t2:0.2):0.3,(t3:0.1,t4:0.2):0.3)\nt1;(t3:0.1,t4:0.2);0.35;0.
 
 
 def _config(
-    tmp_path: Path, horizontal_edges: list[int], outgroup: str | None
+    tmp_path: Path, horizontal_edges: list[int], outgroup_label: str | None
 ) -> ExperimentSimulationConfig:
     trees = tmp_path / "trees.txt"
     trees.write_text("\n".join(TREES) + "\n")
@@ -29,7 +29,7 @@ def _config(
         n_trees=2,
         n_replicas=1,
         n_taxa=4,
-        outgroup=outgroup,
+        outgroup_label=outgroup_label,
         base_config_dir=tmp_path / "configs",
         base_trees_file=trees,
         base_networks_dir=networks,
@@ -44,7 +44,7 @@ def test_without_an_outgroup_the_copies_are_byte_identical(tmp_path: Path):
 
     assert (out / "model_tree_1.txt").read_text() == TREES[0] + "\n"
     assert (out / "model_networks" / "net1-1.txt").read_text() == NETWORK
-    assert all(r["outgroup"] is None and r["outgroup_seed"] is None for r in rows)
+    assert all(r["outgroup_label"] is None and r["outgroup_seed"] is None for r in rows)
 
 
 def test_the_registry_points_at_the_copies(tmp_path: Path):
@@ -111,4 +111,4 @@ def test_rows_fit_the_registry_schema(tmp_path: Path):
     rows = copy_model_graphs(_config(tmp_path, [0, 1], "OUT"), out)
     df = pl.DataFrame(data=rows, schema=MODEL_GRAPH_REGISTRY)
     assert df.height == 4
-    assert df["outgroup"].to_list() == ["OUT"] * 4
+    assert df["outgroup_label"].to_list() == ["OUT"] * 4

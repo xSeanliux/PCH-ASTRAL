@@ -3,7 +3,7 @@ from scripts.lib.experiment import (
     ExperimentSimulationConfig,
     SimulationParamSetting,
 )
-from scripts.lib.simulation.outgroup import draw_lengths, graft_network, graft_outgroup
+from scripts.lib.simulation.outgroup import draw_lengths, graft_network, graft_tree
 from scripts.lib.simulation.types import SimulationConfigFactory
 from scripts.py.cli.schemata import (
     CONFIG_REGISTRY_SCHEMA,
@@ -34,7 +34,7 @@ def stable_hash_dict(d: dict[str, Any]) -> int:
 
 
 class Graft(NamedTuple):
-    name: str
+    outgroup_label: str
     seed: int
     stem_len: float
     og_len: float
@@ -46,7 +46,7 @@ class ModelGraphRow(TypedDict):
     horizontal_edges: int
     model_tree: int
     path: str
-    outgroup: str | None
+    outgroup_label: str | None
     outgroup_seed: int | None
     outgroup_branch_length: float | None
     ingroup_stem_length: float | None
@@ -62,10 +62,10 @@ def copy_model_graphs(
     def graft_of(model_tree: int) -> Graft | None:
         # Seeded on the model tree alone: a base tree is shared across every h,
         # so each keeps one outgroup geometry.
-        if simulation_config.outgroup is None:
+        if simulation_config.outgroup_label is None:
             return None
         seed = stable_hash_dict({"model_tree": model_tree})
-        return Graft(simulation_config.outgroup, seed, *draw_lengths(seed))
+        return Graft(simulation_config.outgroup_label, seed, *draw_lengths(seed))
 
     def row(h: int, model_tree: int, path: Path) -> ModelGraphRow:
         graft = graft_of(model_tree)
@@ -73,7 +73,7 @@ def copy_model_graphs(
             "horizontal_edges": h,
             "model_tree": model_tree,
             "path": str(path),
-            "outgroup": graft.name if graft else None,
+            "outgroup_label": graft.outgroup_label if graft else None,
             "outgroup_seed": graft.seed if graft else None,
             "ingroup_stem_length": graft.stem_len if graft else None,
             "outgroup_branch_length": graft.og_len if graft else None,
@@ -88,7 +88,10 @@ def copy_model_graphs(
     for i, tree in enumerate(trees[:n_trees], 1):
         graft = graft_of(i)
         if graft:
-            tree = graft_outgroup(tree, graft.name, graft.stem_len, graft.og_len) + "\n"
+            tree = (
+                graft_tree(tree, graft.outgroup_label, graft.stem_len, graft.og_len)
+                + "\n"
+            )
         path = e_folder / f"model_tree_{i}.txt"
         path.write_text(tree)
         rows.append(row(0, i, path))
@@ -109,7 +112,7 @@ def copy_model_graphs(
         graft = graft_of(i)
         if graft:
             lines = graft_network(
-                network.splitlines(), graft.name, graft.stem_len, graft.og_len
+                network.splitlines(), graft.outgroup_label, graft.stem_len, graft.og_len
             )
             network = "\n".join(lines) + "\n"
         # Register the copy, not the source: the copy is what gets simulated.

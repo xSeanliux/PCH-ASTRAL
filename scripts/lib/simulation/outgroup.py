@@ -7,15 +7,15 @@ outgroup branch U(0.9, 1.0), ingroup stem U(0.0, 0.1).
 import random
 
 
-def graft_outgroup(newick: str, name: str, stem_len: float, og_len: float) -> str:
-    """Wrap `newick` so `name` is sister to everything, preserving the terminator."""
+def graft_tree(newick: str, outgroup_label: str, stem_len: float, og_len: float) -> str:
+    """Wrap `newick` so `outgroup_label` is sister to everything, preserving the terminator."""
     s = newick.strip()
     term = ";" if s.endswith(";") else ""
-    return f"({s.rstrip(';')}:{stem_len},{name}:{og_len}){term}"
+    return f"({s.rstrip(';')}:{stem_len},{outgroup_label}:{og_len}){term}"
 
 
 def graft_network(
-    lines: list[str], name: str, stem_len: float, og_len: float
+    lines: list[str], outgroup_label: str, stem_len: float, og_len: float
 ) -> list[str]:
     """Graft line 1 (the base tree) and move each contact `stem_len` later.
 
@@ -24,7 +24,7 @@ def graft_network(
     are left as they are: they are substrings of the base tree, which the wrap
     does not alter.
     """
-    out = [graft_outgroup(lines[0], name, stem_len, og_len)]
+    out = [graft_tree(lines[0], outgroup_label, stem_len, og_len)]
     for line in lines[1:]:
         clade_a, clade_b, time, strength = line.strip().split(";")
         out.append(f"{clade_a};{clade_b};{float(time) + stem_len};{strength}")
