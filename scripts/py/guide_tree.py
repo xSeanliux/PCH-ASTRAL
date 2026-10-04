@@ -17,7 +17,6 @@ from Bio.Phylo.BaseTree import Clade
 from scripts.lib.inference import registry
 from scripts.lib.inference.runners import METHOD_TO_RUNNER_CLASS
 from scripts.lib.model.guide_tree import SUPPORTED_GUIDE_TREES, TRUE_TREE, GuideTree
-from scripts.lib.model.methods import TreeInferenceMethod
 from scripts.py.cli.schemata import MODEL_GRAPH_REGISTRY, SIMULATED_DATA_REGISTRY_SCHEMA
 
 
@@ -101,15 +100,12 @@ def parse_guide(value: str) -> GuideTree:
 
     :raises argparse.ArgumentTypeError: if unknown or unsupported.
     """
-    guide: GuideTree | None = None
-    if value == TRUE_TREE:
-        guide = TRUE_TREE
-    elif value in TreeInferenceMethod:
-        guide = TreeInferenceMethod(value)
-    if guide is None or guide not in SUPPORTED_GUIDE_TREES:
-        supported = sorted(str(g) for g in SUPPORTED_GUIDE_TREES)
-        raise argparse.ArgumentTypeError(f"{value!r} is not a guide; use {supported}")
-    return guide
+    value_to_guide = {str(g): g for g in SUPPORTED_GUIDE_TREES}
+    if value not in value_to_guide:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is not a guide; use {sorted(value_to_guide)}"
+        )
+    return value_to_guide[value]
 
 
 def main() -> None:
