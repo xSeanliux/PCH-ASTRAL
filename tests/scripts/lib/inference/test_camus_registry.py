@@ -5,11 +5,8 @@ import polars as pl
 import pytest
 
 from scripts.lib.inference import camus_registry
-from scripts.lib.inference.inference import (
-    InferenceResult,
-    NetworkInferenceMethod,
-    RunStatus,
-)
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import NetworkInferenceMethod, RunStatus
 from scripts.py.cli.schemata import CAMUS_REGISTRY_SCHEMA
 
 NEWICKS = [
@@ -31,14 +28,14 @@ def _result(
     csv.write_text(family)
     return InferenceResult(
         dataset_id="sim/sim_1_1_1.csv",
-        tree_inference_method=NetworkInferenceMethod.CAMUS,
+        method=NetworkInferenceMethod.CAMUS,
         config_hash="abc",
         method_config_json="{}",
         point_estimate_newick="",
         runtime_seconds=3.5,
         status=RunStatus.OK,
         ran_at=ran_at or datetime.now(timezone.utc).isoformat(),
-        tree_set_path=str(csv),
+        group_estimate_path=str(csv),
         log_path=str(tmp_path / "out" / "CAMUS" / "logs" / "sim_1_1_1.true_tree.log"),
     )
 
@@ -82,7 +79,7 @@ def test_write_family_rejects_unexpected_header(tmp_path: Path):
 
 def test_write_family_rejects_a_missing_family(tmp_path: Path):
     result = _result(tmp_path)
-    Path(str(result.tree_set_path)).unlink()
+    Path(str(result.group_estimate_path)).unlink()
     with pytest.raises(ValueError):
         camus_registry.write_family(result, "true_tree", tmp_path)
 

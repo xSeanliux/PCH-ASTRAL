@@ -10,6 +10,7 @@ erDiagram
   config_registry ||--o{ simulated_data_registry : "sim config key"
   simulated_data_registry ||--o{ inference_registry : "path = dataset_id"
   inference_registry ||--o| scores : "dataset_id, method, config_hash"
+  inference_registry ||--o{ camus_registry : "dataset_id, method, config_hash"
 ```
 
 ## `model_graph_registry`
@@ -75,6 +76,25 @@ One row per **successful** run; failures and blocks are never rows. Last-writer-
 | `log_path` | String | Run log. |
 
 Join to sim: `dataset_id == simulated_data_registry.path`.
+
+## `camus_registry`
+
+`inference_data/camus_registry.csv` · writer `camus_registry.compact` (rows from `camus_registry.write_family` shards in `camus_shards/`) · `CAMUS_REGISTRY_SCHEMA` · key `(dataset_id, method, config_hash, k)`
+
+One row per `k` of a successful network run's family. Newest `ran_at` wins per `(dataset_id, method, config_hash)`, so a shorter rerun drops the old higher-`k` rows. Run state (`status`, runtime, log) lives in `inference_registry`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `dataset_id` | String | As in `inference_registry`. |
+| `method` | String | As in `inference_registry`. |
+| `guide_tree` | String | Guide label (`runner.suffix`): `pch_astral3`, `true_tree`, ... |
+| `config_hash` | String | As in `inference_registry`. |
+| `ran_at` | String | ISO8601 UTC; dedup key per family. |
+| `k` | Int64 | Contact edges in the network. |
+| `qsat_percent` | Float64 | Quartets satisfied, percent. |
+| `network_newick` | String | Extended newick. |
+
+Join to the run: `(dataset_id, method, config_hash)`.
 
 ## `scores`
 

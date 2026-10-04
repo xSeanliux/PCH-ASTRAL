@@ -45,26 +45,33 @@ def write_family(
     Raises ValueError when the family is missing, empty, torn, or its header
     is not CAMUS's, so the caller can count the run as failed and let the next
     run retry."""
-    if result.tree_set_path is None or not Path(result.tree_set_path).is_file():
-        raise ValueError(f"no network family at {result.tree_set_path}")
+    if (
+        result.group_estimate_path is None
+        or not Path(result.group_estimate_path).is_file()
+    ):
+        raise ValueError(f"no network family at {result.group_estimate_path}")
     try:
-        family = pl.read_csv(result.tree_set_path)
+        family = pl.read_csv(result.group_estimate_path)
     except pl.exceptions.PolarsError as e:
-        raise ValueError(f"unreadable family at {result.tree_set_path}: {e}") from e
+        raise ValueError(
+            f"unreadable family at {result.group_estimate_path}: {e}"
+        ) from e
     if family.columns != CAMUS_COLUMNS:
         raise ValueError(
             f"unexpected family header {family.columns}; want {CAMUS_COLUMNS}"
         )
     if family.height == 0:
-        raise ValueError(f"no rows in family at {result.tree_set_path}")
+        raise ValueError(f"no rows in family at {result.group_estimate_path}")
     if family.null_count().row(0, named=True) != dict.fromkeys(CAMUS_COLUMNS, 0):
-        raise ValueError(f"null cell(s) (torn write?) in {result.tree_set_path}")
+        raise ValueError(f"null cell(s) (torn write?) in {result.group_estimate_path}")
     first_k = family[CAMUS_COLUMNS[0]][0]
     if first_k != 0:
-        raise ValueError(f"first k is {first_k}, not 0, in {result.tree_set_path}")
+        raise ValueError(
+            f"first k is {first_k}, not 0, in {result.group_estimate_path}"
+        )
     identity = {
         "dataset_id": result.dataset_id,
-        "method": result.tree_inference_method.value,
+        "method": result.method.value,
         "guide_tree": guide_tree,
         "config_hash": result.config_hash,
         "ran_at": result.ran_at,

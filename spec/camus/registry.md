@@ -24,14 +24,15 @@ Don't reinvent this. The writer **reads each run's `<name>.csv`, prepends our
 identity columns, and appends the rows** to a per-shard file; compact
 concatenates shards → `camus_registry.csv` (reuse
 `scripts/lib/inference/registry.py` shard/compact machinery). One row per
-(dataset, guide_tree, k).
+(dataset, method, config, k).
 
 Columns = ours + CAMUS's (renamed to snake_case):
 
 - `dataset_id` — canonical input CSV path (join key, same as tree registry).
+- `method` — `camus`; part of the key, as in the tree registry.
 - `guide_tree` — which guide produced it (`pch_astral3|pch_wastral|true_tree`).
-- `config_hash`, `runtime_seconds`, `status`, `ran_at`, `log_path` — run metadata
-  as in the tree registry (runtime is whole-family; see open questions).
+- `config_hash`, `ran_at` — run identity. Status, runtime and log live in
+  `inference_registry`; join on `(dataset_id, method, config_hash)`.
 - `k` ← `Number of Branches`.
 - `qsat_percent` ← `Quartet Satisfied Percent`.
 - `network_newick` ← `Extended Newick` (inline, like the tree registry's
@@ -76,7 +77,6 @@ only if a one-off network run is ever needed.
 
 ## Notes
 
-- One CAMUS invocation emits all k at once, so `runtime_seconds` is the whole-family
-  time, repeated on each row.
+- One CAMUS invocation emits all k at once; its runtime is one `inference_registry` row.
 - CAMUS stops writing rows when the score stops improving, so families differ in
   length and may be row 0 alone. Store what CAMUS wrote; pad nothing.

@@ -16,6 +16,12 @@ p = "experiments/my_run/simulation_data/model_graph_registry.csv"
 pl.read_csv(p, infer_schema=False).rename({"outgroup": "outgroup_label"}).write_csv(p)
 ```
 
+## `camus_registry` gains `method`, loses run state
+
+**Affects:** `inference_data/camus_registry.csv`, `inference_data/camus_shards/`. Columns `runtime_seconds`, `status`, `log_path` dropped; `method` added; key now `(dataset_id, method, config_hash, k)`.
+
+Delete both, drop CAMUS rows from `inference_registry.csv` (as in the guide-values entry below; else resume skips the runs and nothing re-ingests), and rerun `pch experiment inference`.
+
 ## `tree_set_path` renamed `group_estimate_path`
 
 **Affects:** `inference_data/inference_registry.csv`. No read-time shim; old files fail the schema.
