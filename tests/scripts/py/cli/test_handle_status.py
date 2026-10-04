@@ -14,9 +14,9 @@ from scripts.lib.inference.scheduler import DatasetKey
 from scripts.py.cli.handle_inference import select_runners
 from scripts.py.cli.handle_status import (
     compute_status,
-    fan_out,
+    get_fan_out,
     handle_status,
-    labels,
+    build_labels,
 )
 
 
@@ -62,10 +62,10 @@ def _write_sim_registry(tmp_path: Path, paths: list[Path]) -> Path:
 
 
 def _done_for(
-    paths: list[Path], methods: list[str], config_hash: str = "abc"
+    paths: list[Path], methods: list[str], hash_config: str = "abc"
 ) -> dict[DatasetKey, set[tuple[str, str]]]:
     return {
-        (registry.canonical_path(str(p)),): {(m, config_hash) for m in methods}
+        (registry.canonical_path(str(p)),): {(m, hash_config) for m in methods}
         for p in paths
     }
 
@@ -120,10 +120,10 @@ def test_compute_status_counts_each_guide_tree(tmp_path: Path) -> None:
     # One guide finishing must not mark the other done.
     cond = tmp_path / "cond_a"
     paths = [cond / "sim_1.csv", cond / "sim_2.csv"]
-    methods = {"camus": {"guide_trees": ["true_tree", "astral3"]}}
+    methods = {"camus": {"guide_trees": ["true_tree", "pch_astral3"]}}
     cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
     selected = list(dict.fromkeys(r.method for r in select_runners(cfg.methods)))
-    fans = fan_out(cfg, selected)
+    fans = get_fan_out(cfg, selected)
     hashes = dict(fans[NetworkInferenceMethod.CAMUS])
 
     done: dict[DatasetKey, set[tuple[str, str]]] = {
@@ -131,13 +131,13 @@ def test_compute_status_counts_each_guide_tree(tmp_path: Path) -> None:
     }
     counts, missing = compute_status(_rows(paths), selected, done, fans)
 
-    assert labels(selected, fans) == ["camus.astral3", "camus.true_tree"]
+    assert build_labels(selected, fans) == ["camus.pch_astral3", "camus.true_tree"]
     assert counts == {
-        ("cond_a", "camus.astral3"): (0, 2),
+        ("cond_a", "camus.pch_astral3"): (0, 2),
         ("cond_a", "camus.true_tree"): (1, 2),
     }
     assert missing[("cond_a", "camus.true_tree")] == ["sim_2"]
-    assert missing[("cond_a", "camus.astral3")] == ["sim_1", "sim_2"]
+    assert missing[("cond_a", "camus.pch_astral3")] == ["sim_1", "sim_2"]
 
 
 def test_compute_status_all_done(tmp_path: Path) -> None:
@@ -239,7 +239,7 @@ def test_handle_status_counts_match_compute(tmp_path: Path) -> None:
         "method_config_json": "{}",
         "runtime_seconds": 1.0,
         "point_estimate_newick": "(A,B);",
-        "tree_set_path": "",
+        "group_estimate_path": "",
         "consensus_method": "",
         "status": "ok",
         "ran_at": datetime.now(timezone.utc).isoformat(),
@@ -250,8 +250,8 @@ def test_handle_status_counts_match_compute(tmp_path: Path) -> None:
     cfg = ExperimentConfig.model_validate(_config(tmp_path, methods={"mp4": {}}))
     methods = [TreeInferenceMethod.MP]
     done = __import__(
-        "scripts.lib.inference.scheduler", fromlist=["completed_runs"]
-    ).completed_runs(tmp_path)
+        "scripts.lib.inference.scheduler", fromlist=["get_completed_runs"]
+    ).get_completed_runs(tmp_path)
 
     rows_data = list(
         pl.read_csv(
@@ -277,7 +277,7 @@ def test_status_falls_back_when_no_sim_registry(tmp_path: Path, capsys) -> None:
         registry.write_result(
             InferenceResult(
                 dataset_id=f"ds_{m.value}",
-                tree_inference_method=m,
+                method=m,
                 config_hash="abc",
                 method_config_json="{}",
                 point_estimate_newick="(a,b);",

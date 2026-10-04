@@ -2,18 +2,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts.lib.inference.runners.base import Runner
 from scripts.lib.model.guide_tree import GuideTree
-from scripts.lib.model.methods import InferenceMethod, NetworkInferenceMethod
+from scripts.lib.model.methods import (
+    InferenceMethod,
+    NetworkInferenceMethod,
+    TreeInferenceMethod,
+)
 
 if TYPE_CHECKING:
-    from scripts.lib.experiment import CamusConfig
+    from scripts.lib.experiment import CamusConfig  # noqa: F401  (used in the quoted base)
 
 
 @dataclass(frozen=True)
-class CamusRunner:
-    """CAMUS level-1 network inference: one guide tree in, one network family out."""
+class CamusRunner(Runner["CamusConfig"]):
+    """CAMUS level-1 network inference: one guide tree in, one network family out.
 
-    config: "CamusConfig"  # the single-guide config; what config_hash hashes
+    `config` is the single-guide config.
+    """
 
     @property
     def method(self) -> NetworkInferenceMethod:
@@ -26,10 +32,11 @@ class CamusRunner:
 
     @property
     def suffix(self) -> str:
-        return self.guide.value
+        return str(self.guide)
 
-    def dependencies(self) -> list[InferenceMethod]:
-        return [] if self.guide.dependency is None else [self.guide.dependency]
+    def get_dependencies(self) -> list[InferenceMethod]:
+        guide = self.guide
+        return [guide] if isinstance(guide, TreeInferenceMethod) else []
 
     def build_argv(
         self, runid: str, input_csv: Path, name: str, output_dir: Path
@@ -46,14 +53,19 @@ class CamusRunner:
             "--output",
             str(output_dir),
             "--guide-tree",
-            self.guide.value,
+            str(self.guide),
         ]
 
     @staticmethod
-    def family_path(output_dir: Path, name: str) -> Path:
+    def get_point_estimate_path(output_dir: Path, name: str) -> None:
+        # ponytail: no rule for picking a k yet; add one when analysis picks it
+        return None
+
+    @staticmethod
+    def get_group_estimate_path(output_dir: Path, name: str) -> Path:
         # CAMUS writes `<prefix>.csv`, one row per k; runCAMUS.sh sets -o to this stem.
         return output_dir / "CAMUS" / "networks" / f"{name}.csv"
 
     @staticmethod
-    def log_path(output_dir: Path, name: str) -> Path:
+    def get_log_path(output_dir: Path, name: str) -> Path:
         return output_dir / "CAMUS" / "logs" / f"{name}.log"

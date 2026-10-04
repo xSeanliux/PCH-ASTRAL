@@ -58,7 +58,7 @@ def _write_experiment(tmp_path: Path, methods: dict, paths: list[Path]) -> Path:
 def _result() -> InferenceResult:
     return InferenceResult(
         dataset_id="d",
-        tree_inference_method=TreeInferenceMethod.MP,
+        method=TreeInferenceMethod.MP,
         config_hash="h",
         method_config_json="{}",
         point_estimate_newick="(A,B);",
@@ -71,7 +71,7 @@ def _result() -> InferenceResult:
 def test_infer_command_invokes_api(tmp_path: Path, monkeypatch):
     calls = {}
 
-    def fake_infer(input_csv, output_dir, runner, *, name=None):
+    def fake_infer(input_csv, output_dir, runner):
         calls["method"] = runner.method
         return _result()
 

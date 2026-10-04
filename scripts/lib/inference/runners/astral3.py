@@ -1,58 +1,56 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from scripts.lib.model.methods import (
-    ConsensusMethod,
-    InferenceMethod,
-    TreeInferenceMethod,
-)
+from scripts.lib.inference.runners.base import Runner
+from scripts.lib.model.methods import InferenceMethod, TreeInferenceMethod
 from scripts.lib.model.strategies import BipartitionStrategy
 from scripts.lib.pch import PCH_W
 
 if TYPE_CHECKING:
-    from scripts.lib.experiment import ASTRAL3Config
+    from scripts.lib.experiment import ASTRAL3Config  # noqa: F401  (used in the quoted base)
 
 
 @dataclass(frozen=True)
-class ASTRAL3Runner:
+class ASTRAL3Runner(Runner["ASTRAL3Config"]):
     # runASTRAL3.sh generates quartets via PCH_W (scripts/py/printQuartets).
     SCHEME = PCH_W
     VARIANT = f"{SCHEME.__name__}_ASTRAL3"  # -> "PCH_W_ASTRAL3"
 
     # Strategy → bipartition-source short name passed to runASTRAL3.sh via -S.
-    _STRATEGY_SOURCE = {
+    _STRATEGY_TO_SOURCE = {
         BipartitionStrategy.MP4_TREES: "mp4",
         BipartitionStrategy.GA_TREES: "ga",
     }
 
     # Strategy → the upstream method that produces its bipartitions.
-    _STRATEGY_METHOD = {
+    _STRATEGY_TO_METHOD = {
         BipartitionStrategy.MP4_TREES: TreeInferenceMethod.MP,
         BipartitionStrategy.GA_TREES: TreeInferenceMethod.GA,
     }
-
-    config: "ASTRAL3Config"
-    suffix: str | None = None
 
     @property
     def method(self) -> TreeInferenceMethod:
         return TreeInferenceMethod.PCH_ASTRAL3
 
-    def dependencies(self) -> list[InferenceMethod]:
+    def get_dependencies(self) -> list[InferenceMethod]:
         # Heuristic ASTRAL reads the selected sources' tree sets; exact has none.
         if self.config.is_exact:
             return []
         # order-preserving dedup of each source's upstream method
         return list(
             dict.fromkeys(
-                ASTRAL3Runner._STRATEGY_METHOD[s] for s in self._bipartition_sources()
+                ASTRAL3Runner._STRATEGY_TO_METHOD[s]
+                for s in self._get_bipartition_sources()
             )
         )
 
-    def _bipartition_sources(self) -> list[BipartitionStrategy]:
+    def _get_bipartition_sources(self) -> list[BipartitionStrategy]:
         """Which tree sets feed the heuristic run's bipartitions; empty config
-        defaults to MP4 + GA (today's behavior)."""
+        defaults to MP4 + GA (today's behavior).
+
+        :raises NotImplementedError: for `binary_character`.
+        """
         S = BipartitionStrategy
         sources = self.config.bipartition_strategies or [S.MP4_TREES, S.GA_TREES]
         if S.BINARY_CHARACTER in sources:
@@ -81,23 +79,16 @@ class ASTRAL3Runner:
             argv.append("-x")
         else:
             sources = ",".join(
-                ASTRAL3Runner._STRATEGY_SOURCE[s] for s in self._bipartition_sources()
+                ASTRAL3Runner._STRATEGY_TO_SOURCE[s]
+                for s in self._get_bipartition_sources()
             )
             argv += ["-S", sources]
         return argv
 
     @staticmethod
-    def point_estimate_path(output_dir: Path, name: str) -> Path:
+    def get_point_estimate_path(output_dir: Path, name: str) -> Path:
         return output_dir / ASTRAL3Runner.VARIANT / "trees" / f"{name}.tree"
 
     @staticmethod
-    def group_estimate_path(output_dir: Path, name: str) -> Optional[Path]:
-        return None
-
-    @staticmethod
-    def consensus_method() -> Optional[ConsensusMethod]:
-        return None
-
-    @staticmethod
-    def log_path(output_dir: Path, name: str) -> Path:
+    def get_log_path(output_dir: Path, name: str) -> Path:
         return output_dir / ASTRAL3Runner.VARIANT / "logs" / f"{name}.log"

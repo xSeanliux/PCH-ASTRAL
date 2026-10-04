@@ -15,13 +15,13 @@ from rich import print
 from scripts.lib.experiment import ExperimentConfig, MethodConfig
 from scripts.lib.inference import api, registry, scheduler
 from scripts.lib.model.methods import InferenceMethod, RunStatus
-from scripts.lib.inference.method_config import config_hash
-from scripts.lib.inference.runners import RUNNERS
+from scripts.lib.inference.method_config import hash_config
+from scripts.lib.inference.runners import METHOD_TO_RUNNER_CLASS
 from scripts.lib.inference.runners.base import Runner
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 
-def dependencies_by_method(
+def map_method_to_dependencies(
     runners: Sequence[Runner],
 ) -> dict[InferenceMethod, list[InferenceMethod]]:
     """Each method's dependencies, unioned order-preserving across its runners.
@@ -29,23 +29,25 @@ def dependencies_by_method(
     Two runners of one method (e.g. CAMUS's guides) may differ in dependencies;
     the method's scheduler node needs every edge.
     """
-    deps_of: dict[InferenceMethod, list[InferenceMethod]] = {}
+    method_to_dependencies: dict[InferenceMethod, list[InferenceMethod]] = {}
     for r in runners:
-        deps_of[r.method] = list(
-            dict.fromkeys([*deps_of.get(r.method, []), *r.dependencies()])
+        method_to_dependencies[r.method] = list(
+            dict.fromkeys(
+                [*method_to_dependencies.get(r.method, []), *r.get_dependencies()]
+            )
         )
-    return deps_of
+    return method_to_dependencies
 
 
 def select_runners(methods: MethodConfig) -> list[Runner]:
     """Every unit of work the config asks for, dependencies first."""
-    runners = [r for cfg in methods.enabled() for r in cfg.get_runners()]
-    deps_of = dependencies_by_method(runners)
-    # RUNNERS' insertion order is the canonical method order (fixed regardless of
+    runners = [r for cfg in methods.get_enabled_configs() for r in cfg.get_runners()]
+    method_to_dependencies = map_method_to_dependencies(runners)
+    # METHOD_TO_RUNNER_CLASS' insertion order is the canonical method order (fixed regardless of
     # which `methods:` fields are set); it's just the tie-break for independent
-    # methods — topological_order still enforces real dependency edges.
-    enabled = [m for m in RUNNERS if m in deps_of]
-    order = scheduler.topological_order(enabled, deps_of)
+    # methods — sort_topologically still enforces real dependency edges.
+    enabled = [m for m in METHOD_TO_RUNNER_CLASS if m in method_to_dependencies]
+    order = scheduler.sort_topologically(enabled, method_to_dependencies)
     return sorted(runners, key=lambda r: order.index(r.method))
 
 
@@ -84,7 +86,9 @@ def handle_inference(
         )
 
     wanted = _read_dataset_filter(datasets)  # None = all rows
-    done = scheduler.completed_runs(experiment_folder)  # {dataset → {(method, cfg)}}
+    done = scheduler.get_completed_runs(
+        experiment_folder
+    )  # {dataset → {(method, cfg)}}
     tally = {"ok": 0, "skipped": 0, "blocked": 0, "failed": 0}
     rows = pl.read_csv(sim_registry, schema=SIMULATED_DATA_REGISTRY_SCHEMA).iter_rows(
         named=True
@@ -100,13 +104,13 @@ def handle_inference(
         out_dir = inference_dir / input_path.parent.name
 
         for r in runners:
-            ch = config_hash(r.config)
+            ch = hash_config(r.config)
 
             if (r.method.value, ch) in prior:  # resume: this exact unit already done
                 tally["skipped"] += 1
                 continue
 
-            unmet = [d for d in r.dependencies() if d.value not in ok_methods]
+            unmet = [d for d in r.get_dependencies() if d.value not in ok_methods]
             if unmet:
                 need = ", ".join(d.value for d in unmet)
                 print(
@@ -116,8 +120,7 @@ def handle_inference(
                 tally["blocked"] += 1
                 continue
 
-            name = f"{input_path.stem}.{r.suffix}" if r.suffix else None
-            result = api.infer(input_path, out_dir, r, name=name)
+            result = api.infer(input_path, out_dir, r)
             if result.status is not RunStatus.OK:
                 # Not analyzable → not in the registry; the log has the details.
                 print(

@@ -11,7 +11,7 @@ from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry, scheduler
 from scripts.lib.model.methods import InferenceMethod
 from scripts.lib.inference.scheduler import DatasetKey
-from scripts.lib.inference.method_config import config_hash
+from scripts.lib.inference.method_config import hash_config
 from scripts.py.cli.handle_inference import select_runners
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
@@ -23,16 +23,18 @@ StatusCounts = dict[tuple[str, str], tuple[int, int]]
 # (condition, label) -> [dataset stems not yet done]
 MissingMap = dict[tuple[str, str], list[str]]
 # method -> [(suffix, config_hash)], one per run of a method that fans out
-FanOut = Mapping[InferenceMethod, Sequence[tuple[str, str]]]
+MethodToRuns = Mapping[InferenceMethod, Sequence[tuple[str, str]]]
 
 
-def fan_out(config: ExperimentConfig, methods: Sequence[InferenceMethod]) -> FanOut:
+def get_fan_out(
+    config: ExperimentConfig, methods: Sequence[InferenceMethod]
+) -> MethodToRuns:
     """The methods that run more than once per dataset, with each run's identity."""
     runners = select_runners(config.methods)
     out: dict[InferenceMethod, list[tuple[str, str]]] = {}
     for m in methods:
         runs = [
-            (r.suffix, config_hash(r.config))
+            (r.suffix, hash_config(r.config))
             for r in runners
             if r.method is m and r.suffix
         ]
@@ -41,7 +43,8 @@ def fan_out(config: ExperimentConfig, methods: Sequence[InferenceMethod]) -> Fan
     return out
 
 
-def labels(methods: Sequence[InferenceMethod], fans: FanOut) -> list[str]:
+def build_labels(methods: Sequence[InferenceMethod], fans: MethodToRuns) -> list[str]:
+    """Display labels: the method value, or one `<method>.<suffix>` per run."""
     return [
         label
         for m in methods
@@ -55,7 +58,7 @@ def compute_status(
     sim_rows: Iterable[Mapping[str, str | int | float]],
     methods: Sequence[InferenceMethod],
     done: dict[DatasetKey, set[tuple[str, str]]],
-    fans: FanOut | None = None,
+    fans: MethodToRuns | None = None,
 ) -> tuple[StatusCounts, MissingMap]:
     """Count done/expected per (condition, label); collect missing stems.
 
@@ -100,7 +103,7 @@ def compute_status(
 def _status_from_registry(config: ExperimentConfig) -> None:
     """Real-data fallback: no sim registry ⇒ no expected count, so just tally the
     inference registry's recorded runs per method (reads registry ∪ shards)."""
-    done = scheduler.completed_runs(config.experiment_folder)
+    done = scheduler.get_completed_runs(config.experiment_folder)
     per_method: dict[str, int] = defaultdict(int)
     for methods_done in done.values():
         for method, _cfg in methods_done:
@@ -137,8 +140,8 @@ def handle_status(config: ExperimentConfig) -> None:
             named=True
         )
     )
-    done = scheduler.completed_runs(config.experiment_folder)
-    fans = fan_out(config, methods)
+    done = scheduler.get_completed_runs(config.experiment_folder)
+    fans = get_fan_out(config, methods)
     counts, missing = compute_status(rows, methods, done, fans)
 
     # Unique conditions in insertion order
@@ -146,7 +149,7 @@ def handle_status(config: ExperimentConfig) -> None:
     for cond, _ in counts:
         conditions[cond] = None
 
-    method_values = labels(methods, fans)
+    method_values = build_labels(methods, fans)
     total_done = total_expected = 0
 
     for cond in conditions:

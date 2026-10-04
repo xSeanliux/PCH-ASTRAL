@@ -28,7 +28,7 @@ MethodConfigT = (
     | CamusConfig
 )
 
-METHOD_CONFIG: dict[InferenceMethod, type[MethodConfigT]] = {
+METHOD_TO_CONFIG_CLASS: dict[InferenceMethod, type[MethodConfigT]] = {
     TreeInferenceMethod.PCH_ASTRAL3: ASTRAL3Config,
     TreeInferenceMethod.PCH_WASTRAL: WeightedASTRALConfig,
     TreeInferenceMethod.PCH_W_TREE_QMC: WeightedTreeQMCConfig,
@@ -46,8 +46,9 @@ def resolve_config(method: InferenceMethod, config_file: Path | None) -> MethodC
     the CLI turns that into a clean `--method-config required` error.
     """
     data = yaml.safe_load(config_file.read_text()) if config_file is not None else {}
-    return METHOD_CONFIG[method].model_validate(data)
+    return METHOD_TO_CONFIG_CLASS[method].model_validate(data)
 
 
-def config_hash(config: BaseModel) -> str:
+def hash_config(config: BaseModel) -> str:
+    """SHA-256 of the config's JSON; the registry's `config_hash` column."""
     return hashlib.sha256(config.model_dump_json().encode()).hexdigest()

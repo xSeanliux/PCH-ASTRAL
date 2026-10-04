@@ -6,7 +6,7 @@ from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 def test_row_keys_equal_schema_columns():
     row = InferenceResult(
         dataset_id="d1",
-        tree_inference_method=TreeInferenceMethod.GA,
+        method=TreeInferenceMethod.GA,
         config_hash="abc",
         method_config_json="{}",
         point_estimate_newick="(a,b);",

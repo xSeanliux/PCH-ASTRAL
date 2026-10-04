@@ -8,7 +8,7 @@ from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
 from scripts.lib.inference.inference import InferenceResult
 from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
-from scripts.lib.inference.method_config import config_hash
+from scripts.lib.inference.method_config import hash_config
 from scripts.lib.inference import registry
 from scripts.py.cli.handle_inference import (
     _read_dataset_filter,
@@ -45,7 +45,7 @@ def test_select_runners_fixed_order():
             methods={"mp4": {}, "gray_atkinson": {}, "astral_3": {"is_exact": True}},
         )
     )
-    # RUNNERS order: MP4, GA, ASTRAL3 — so ASTRAL3 has its inputs in a combined run.
+    # METHOD_TO_RUNNER_CLASS order: MP4, GA, ASTRAL3 — so ASTRAL3 has its inputs in a combined run.
     assert _methods(cfg) == [
         TreeInferenceMethod.MP,
         TreeInferenceMethod.GA,
@@ -120,10 +120,10 @@ def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):
         }
     ).write_csv(tmp_path / "simulation_data" / "simulated_data_registry.csv")
 
-    def fake_infer(input_csv, output_dir, runner, *, name=None):
+    def fake_infer(input_csv, output_dir, runner):
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=runner.method,
+            method=runner.method,
             config_hash="hash",
             method_config_json="{}",
             point_estimate_newick="(A,B);",
@@ -174,11 +174,11 @@ def test_handle_inference_runs_methods_in_order(tmp_path: Path, monkeypatch):
 
     calls: list[TreeInferenceMethod] = []
 
-    def fake_infer(input_csv, output_dir, runner, *, name=None):
+    def fake_infer(input_csv, output_dir, runner):
         calls.append(runner.method)
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=runner.method,
+            method=runner.method,
             config_hash="hash",
             method_config_json="{}",
             point_estimate_newick="(A,B);",
@@ -233,12 +233,12 @@ def _setup(tmp_path: Path, methods: dict):
 
 def _ok_infer(calls: list):
     # config_hash mirrors the real api.infer so resume (exact-config skip) works.
-    def fake(input_csv, output_dir, runner, *, name=None):
+    def fake(input_csv, output_dir, runner):
         calls.append(runner.method)
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=runner.method,
-            config_hash=config_hash(runner.config),
+            method=runner.method,
+            config_hash=hash_config(runner.config),
             method_config_json=runner.config.model_dump_json(),
             point_estimate_newick="(A,B);",
             runtime_seconds=1.0,
@@ -278,12 +278,12 @@ def test_handle_inference_omits_failed_from_registry(tmp_path: Path, monkeypatch
     cfg = _setup(tmp_path, {"mp4": {}})
     calls: list = []
 
-    def failed(input_csv, output_dir, runner, *, name=None):
+    def failed(input_csv, output_dir, runner):
         calls.append(runner.method)
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=runner.method,
-            config_hash=config_hash(runner.config),
+            method=runner.method,
+            config_hash=hash_config(runner.config),
             method_config_json="{}",
             point_estimate_newick="",
             runtime_seconds=1.0,
@@ -348,12 +348,12 @@ def test_handle_inference_datasets_subset(tmp_path: Path, monkeypatch):
     cfg, d1, d2 = _setup_two_datasets(tmp_path, {"mp4": {}})
     ids: list = []
 
-    def fake(input_csv, output_dir, runner, *, name=None):
+    def fake(input_csv, output_dir, runner):
         ids.append(str(input_csv))
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=runner.method,
-            config_hash=config_hash(runner.config),
+            method=runner.method,
+            config_hash=hash_config(runner.config),
             method_config_json=runner.config.model_dump_json(),
             point_estimate_newick="(A,B);",
             runtime_seconds=1.0,
@@ -446,12 +446,17 @@ def test_handle_inference_runs_camus_once_per_guide(tmp_path: Path, monkeypatch)
 
     calls: list[tuple[str | None, list[str]]] = []
 
-    def fake(input_csv, output_dir, runner, *, name=None):
-        calls.append((name, [g.value for g in runner.config.guides]))
+    def fake(input_csv, output_dir, runner):
+        calls.append(
+            (
+                runner.get_run_name(input_csv.stem),
+                [str(g) for g in runner.config.guides],
+            )
+        )
         return InferenceResult(
             dataset_id=registry.canonical_path(input_csv),
-            tree_inference_method=runner.method,
-            config_hash=config_hash(runner.config),
+            method=runner.method,
+            config_hash=hash_config(runner.config),
             method_config_json=runner.config.model_dump_json(),
             point_estimate_newick="",
             runtime_seconds=1.0,
@@ -460,11 +465,11 @@ def test_handle_inference_runs_camus_once_per_guide(tmp_path: Path, monkeypatch)
         )
 
     monkeypatch.setattr(api, "infer", fake)
-    methods = {"camus": {"guide_trees": ["true_tree", "astral3", "true_tree"]}}
+    methods = {"camus": {"guide_trees": ["true_tree", "pch_astral3", "true_tree"]}}
     cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
     handle_inference(cfg)
 
-    # astral3's guide is blocked (no astral_3 run); true_tree runs once, not twice.
+    # pch_astral3's guide is blocked (no astral_3 run); true_tree runs once, not twice.
     assert calls == [("sim_1_1_1.true_tree", ["true_tree"])]
 
     calls.clear()

@@ -12,7 +12,7 @@ def test_infer_ok(tmp_path: Path, monkeypatch) -> None:
 
     def fake_run(argv, **kwargs):
         # Script success: write the expected point estimate.
-        est = runner.point_estimate_path(out, csv.stem)
+        est = runner.get_point_estimate_path(out, csv.stem)
         est.parent.mkdir(parents=True, exist_ok=True)
         est.write_text("(a,(b,c));\n")
 
@@ -26,7 +26,7 @@ def test_infer_ok(tmp_path: Path, monkeypatch) -> None:
     result = api.infer(csv, out, runner)
 
     assert result.status == "ok"
-    assert result.tree_inference_method == "mp"
+    assert result.method == "mp"
     assert result.point_estimate_newick == "(a,(b,c));"
     assert result.runtime_seconds >= 0
     # Generic entry: identity is the input PATH, not the stem; no sim-key fields.

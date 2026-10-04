@@ -13,7 +13,7 @@ class RegistryRow(TypedDict):
     method_config_json: str
     runtime_seconds: float
     point_estimate_newick: str
-    tree_set_path: Optional[str]
+    group_estimate_path: Optional[str]
     consensus_method: Optional[str]
     status: str
     ran_at: str
@@ -30,7 +30,7 @@ class InferenceResult:
     """
 
     dataset_id: str
-    tree_inference_method: InferenceMethod
+    method: InferenceMethod
     config_hash: str
     method_config_json: str
     point_estimate_newick: str
@@ -38,19 +38,19 @@ class InferenceResult:
     status: RunStatus
     ran_at: str
 
-    tree_set_path: Optional[str] = None
+    group_estimate_path: Optional[str] = None
     consensus_method: Optional[str] = None
     log_path: Optional[str] = None
 
     def to_registry_row(self) -> RegistryRow:
         return {
             "dataset_id": self.dataset_id,
-            "method": self.tree_inference_method.value,
+            "method": self.method.value,
             "config_hash": self.config_hash,
             "method_config_json": self.method_config_json,
             "runtime_seconds": self.runtime_seconds,
             "point_estimate_newick": self.point_estimate_newick,
-            "tree_set_path": self.tree_set_path,
+            "group_estimate_path": self.group_estimate_path,
             "consensus_method": self.consensus_method,
             "status": self.status.value,
             "ran_at": self.ran_at,

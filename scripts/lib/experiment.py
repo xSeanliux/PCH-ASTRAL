@@ -2,7 +2,7 @@ from abc import abstractmethod
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from scripts.lib.types import Polymorphism
 from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
-from scripts.lib.model.guide_tree import GuideTree, GUIDE_TREE_DEPENDENCY
+from scripts.lib.model.guide_tree import GuideTree, SUPPORTED_GUIDE_TREES
 from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
 from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.camus import CamusRunner
@@ -44,36 +44,42 @@ class RunnableConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     @abstractmethod
-    def get_runners(self) -> list[Runner]: ...
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """The runs this block asks for."""
 
 
 class ASTRAL3Config(RunnableConfig):
     bipartition_strategies: list[BipartitionStrategy] = Field(list())
     is_exact: bool
 
-    def get_runners(self) -> list[Runner]:
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
         return [ASTRAL3Runner(config=self)]
 
 
 class WeightedASTRALConfig(RunnableConfig):
-    def get_runners(self) -> list[Runner]:
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
         return [WASTRALRunner(config=self)]
 
 
 class WeightedTreeQMCConfig(RunnableConfig):
     normalisation_strategy: NormalisationStrategy = NormalisationStrategy.N2
 
-    def get_runners(self) -> list[Runner]:
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
         return [WTreeQmcRunner(config=self)]
 
 
 class MP4Config(RunnableConfig):
-    def get_runners(self) -> list[Runner]:
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
         return [MP4Runner(config=self)]
 
 
 class GAConfig(RunnableConfig):
-    def get_runners(self) -> list[Runner]:
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
         return [GARunner(config=self)]
 
 
@@ -83,11 +89,12 @@ class CamusConfig(RunnableConfig):
     @field_validator("guide_trees")
     @classmethod
     def _reject_unsupported(cls, v: frozenset[GuideTree]) -> frozenset[GuideTree]:
-        bad = sorted(g for g in v if not g.is_supported)
+        """:raises ValueError: if a guide is outside `SUPPORTED_GUIDE_TREES`."""
+        bad = sorted(v - SUPPORTED_GUIDE_TREES)
         if bad:
             raise ValueError(
-                f"unsupported CAMUS guide tree(s): {', '.join(g.value for g in bad)}. "
-                f"Supported: {', '.join(g.value for g in GUIDE_TREE_DEPENDENCY)}. "
+                f"unsupported CAMUS guide tree(s): {', '.join(bad)}. "
+                f"Supported: {', '.join(sorted(SUPPORTED_GUIDE_TREES))}. "
                 "CAMUS requires a rooted binary guide tree."
             )
         return v
@@ -97,9 +104,12 @@ class CamusConfig(RunnableConfig):
         """The guide trees in a fixed order; a set has none of its own."""
         return sorted(self.guide_trees)
 
-    def get_runners(self) -> list[Runner]:
-        # CAMUS takes one guide per run; each gets its own config_hash, so the
-        # registry key and resume behaviour match a single-guide YAML exactly.
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run per guide.
+
+        Each gets its own config hash, so the registry key and resume behaviour
+        match a single-guide YAML exactly.
+        """
         return [
             CamusRunner(config=CamusConfig(guide_trees=frozenset({g})))
             for g in self.guides
@@ -115,7 +125,7 @@ class MethodConfig(BaseModel):
     gray_atkinson: GAConfig | None = Field(None)
     camus: CamusConfig | None = Field(None)
 
-    def enabled(self) -> list[RunnableConfig]:
+    def get_enabled_configs(self) -> list[RunnableConfig]:
         """The configured methods, in field-declaration order."""
         fields = [
             self.astral_3,

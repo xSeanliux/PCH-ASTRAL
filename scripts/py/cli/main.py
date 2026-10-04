@@ -78,7 +78,7 @@ def infer(
         typer.echo(json.dumps(result.to_registry_row()))
     else:
         typer.echo(
-            f"[{result.status.value}] {result.tree_inference_method.value} "
+            f"[{result.status.value}] {result.method.value} "
             f"in {result.runtime_seconds:.2f}s -> {result.point_estimate_newick or '(no tree)'}"
         )
 

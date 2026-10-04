@@ -20,7 +20,7 @@ def _result(
 ) -> InferenceResult:
     return InferenceResult(
         dataset_id=dataset_id,
-        tree_inference_method=TreeInferenceMethod.MP,
+        method=TreeInferenceMethod.MP,
         config_hash=config_hash,
         method_config_json="{}",
         point_estimate_newick="(a,b);",
