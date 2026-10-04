@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import polars as pl
+from pydantic import BaseModel
 from rich import print
 
 from scripts.lib.experiment import ExperimentConfig, MethodConfig
@@ -22,7 +23,7 @@ from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 
 def map_method_to_dependencies(
-    runners: Sequence[Runner],
+    runners: Sequence[Runner[BaseModel]],
 ) -> dict[InferenceMethod, list[InferenceMethod]]:
     """Each method's dependencies, unioned order-preserving across its runners.
 
@@ -39,13 +40,13 @@ def map_method_to_dependencies(
     return method_to_dependencies
 
 
-def select_runners(methods: MethodConfig) -> list[Runner]:
+def select_runners(methods: MethodConfig) -> list[Runner[BaseModel]]:
     """Every unit of work the config asks for, dependencies first."""
     runners = [r for cfg in methods.get_enabled_configs() for r in cfg.get_runners()]
     method_to_dependencies = map_method_to_dependencies(runners)
-    # METHOD_TO_RUNNER_CLASS' insertion order is the canonical method order (fixed regardless of
-    # which `methods:` fields are set); it's just the tie-break for independent
-    # methods — sort_topologically still enforces real dependency edges.
+    # METHOD_TO_RUNNER_CLASS' insertion order is the canonical method order, fixed
+    # whichever `methods:` fields are set; only a tie-break for independent
+    # methods. sort_topologically still enforces real dependency edges.
     enabled = [m for m in METHOD_TO_RUNNER_CLASS if m in method_to_dependencies]
     order = scheduler.sort_topologically(enabled, method_to_dependencies)
     return sorted(runners, key=lambda r: order.index(r.method))
@@ -86,9 +87,8 @@ def handle_inference(
         )
 
     wanted = _read_dataset_filter(datasets)  # None = all rows
-    done = scheduler.get_completed_runs(
-        experiment_folder
-    )  # {dataset → {(method, cfg)}}
+    # {dataset → {(method, config_hash)}}
+    done = scheduler.get_completed_runs(experiment_folder)
     tally = {"ok": 0, "skipped": 0, "blocked": 0, "failed": 0}
     rows = pl.read_csv(sim_registry, schema=SIMULATED_DATA_REGISTRY_SCHEMA).iter_rows(
         named=True
@@ -104,9 +104,12 @@ def handle_inference(
         out_dir = inference_dir / input_path.parent.name
 
         for r in runners:
-            ch = hash_config(r.config)
+            config_hash = hash_config(r.config)
 
-            if (r.method.value, ch) in prior:  # resume: this exact unit already done
+            if (
+                r.method.value,
+                config_hash,
+            ) in prior:  # resume: this exact unit already done
                 tally["skipped"] += 1
                 continue
 

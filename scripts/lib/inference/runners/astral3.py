@@ -34,7 +34,7 @@ class ASTRAL3Runner(Runner["ASTRAL3Config"]):
         return TreeInferenceMethod.PCH_ASTRAL3
 
     def get_dependencies(self) -> list[InferenceMethod]:
-        # Heuristic ASTRAL reads the selected sources' tree sets; exact has none.
+        """Methods whose trees supply heuristic ASTRAL's bipartitions; none if exact."""
         if self.config.is_exact:
             return []
         # order-preserving dedup of each source's upstream method

@@ -27,14 +27,17 @@ class CamusRunner(Runner["CamusConfig"]):
 
     @property
     def guide(self) -> GuideTree:
+        """The one guide tree this run uses; `get_runners` splits the set."""
         (guide,) = self.config.guide_trees
         return guide
 
     @property
     def suffix(self) -> str:
+        """The guide's name, so runs on one dataset don't collide."""
         return str(self.guide)
 
     def get_dependencies(self) -> list[InferenceMethod]:
+        """The method that produces the guide; none for `true_tree`."""
         guide = self.guide
         return [guide] if isinstance(guide, TreeInferenceMethod) else []
 

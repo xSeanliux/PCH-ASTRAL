@@ -67,7 +67,8 @@ def sort_topologically(
 ) -> list[InferenceMethod]:
     """Order the enabled methods so each runs after its dependencies.
 
-    `method_to_dependencies[x] == [a, b]` means **x depends on a and b** — a and b run before x.
+    `method_to_dependencies[x] == [a, b]` means **x depends on a and b**: a and b
+    run before x.
     Dependencies not in `enabled` (run in a separate invocation) are ignored; the
     run-time gate handles them. Kahn's algorithm, O(V + E); stable by `enabled`
     order; raises on a cycle.
