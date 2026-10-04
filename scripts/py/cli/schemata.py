@@ -64,17 +64,17 @@ SCORES_SCHEMA = pl.Schema(
     }
 )
 
-# One row per (dataset, guide tree, config, k): CmpNets -m cluster against the
-# reference network. Null scores with status `failed` | `timeout`.
+# One row per (dataset, method, config, k): CmpNets -m cluster against the
+# reference network. Null rates with status `failed` | `timeout`.
 NETWORK_SCORES_SCHEMA = pl.Schema(
     {
         "dataset_id": String,
+        "method": String,
         "guide_tree": String,
         "config_hash": String,
         "k": Int64,
-        "fn": Float64,
-        "fp": Float64,
-        "avg": Float64,
+        "fn_rate": Float64,
+        "fp_rate": Float64,
         "runtime_seconds": Float64,
         "status": String,
     }

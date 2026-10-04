@@ -19,7 +19,7 @@ from scripts.lib.inference import camus_registry, registry
 from scripts.lib.inference.registry import Cell
 from scripts.lib.inference.scoring import (
     PHYLONET_JAR,
-    network_score,
+    score_network,
     resolve_reference_network,
 )
 from scripts.py.cli.schemata import (
@@ -28,12 +28,13 @@ from scripts.py.cli.schemata import (
     SIMULATED_DATA_REGISTRY_SCHEMA,
 )
 
-KEY = ["dataset_id", "guide_tree", "config_hash", "k"]
+KEY_COLUMNS = ["dataset_id", "method", "config_hash", "k"]
 
 
 def handle_network_score(config: ExperimentConfig) -> Path:
+    """Score every unscored network family row and write network_scores.csv."""
     experiment_folder = config.experiment_folder
-    fam_csv = camus_registry.registry_path(experiment_folder)
+    fam_csv = camus_registry.get_registry_path(experiment_folder)
     assert fam_csv.exists(), (
         f"No network family registry at {fam_csv}. Run `pch experiment inference` with camus first."
     )
@@ -48,7 +49,7 @@ def handle_network_score(config: ExperimentConfig) -> Path:
         if out.exists()
         else pl.DataFrame(schema=NETWORK_SCORES_SCHEMA)
     )
-    already = {tuple(r[c] for c in KEY) for r in existing.iter_rows(named=True)}
+    already = {tuple(r[c] for c in KEY_COLUMNS) for r in existing.iter_rows(named=True)}
 
     fam = pl.read_csv(fam_csv, schema=CAMUS_REGISTRY_SCHEMA)
     sim = pl.read_csv(sim_csv, schema=SIMULATED_DATA_REGISTRY_SCHEMA).select(
@@ -61,14 +62,14 @@ def handle_network_score(config: ExperimentConfig) -> Path:
     new: list[dict[str, Cell]] = []
     try:
         for r in joined.iter_rows(named=True):
-            key = tuple(r[c] for c in KEY)
+            key = tuple(r[c] for c in KEY_COLUMNS)
             if key in already or not r["network_newick"]:
                 continue
             already.add(key)  # a duplicate sim `path` row fans the join out
-            row: dict[str, Cell] = {c: r[c] for c in KEY} | {
-                "fn": None,
-                "fp": None,
-                "avg": None,
+            row: dict[str, Cell] = {c: r[c] for c in KEY_COLUMNS} | {
+                "guide_tree": r["guide_tree"],
+                "fn_rate": None,
+                "fp_rate": None,
             }
             label = f"{r['dataset_id']} {r['guide_tree']} k={r['k']}"
             t0 = time.perf_counter()
@@ -76,8 +77,8 @@ def handle_network_score(config: ExperimentConfig) -> Path:
                 ref = resolve_reference_network(
                     experiment_folder, r["horizontal_edges"], r["model_tree"]
                 )
-                s = network_score(r["network_newick"], ref)
-                row |= {"fn": s.fn, "fp": s.fp, "avg": s.avg, "status": "ok"}
+                s = score_network(r["network_newick"], ref)
+                row |= {"fn_rate": s.fn_rate, "fp_rate": s.fp_rate, "status": "ok"}
             except subprocess.TimeoutExpired:
                 row["status"] = "timeout"
                 print(f"[yellow]Timed out: {label}[/yellow]")

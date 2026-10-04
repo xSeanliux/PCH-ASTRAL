@@ -53,12 +53,10 @@ def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ExperimentConfig:
     pl.DataFrame(
         {
             "dataset_id": [str(dataset)] * 2,
+            "method": ["camus"] * 2,
             "guide_tree": ["true_tree"] * 2,
             "config_hash": ["h"] * 2,
-            "runtime_seconds": [1.0] * 2,
-            "status": ["ok"] * 2,
             "ran_at": ["2026-09-29T00:00:00+00:00"] * 2,
-            "log_path": ["l"] * 2,
             "k": [0, 1],
             "qsat_percent": [0.0, 50.0],
             "network_newick": NEWICKS,
@@ -75,15 +73,18 @@ def test_writes_scores(tmp_path: Path, monkeypatch):
     seen: list[tuple[str, str]] = []
     monkeypatch.setattr(
         hns,
-        "network_score",
-        lambda est, ref: seen.append((est, ref)) or NetworkScore(0.5, 0.0, 0.25),
+        "score_network",
+        lambda est, ref: seen.append((est, ref)) or NetworkScore(0.5, 0.0),
     )
     out = handle_network_score(cfg)
 
     df = pl.read_csv(out, schema=NETWORK_SCORES_SCHEMA).sort("k")
     assert df.columns == list(NETWORK_SCORES_SCHEMA.keys())
     assert df["k"].to_list() == [0, 1]
-    assert df["fn"].to_list() == [0.5, 0.5]
+    assert df["fp_rate"].to_list() == [0.0, 0.0]
+    assert df["method"].to_list() == ["camus", "camus"]
+    assert df["guide_tree"].to_list() == ["true_tree", "true_tree"]
+    assert df["fn_rate"].to_list() == [0.5, 0.5]
     assert df["status"].to_list() == ["ok", "ok"]
     assert all(t >= 0 for t in df["runtime_seconds"].to_list())
     assert [e for e, _ in seen] == NEWICKS
@@ -111,9 +112,9 @@ def test_interrupt_keeps_scored_rows(tmp_path: Path, monkeypatch):
         calls.append(1)
         if len(calls) == 2:
             raise KeyboardInterrupt
-        return NetworkScore(0.5, 0.0, 0.25)
+        return NetworkScore(0.5, 0.0)
 
-    monkeypatch.setattr(hns, "network_score", fake)
+    monkeypatch.setattr(hns, "score_network", fake)
     with pytest.raises(KeyboardInterrupt):
         handle_network_score(cfg)
     assert pl.read_csv(tmp_path / "inference_data" / "network_scores.csv").height == 1
@@ -124,8 +125,8 @@ def test_incremental(tmp_path: Path, monkeypatch):
     calls: list[int] = []
     monkeypatch.setattr(
         hns,
-        "network_score",
-        lambda est, ref: calls.append(1) or NetworkScore(0.5, 0.0, 0.25),
+        "score_network",
+        lambda est, ref: calls.append(1) or NetworkScore(0.5, 0.0),
     )
     handle_network_score(cfg)
     handle_network_score(cfg)
@@ -141,15 +142,15 @@ def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
             raise subprocess.TimeoutExpired(["java"], 7200)
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(hns, "network_score", fake)
+    monkeypatch.setattr(hns, "score_network", fake)
     out = handle_network_score(cfg)
 
     df = pl.read_csv(out, schema=NETWORK_SCORES_SCHEMA).sort("k")
     assert df["status"].to_list() == ["failed", "timeout"]
-    assert df["fn"].to_list() == [None, None]
+    assert df["fn_rate"].to_list() == [None, None]
     assert df["runtime_seconds"].null_count() == 0
     assert "boom" in capsys.readouterr().out
 
     # Not retried: the rows are visible, so the next run leaves them alone.
-    monkeypatch.setattr(hns, "network_score", lambda est, ref: pytest.fail("retried"))
+    monkeypatch.setattr(hns, "score_network", lambda est, ref: pytest.fail("retried"))
     handle_network_score(cfg)
