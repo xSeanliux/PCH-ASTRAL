@@ -10,7 +10,11 @@ import re
 _LENGTH = re.compile(r":[-+0-9.eE]+")
 
 
-def _wrap(tree: str, clade: str, wrapped: str) -> str:
+def _wrap_clade(tree: str, clade: str, wrapped: str) -> str:
+    """Replace the one occurrence of `clade` in `tree` with `wrapped`.
+
+    :raises ValueError: if `clade` does not occur exactly once.
+    """
     # Anchor on newick delimiters so `t2` never matches inside `t26`.
     pattern = re.compile(rf"(?<=[(,]){re.escape(clade)}(?=[:,)])")
     tree, n = pattern.subn(lambda _: wrapped, tree)
@@ -35,6 +39,6 @@ def convert_contact_network(text: str) -> str:
     # Earliest first: an ancestor branch's event wraps before a descendant's
     # clade is looked up, and the descendant is still an exact substring.
     for i, (_, a, b) in enumerate(sorted(events), start=1):
-        tree = _wrap(tree, a, f"(({a})#H{2 * i},#H{2 * i - 1})")
-        tree = _wrap(tree, b, f"(({b})#H{2 * i - 1},#H{2 * i})")
+        tree = _wrap_clade(tree, a, f"(({a})#H{2 * i},#H{2 * i - 1})")
+        tree = _wrap_clade(tree, b, f"(({b})#H{2 * i - 1},#H{2 * i})")
     return _LENGTH.sub("", tree) + ";"
