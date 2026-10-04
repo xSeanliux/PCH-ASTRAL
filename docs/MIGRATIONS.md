@@ -2,6 +2,20 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## `outgroup` renamed `outgroup_label`
+
+**Affects:** YAML `simulation.outgroup:` and `simulation_data/model_graph_registry.csv`. No read-time shim; old files fail the schema.
+
+1. Update the YAML: `outgroup_label: OUT`.
+2. Rename the column:
+
+```python
+import polars as pl
+
+p = "experiments/my_run/simulation_data/model_graph_registry.csv"
+pl.read_csv(p, infer_schema=False).rename({"outgroup": "outgroup_label"}).write_csv(p)
+```
+
 ## `tree_set_path` renamed `group_estimate_path`
 
 **Affects:** `inference_data/inference_registry.csv`. No read-time shim; old files fail the schema.

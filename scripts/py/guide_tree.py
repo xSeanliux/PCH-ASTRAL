@@ -28,18 +28,18 @@ def _write_topology(clade: Clade) -> str:
     return "(" + ",".join(_write_topology(c) for c in clade.clades) + ")"
 
 
-def root_topology(newick: str, outgroup: str | None) -> str:
-    """`newick` without lengths or support values, rooted on `outgroup` if given.
+def root_topology(newick: str, outgroup_label: str | None) -> str:
+    """`newick` without lengths or support values, rooted on `outgroup_label` if given.
 
     Polytomies are kept: resolving one would invent a split the data never
     supported, and CAMUS drops every quartet the guide tree displays.
     """
     tree = Phylo.read(StringIO(newick), "newick")
-    if outgroup is not None:
+    if outgroup_label is not None:
         leaves = {t.name for t in tree.get_terminals()}
-        if outgroup not in leaves:
-            raise ValueError(f"outgroup {outgroup!r} is not in the tree")
-        tree.root_with_outgroup(outgroup)
+        if outgroup_label not in leaves:
+            raise ValueError(f"outgroup {outgroup_label!r} is not in the tree")
+        tree.root_with_outgroup(outgroup_label)
     return _write_topology(tree.root) + ";"
 
 
@@ -73,7 +73,7 @@ def find_base_tree(experiment: Path, model_tree: int) -> tuple[str, str | None]:
     if rows.height == 0:
         raise ValueError(f"No base tree for model_tree={model_tree} in {reg}")
     row = rows.row(0, named=True)
-    return Path(row["path"]).read_text().strip(), row["outgroup"]
+    return Path(row["path"]).read_text().strip(), row["outgroup_label"]
 
 
 def build_guide_newick(guide: GuideTree, input_csv: Path, output_dir: Path) -> str:
@@ -83,16 +83,16 @@ def build_guide_newick(guide: GuideTree, input_csv: Path, output_dir: Path) -> s
     :raises AssertionError: if the method has no point estimate.
     """
     experiment = find_experiment(input_csv)
-    base_tree, outgroup = find_base_tree(
+    base_tree, outgroup_label = find_base_tree(
         experiment, find_model_tree(experiment, input_csv)
     )
     if guide == TRUE_TREE:
-        return root_topology(base_tree, outgroup)
+        return root_topology(base_tree, outgroup_label)
     estimate = METHOD_TO_RUNNER_CLASS[guide].get_point_estimate_path(
         output_dir, input_csv.stem
     )
     assert estimate is not None, f"{guide} has no point estimate"
-    return root_topology(estimate.read_text().strip(), outgroup)
+    return root_topology(estimate.read_text().strip(), outgroup_label)
 
 
 def parse_guide(value: str) -> GuideTree:

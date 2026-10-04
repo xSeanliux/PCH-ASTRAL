@@ -22,7 +22,9 @@ BASE_TREE = "(((t1:0.1,t2:0.1):0.2,(t3:0.1,t4:0.1):0.2):0.05,OUT:0.95);"
 ESTIMATE = "((t1,t2)0.9:1.2,(t3,OUT)0.7:0.4,t4);"
 
 
-def _experiment(tmp_path: Path, outgroup: str | None = "OUT") -> tuple[Path, Path]:
+def _experiment(
+    tmp_path: Path, outgroup_label: str | None = "OUT"
+) -> tuple[Path, Path]:
     """An experiment with one dataset on model tree 1; returns (dataset, output_dir)."""
     sim = tmp_path / "simulation_data"
     condition = sim / "simulated_data" / "high_0.1_4_80"
@@ -49,9 +51,9 @@ def _experiment(tmp_path: Path, outgroup: str | None = "OUT") -> tuple[Path, Pat
             "horizontal_edges": [0],
             "model_tree": [1],
             "path": [str(base_tree)],
-            "outgroup": [outgroup],
+            "outgroup_label": [outgroup_label],
         },
-        schema_overrides={"outgroup": pl.String},
+        schema_overrides={"outgroup_label": pl.String},
     ).write_csv(sim / "model_graph_registry.csv")
     return dataset, tmp_path / "inference_data" / "high_0.1_4_80"
 
