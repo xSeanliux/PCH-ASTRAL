@@ -5,7 +5,7 @@ name (matches run_parallel_sim.sh). Batch jobs write only shards (`no_compact`);
 a final compact job (`afterany` on all of them) merges + writes the manifest.
 Method deps become `afterok` edges within a condition (MP4/GA -> ASTRAL3). The
 4 h `secondary` cap is absorbed by submitit requeue-on-timeout
-(`slurm_max_num_timeout`), so `completed_runs` idempotency makes reruns safe.
+(`slurm_max_num_timeout`), so `get_completed_runs` idempotency makes reruns safe.
 
 `run_batch`/`run_compact` are module-level so submitit can pickle them; they take
 paths/str only and reload the config from a spec snapshot the executor writes.
@@ -27,10 +27,12 @@ from submitit.helpers import Checkpointable
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
-from scripts.lib.inference.inference import TreeInferenceMethod
-from scripts.lib.inference.method_config import config_for
-from scripts.lib.inference.runners import RUNNERS
-from scripts.py.cli.handle_inference import handle_inference, select_methods
+from scripts.lib.model.methods import TreeInferenceMethod
+from scripts.py.cli.handle_inference import (
+    map_method_to_dependencies,
+    handle_inference,
+    select_runners,
+)
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
 # One sim-registry row (polars iter_rows(named=True)); we only read "path".
@@ -89,7 +91,7 @@ class RequeueBatch(Checkpointable):
     job FAILS — so `slurm_max_num_timeout` never actually absorbs the 4 h cap for
     a long batch (only an idempotent resubmit made progress). A `Checkpointable`'s
     default `checkpoint` re-runs with the same args; because the batch is
-    idempotent (`completed_runs` = registry ∪ shards, and the shard id is stable
+    idempotent (`get_completed_runs` = registry ∪ shards, and the shard id is stable
     across a requeue) the rerun skips finished datasets and continues past the cap.
     """
 
@@ -101,7 +103,9 @@ def run_compact(spec_path: str) -> None:
     """submitit job body: merge shards + write the manifest (the run that owns it)."""
     config = _load_config(Path(spec_path))
     folder = config.experiment_folder
-    methods = [m.value for m in select_methods(config.methods)]
+    methods = list(
+        dict.fromkeys(r.method.value for r in select_runners(config.methods))
+    )
     registry.init_manifest(folder, methods)
     out = registry.compact(folder)
     ok = (
@@ -154,7 +158,8 @@ class SlurmExecutor:
         """Pure planner (no submitit): ordered JobSpecs, one per (condition, method)
         in topological method order, then a final compact job on all of them.
         `method` restricts to that single enabled method (deps ran in a prior run)."""
-        methods = select_methods(self.config.methods)  # topo order: deps first
+        runners = select_runners(self.config.methods)  # topo order: deps first
+        methods = list(dict.fromkeys(r.method for r in runners))
         if method is not None:
             methods = [m for m in methods if method in (m.value, m.name)]
             if not methods:
@@ -163,20 +168,19 @@ class SlurmExecutor:
                     "cannot restrict the fan-out to it."
                 )
         enabled = {m.value for m in methods}
+        method_to_dependencies = map_method_to_dependencies(runners)
         specs: list[JobSpec] = []
         method_labels: list[str] = []
 
         for condition in conditions:
             for m in methods:
-                cfg = config_for(self.config.methods, m)
-                assert cfg is not None  # select_methods only yields enabled methods
                 # deps present in this run become same-condition afterok edges
                 dep_labels = tuple(
                     self._label(condition, d.value)
-                    for d in RUNNERS[m].dependencies(cfg)
+                    for d in method_to_dependencies.get(m, [])
                     if d.value in enabled
                 )
-                heavy = m is TreeInferenceMethod.PCH_ASTRAL3
+                is_heavy = m is TreeInferenceMethod.PCH_ASTRAL3
                 label = self._label(condition, m.value)
                 # `is None`, not `or`: `--astral-mem-gb 0` is an explicit override,
                 # not a request for the 64g default.
@@ -185,14 +189,14 @@ class SlurmExecutor:
                     JobSpec(
                         label=label,
                         kind="batch",
-                        mem_gb=heavy_mem if heavy else _LIGHT_MEM_GB,
-                        cpus=_HEAVY_CPUS if heavy else _LIGHT_CPUS,
+                        mem_gb=heavy_mem if is_heavy else _LIGHT_MEM_GB,
+                        cpus=_HEAVY_CPUS if is_heavy else _LIGHT_CPUS,
                         dep_labels=dep_labels,
                         dep_mode="afterok",
                         condition=condition,
                         method=m.value,
                         datasets_file=self._batches_dir() / f"{condition}.txt",
-                        tier="heavy" if heavy else "light",
+                        tier="heavy" if is_heavy else "light",
                     )
                 )
                 method_labels.append(label)

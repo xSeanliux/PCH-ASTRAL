@@ -3,7 +3,8 @@
 The front door for *running* the config-driven inference pipeline. Task-oriented for humans; a precise contract for agents. Links the reference docs — it does not repeat them.
 
 - Command/flag reference → `CLI.md`
-- Internals (layers, runners, dependency mechanism) → `ARCHITECTURE.md`
+- Internals (layers, runners, seams, files written) → `ARCHITECTURE.md`
+- Table columns and keys → `SCHEMAS.md`; fixing old experiment folders → `MIGRATIONS.md`
 - Join keys + what each method does → `KEYS.md`
 - Shell primitive I/O contracts → `SCRIPT_CONTRACTS.md`
 
@@ -70,7 +71,7 @@ Everything lives under `experiment_folder/` — self-contained and portable. The
 
 ## Reading the registry
 
-One row per **successful** `(dataset, method, config)`, generic and source-agnostic. Columns: `dataset_id` (the input CSV path — the identity), `method, config_hash, method_config_json, runtime_seconds, point_estimate_newick, tree_set_path, consensus_method, status, ran_at, log_path`. No sim keys (join to `simulated_data_registry` on `dataset_id`==`path`) and no FN/FP (see `scores.csv`). Schema: `scripts/py/cli/schemata.py`.
+One row per **successful** `(dataset, method, config)`, generic and source-agnostic, keyed by `dataset_id` (the input CSV path). Columns: `SCHEMAS.md`. No sim keys (join `simulated_data_registry` on `dataset_id`==`path`) and no FN/FP (see `scores.csv`).
 
 - The registry is the ledger of **successful runs only** — a run is recorded **only if** the command exited 0 **and** produced its point estimate. Failed and dependency-blocked runs are **not** rows; their details are in the per-run `log_path`, and the run prints a tally (`N ok, N skipped, N blocked, N failed`). So `status` is always `ok`, and *absence* of a `(dataset, method)` row means "not successfully done" (failed, blocked, or not yet run).
 - `config_hash` is part of the row identity, so the same dataset+method under two configs are distinct rows — they don't overwrite each other.
@@ -105,10 +106,10 @@ It returns/prints the `InferenceResult`. There is **no registry** for atomic run
 
 - **The Python API returns objects; everything renders them.** `api.infer → InferenceResult`, `score → ScoreResult`. The CLI and the registry CSV are renderings. The pipeline calls the API in-process and **never parses CLI stdout**.
 - **`api.infer` never raises** — a nonzero exit or missing estimate becomes a `status=failed` `InferenceResult` (never an exception). The pipeline records only successes; failures and dependency-blocks are logged, not written.
-- **Order dependency:** heuristic ASTRAL3 needs MP4/GA bipartitions first. Runners declare this via `dependencies()`; the scheduler topo-sorts and gates each run on its dependencies' success in the registry (this run or prior). Don't hand-order methods.
+- **Order dependency:** heuristic ASTRAL3 needs MP4/GA bipartitions first. Runners declare this via `get_dependencies()`; the scheduler topo-sorts and gates each run on its dependencies' success in the registry (this run or prior). Don't hand-order methods.
 - **Writes are shard-per-job then compact.** Never write `inference_registry.csv` directly from a run; append a shard and let `compact` merge.
 - **Config flows through the Pydantic model only** — never redefine a method's params outside its config class.
 
 ## Adding a method
 
-See `ARCHITECTURE.md` § *Adding a method* (enum → config → runner → pipeline field → contract/tests).
+See `ARCHITECTURE.md` § *Adding a method* (enum → config → runner → registry maps → contract/tests).

@@ -1,7 +1,16 @@
-from pydantic import BaseModel, Field, ConfigDict
+from abc import abstractmethod
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from scripts.lib.types import Polymorphism
+from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
+from scripts.lib.model.guide_tree import GuideTree, SUPPORTED_GUIDE_TREES
+from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
+from scripts.lib.inference.runners.base import Runner
+from scripts.lib.inference.runners.camus import CamusRunner
+from scripts.lib.inference.runners.ga import GARunner
+from scripts.lib.inference.runners.mp4 import MP4Runner
+from scripts.lib.inference.runners.w_tree_qmc import WTreeQmcRunner
+from scripts.lib.inference.runners.wastral import WASTRALRunner
 from pathlib import Path
-from enum import IntEnum, StrEnum
 
 
 class SimulationParamSetting(BaseModel):
@@ -28,39 +37,78 @@ class ExperimentSimulationConfig(BaseModel):
     simulation_params: list[SimulationParamSetting]
 
 
-class ASTRAL3Config(BaseModel):
+class RunnableConfig(BaseModel):
+    """A method's YAML block. `get_runners` is the layer between what the YAML
+    says and what runs: one runner per unit of work."""
+
     model_config = ConfigDict(frozen=True)
 
-    class BipartitionStrategy(StrEnum):
-        BINARY_CHARACTER = "binary_character"
-        MP4_TREES = "mp4_trees"
-        GA_TREES = "ga_trees"
+    @abstractmethod
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """The runs this block asks for."""
 
+
+class ASTRAL3Config(RunnableConfig):
     bipartition_strategies: list[BipartitionStrategy] = Field(list())
     is_exact: bool
 
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
+        return [ASTRAL3Runner(config=self)]
 
-class WeightedASTRALConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+
+class WeightedASTRALConfig(RunnableConfig):
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
+        return [WASTRALRunner(config=self)]
 
 
-class WeightedTreeQMCConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    class NormalisationStrategy(IntEnum):
-        # Values are TREE-QMC --norm_atax args; only 0 and 2 valid for quartet input.
-        N0 = 0
-        N2 = 2
-
+class WeightedTreeQMCConfig(RunnableConfig):
     normalisation_strategy: NormalisationStrategy = NormalisationStrategy.N2
 
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
+        return [WTreeQmcRunner(config=self)]
 
-class MP4Config(BaseModel):
-    model_config = ConfigDict(frozen=True)
+
+class MP4Config(RunnableConfig):
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
+        return [MP4Runner(config=self)]
 
 
-class GAConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class GAConfig(RunnableConfig):
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
+        return [GARunner(config=self)]
+
+
+class CamusConfig(RunnableConfig):
+    guide_trees: frozenset[GuideTree] = Field(min_length=1)
+
+    @field_validator("guide_trees")
+    @classmethod
+    def _reject_unsupported(cls, v: frozenset[GuideTree]) -> frozenset[GuideTree]:
+        """:raises ValueError: if a guide is outside `SUPPORTED_GUIDE_TREES`."""
+        bad = sorted(v - SUPPORTED_GUIDE_TREES)
+        if bad:
+            raise ValueError(
+                f"unsupported CAMUS guide tree(s): {', '.join(bad)}. "
+                f"Supported: {', '.join(sorted(SUPPORTED_GUIDE_TREES))}. "
+                "CAMUS requires a rooted binary guide tree."
+            )
+        return v
+
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run per guide, in sorted order (a set has none).
+
+        Each gets its own config hash, so the registry key and resume behaviour
+        match a single-guide YAML exactly.
+        """
+        return [
+            CamusRunner(config=CamusConfig(guide_trees=frozenset({g})))
+            for g in sorted(self.guide_trees)
+        ]
 
 
 class MethodConfig(BaseModel):
@@ -70,6 +118,19 @@ class MethodConfig(BaseModel):
     w_tree_qmc: WeightedTreeQMCConfig | None = Field(None)
     mp4: MP4Config | None = Field(None)
     gray_atkinson: GAConfig | None = Field(None)
+    camus: CamusConfig | None = Field(None)
+
+    def get_enabled_configs(self) -> list[RunnableConfig]:
+        """The configured methods, in field-declaration order."""
+        fields = [
+            self.astral_3,
+            self.wastral,
+            self.w_tree_qmc,
+            self.mp4,
+            self.gray_atkinson,
+            self.camus,
+        ]
+        return [f for f in fields if f is not None]
 
 
 class ExperimentConfig(BaseModel):

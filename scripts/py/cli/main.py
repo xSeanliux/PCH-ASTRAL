@@ -16,7 +16,7 @@ from rich import print
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
 from scripts.lib.inference.executor import SlurmExecutor
-from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
+from scripts.lib.model.methods import ConsensusMethod, TreeInferenceMethod
 from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference import registry
 from scripts.lib.inference.scoring import score
@@ -69,14 +69,16 @@ def infer(
         raise typer.BadParameter(
             f"--method-config is required for method '{method.value}': {e}"
         ) from e
-    result = api.infer(input, output, method, config)
     # typer.echo (not rich print): no markup parsing / soft-wrap, so [ok]/[failed]
     # survive and --json stays a single pipeable line.
+    # --method is a TreeInferenceMethod, so config always yields exactly one runner.
+    (runner,) = config.get_runners()
+    result = api.infer(input, output, runner)
     if json_:
         typer.echo(json.dumps(result.to_registry_row()))
     else:
         typer.echo(
-            f"[{result.status.value}] {result.tree_inference_method.value} "
+            f"[{result.status.value}] {result.method.value} "
             f"in {result.runtime_seconds:.2f}s -> {result.point_estimate_newick or '(no tree)'}"
         )
 

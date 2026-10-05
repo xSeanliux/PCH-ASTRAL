@@ -6,7 +6,8 @@ import yaml
 from typer.testing import CliRunner
 
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.py.cli import main
 
 runner = CliRunner()
@@ -57,7 +58,7 @@ def _write_experiment(tmp_path: Path, methods: dict, paths: list[Path]) -> Path:
 def _result() -> InferenceResult:
     return InferenceResult(
         dataset_id="d",
-        tree_inference_method=TreeInferenceMethod.MP,
+        method=TreeInferenceMethod.MP,
         config_hash="h",
         method_config_json="{}",
         point_estimate_newick="(A,B);",
@@ -70,8 +71,8 @@ def _result() -> InferenceResult:
 def test_infer_command_invokes_api(tmp_path: Path, monkeypatch):
     calls = {}
 
-    def fake_infer(input_csv, output_dir, method, config, *, name=None):
-        calls["method"] = method
+    def fake_infer(input_csv, output_dir, runner):
+        calls["method"] = runner.method
         return _result()
 
     monkeypatch.setattr(api, "infer", fake_infer)
@@ -140,8 +141,14 @@ def test_experiment_inference_slurm_method_restricts_plan(tmp_path: Path):
     res = runner.invoke(
         main.app,
         [
-            "experiment", "inference", str(spec),
-            "--executor", "slurm", "--dry-run", "--method", "mp",
+            "experiment",
+            "inference",
+            str(spec),
+            "--executor",
+            "slurm",
+            "--dry-run",
+            "--method",
+            "mp",
         ],
     )
     assert res.exit_code == 0, res.output

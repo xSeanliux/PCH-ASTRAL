@@ -45,7 +45,7 @@ INFERENCE_REGISTRY_SCHEMA = pl.Schema(
         "method_config_json": String,
         "runtime_seconds": Float64,
         "point_estimate_newick": String,
-        "tree_set_path": String,
+        "group_estimate_path": String,
         "consensus_method": String,
         "status": String,
         "ran_at": String,

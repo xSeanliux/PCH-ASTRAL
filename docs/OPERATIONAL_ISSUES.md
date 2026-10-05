@@ -55,7 +55,7 @@ that load gcc's `annobin` plugin. `gcc` on `PATH` resolves to the module compile
 The fan-out runs **one job per (condition, method)** over all ~128 datasets
 sequentially. GA×128 at 320 chars ≈ 6.7 h > the `secondary` 4 h cap. Requeue-on-
 timeout is meant to absorb this, but a single 4 h window only clears ~76 GA
-datasets, and requeues accumulate progress **only via `completed_runs`** (registry
+datasets, and requeues accumulate progress **only via `get_completed_runs`** (registry
 ∪ shards). If the registry is empty until the final compact — or a *concurrent*
 run's compact deletes the shards mid-flight — each requeue effectively restarts,
 so GA stalls at ~one window.

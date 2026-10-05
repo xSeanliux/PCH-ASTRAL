@@ -26,7 +26,7 @@ Cell = str | int | float | None
 # dataset_id = the input CSV path — unique per source, sim or real.
 DATASET_KEY_COLUMNS = ["dataset_id"]
 # Full human-readable dedup identity = dataset + which method + which config.
-# config_hash is the only hashed term (sha256; see method_config.config_hash).
+# config_hash is the only hashed term (sha256; see method_config.hash_config).
 _KEY_COLUMNS = DATASET_KEY_COLUMNS + ["method", "config_hash"]
 
 

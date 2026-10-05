@@ -4,13 +4,12 @@ import polars as pl
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
-from scripts.lib.inference.inference import (
-    InferenceResult,
-    RunStatus,
-    TreeInferenceMethod,
-)
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.lib.inference.scheduler import DatasetKey
-from scripts.py.cli.handle_status import compute_status, handle_status
+from scripts.py.cli.handle_inference import select_runners
+from scripts.lib.inference.method_config import hash_config
+from scripts.py.cli.handle_status import Unit, compute_status, handle_status
 
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
@@ -55,12 +54,24 @@ def _write_sim_registry(tmp_path: Path, paths: list[Path]) -> Path:
 
 
 def _done_for(
-    paths: list[Path], methods: list[str], config_hash: str = "abc"
+    paths: list[Path], methods: list[str], hash_config: str = "abc"
 ) -> dict[DatasetKey, set[tuple[str, str]]]:
     return {
-        (registry.canonical_path(str(p)),): {(m, config_hash) for m in methods}
+        (registry.canonical_path(str(p)),): {(m, hash_config) for m in methods}
         for p in paths
     }
+
+
+def _units(methods: dict) -> list[Unit]:
+    cfg = ExperimentConfig.model_validate(_config(Path("."), methods=methods))
+    return [
+        (r.get_run_name(r.method.value), r.method.value, hash_config(r.config))
+        for r in select_runners(cfg.methods)
+    ]
+
+
+def _mp() -> list[Unit]:
+    return [("mp", "mp", "abc")]
 
 
 # ── compute_status unit tests ─────────────────────────────────────────────────
@@ -88,8 +99,7 @@ def test_compute_status_none_done(tmp_path: Path) -> None:
     paths_a = [cond_a / "sim_1.csv", cond_a / "sim_2.csv"]
     paths_b = [cond_b / "sim_3.csv"]
 
-    methods = [TreeInferenceMethod.MP]
-    counts, missing = compute_status(_rows(paths_a + paths_b), methods, done={})
+    counts, missing = compute_status(_rows(paths_a + paths_b), _mp(), done={})
 
     assert counts == {("cond_a", "mp"): (0, 2), ("cond_b", "mp"): (0, 1)}
     assert set(missing[("cond_a", "mp")]) == {"sim_1", "sim_2"}
@@ -99,23 +109,55 @@ def test_compute_status_none_done(tmp_path: Path) -> None:
 def test_compute_status_partial_done(tmp_path: Path) -> None:
     cond_a = tmp_path / "cond_a"
     paths = [cond_a / "sim_1.csv", cond_a / "sim_2.csv", cond_a / "sim_3.csv"]
-    methods = [TreeInferenceMethod.MP]
 
     # Only sim_1 done for mp
     done = _done_for([paths[0]], ["mp"])
-    counts, missing = compute_status(_rows(paths), methods, done=done)
+    counts, missing = compute_status(_rows(paths), _mp(), done=done)
 
     assert counts[("cond_a", "mp")] == (1, 3)
     assert set(missing[("cond_a", "mp")]) == {"sim_2", "sim_3"}
 
 
+def test_compute_status_counts_each_guide_tree(tmp_path: Path) -> None:
+    # One guide finishing must not mark the other done.
+    cond = tmp_path / "cond_a"
+    paths = [cond / "sim_1.csv", cond / "sim_2.csv"]
+    units = _units({"camus": {"guide_trees": ["true_tree", "pch_astral3"]}})
+    hashes = {label: h for label, _, h in units}
+
+    done: dict[DatasetKey, set[tuple[str, str]]] = {
+        (registry.canonical_path(str(paths[0])),): {
+            ("camus", hashes["camus.true_tree"])
+        }
+    }
+    counts, missing = compute_status(_rows(paths), units, done)
+
+    assert [u[0] for u in units] == ["camus.pch_astral3", "camus.true_tree"]
+    assert counts == {
+        ("cond_a", "camus.pch_astral3"): (0, 2),
+        ("cond_a", "camus.true_tree"): (1, 2),
+    }
+    assert missing[("cond_a", "camus.true_tree")] == ["sim_2"]
+    assert missing[("cond_a", "camus.pch_astral3")] == ["sim_1", "sim_2"]
+
+
+def test_compute_status_stale_config_hash_not_done(tmp_path: Path) -> None:
+    # Done under an old config hash must count as missing.
+    paths = [tmp_path / "cond" / "sim_1.csv"]
+    done = _done_for(paths, ["mp"], hash_config="old")
+    counts, missing = compute_status(_rows(paths), _mp(), done=done)
+
+    assert counts[("cond", "mp")] == (0, 1)
+    assert missing[("cond", "mp")] == ["sim_1"]
+
+
 def test_compute_status_all_done(tmp_path: Path) -> None:
     cond = tmp_path / "my_cond"
     paths = [cond / "sim_1.csv", cond / "sim_2.csv"]
-    methods = [TreeInferenceMethod.MP, TreeInferenceMethod.GA]
+    units = [("mp", "mp", "abc"), ("ga", "ga", "abc")]
 
     done = _done_for(paths, ["mp", "ga"])
-    counts, missing = compute_status(_rows(paths), methods, done=done)
+    counts, missing = compute_status(_rows(paths), units, done=done)
 
     assert counts[("my_cond", "mp")] == (2, 2)
     assert counts[("my_cond", "ga")] == (2, 2)
@@ -129,11 +171,10 @@ def test_compute_status_two_conditions(tmp_path: Path) -> None:
     cond_b = tmp_path / "cond_b"
     pa = [cond_a / "d1.csv", cond_a / "d2.csv"]
     pb = [cond_b / "d3.csv"]
-    methods = [TreeInferenceMethod.MP]
 
     # cond_a: d1 done, d2 missing; cond_b: d3 done
     done = _done_for([pa[0], pb[0]], ["mp"])
-    counts, missing = compute_status(_rows(pa + pb), methods, done=done)
+    counts, missing = compute_status(_rows(pa + pb), _mp(), done=done)
 
     assert counts[("cond_a", "mp")] == (1, 2)
     assert counts[("cond_b", "mp")] == (1, 1)
@@ -144,11 +185,11 @@ def test_compute_status_two_conditions(tmp_path: Path) -> None:
 def test_compute_status_method_partial_across_methods(tmp_path: Path) -> None:
     cond = tmp_path / "cond"
     paths = [cond / "sim_1.csv"]
-    methods = [TreeInferenceMethod.MP, TreeInferenceMethod.GA]
+    units = [("mp", "mp", "abc"), ("ga", "ga", "abc")]
 
     # mp done, ga not
     done = _done_for(paths, ["mp"])
-    counts, missing = compute_status(_rows(paths), methods, done=done)
+    counts, missing = compute_status(_rows(paths), units, done=done)
 
     assert counts[("cond", "mp")] == (1, 1)
     assert counts[("cond", "ga")] == (0, 1)
@@ -197,6 +238,7 @@ def test_handle_status_counts_match_compute(tmp_path: Path) -> None:
     d2.write_text("id,feature,weight,A,B\n")
 
     _write_sim_registry(tmp_path, [d1, d2])
+    units = _units({"mp4": {}})
 
     # Write a shard row: only d1/mp done
     shards = tmp_path / "inference_data" / "shards"
@@ -204,11 +246,11 @@ def test_handle_status_counts_match_compute(tmp_path: Path) -> None:
     row = {
         "dataset_id": reg.canonical_path(str(d1)),
         "method": "mp",
-        "config_hash": "abc",
+        "config_hash": units[0][2],
         "method_config_json": "{}",
         "runtime_seconds": 1.0,
         "point_estimate_newick": "(A,B);",
-        "tree_set_path": "",
+        "group_estimate_path": "",
         "consensus_method": "",
         "status": "ok",
         "ran_at": datetime.now(timezone.utc).isoformat(),
@@ -217,10 +259,9 @@ def test_handle_status_counts_match_compute(tmp_path: Path) -> None:
     (shards / "local-1.jsonl").write_text(json.dumps(row) + "\n")
 
     cfg = ExperimentConfig.model_validate(_config(tmp_path, methods={"mp4": {}}))
-    methods = [TreeInferenceMethod.MP]
     done = __import__(
-        "scripts.lib.inference.scheduler", fromlist=["completed_runs"]
-    ).completed_runs(tmp_path)
+        "scripts.lib.inference.scheduler", fromlist=["get_completed_runs"]
+    ).get_completed_runs(tmp_path)
 
     rows_data = list(
         pl.read_csv(
@@ -230,7 +271,7 @@ def test_handle_status_counts_match_compute(tmp_path: Path) -> None:
             ).SIMULATED_DATA_REGISTRY_SCHEMA,
         ).iter_rows(named=True)
     )
-    counts, missing = compute_status(rows_data, methods, done)
+    counts, missing = compute_status(rows_data, units, done)
 
     assert counts[("cond_x", "mp")] == (1, 2)
     assert missing[("cond_x", "mp")] == ["sim_2"]
@@ -246,7 +287,7 @@ def test_status_falls_back_when_no_sim_registry(tmp_path: Path, capsys) -> None:
         registry.write_result(
             InferenceResult(
                 dataset_id=f"ds_{m.value}",
-                tree_inference_method=m,
+                method=m,
                 config_hash="abc",
                 method_config_json="{}",
                 point_estimate_newick="(a,b);",

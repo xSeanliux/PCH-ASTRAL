@@ -1,31 +1,31 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
-
-from scripts.lib.experiment import WeightedASTRALConfig
-from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
+from scripts.lib.inference.runners.base import Runner
+from scripts.lib.model.methods import TreeInferenceMethod
 from scripts.lib.pch import PCH_W
 
+if TYPE_CHECKING:
+    from scripts.lib.experiment import WeightedASTRALConfig  # noqa: F401  (used in the quoted base)
 
-class WASTRALRunner:
+
+@dataclass(frozen=True)
+class WASTRALRunner(Runner["WeightedASTRALConfig"]):
     # runWASTRAL.sh generates quartets via PCH_W (scripts.lib.pch --format wastral),
-    # then infers a tree with weighted ASTRAL. No config (like MP4).
+    # then infers a tree with weighted ASTRAL. Standalone: no upstream tree sets.
     SCHEME = PCH_W
     # PCH_W (quartet scheme) + WASTRAL; cf. PCH_W_W_TREE_QMC.
     VARIANT = f"{SCHEME.__name__}_WASTRAL"  # -> "PCH_W_WASTRAL"
 
-    @staticmethod
-    def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
-        # Standalone: builds its own quartets, consumes no upstream tree sets.
-        return []
+    @property
+    def method(self) -> TreeInferenceMethod:
+        return TreeInferenceMethod.PCH_WASTRAL
 
-    @staticmethod
     def build_argv(
-        runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel
+        self, runid: str, input_csv: Path, name: str, output_dir: Path
     ) -> list[str]:
         # -V is the single source of truth for the output folder name.
-        assert isinstance(config, WeightedASTRALConfig)
         return [
             "bash",
             "scripts/sh/runWASTRAL.sh",
@@ -42,17 +42,9 @@ class WASTRALRunner:
         ]
 
     @staticmethod
-    def point_estimate_path(output_dir: Path, name: str) -> Path:
+    def get_point_estimate_path(output_dir: Path, name: str) -> Path:
         return output_dir / WASTRALRunner.VARIANT / "trees" / f"{name}.tree"
 
     @staticmethod
-    def group_estimate_path(output_dir: Path, name: str) -> Optional[Path]:
-        return None
-
-    @staticmethod
-    def consensus_method() -> Optional[ConsensusMethod]:
-        return None
-
-    @staticmethod
-    def log_path(output_dir: Path, name: str) -> Path:
+    def get_log_path(output_dir: Path, name: str) -> Path:
         return output_dir / WASTRALRunner.VARIANT / "logs" / f"{name}.log"

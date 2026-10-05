@@ -1,0 +1,100 @@
+# CAMUS inference (future work)
+
+`scripts/sh/runCAMUS.sh` is a stub. This is the intended contract for the real
+implementation, mirroring `runASTRAL3.sh`.
+
+## Runner contract (already wired)
+
+`CamusRunner` (`scripts/lib/inference/runners/camus.py`) calls:
+
+```
+bash scripts/sh/runCAMUS.sh \
+  --runid <id> --input <dataset.csv> --name <stem> \
+  --output <output_dir> --guide-tree <pch_astral3|pch_wastral|true_tree>
+```
+
+Set CAMUS `-o <output_dir>/CAMUS/networks/<name>`. CAMUS then writes:
+- `<name>.csv` — all networks, one row per k (cols: `Number of Branches`,
+  `Quartet Satisfied Percent`, `Extended Newick`; row k=0 is the guide tree). This
+  IS the network family.
+- `<name>.log` — CAMUS's own log.
+- `<name>.png` — CAMUS's lineplot (% quartets unsatisfied vs #reticulations).
+
+`CamusRunner.get_group_estimate_path` names that CSV. `api.infer` records its path and leaves the
+newick empty; the registry writer enriches the CSV and appends it to
+`camus_registry.csv` — see `registry.md`.
+
+## What runCAMUS.sh must do
+
+1. **Quartets** — generate gene-tree quartets from the polymorphic CSV. Reuse the
+   PCH quartet generation (`scripts/py/printQuartets`, `scripts/lib/pch.py`);
+   CAMUS takes gene trees / quartets as its second argument.
+2. **Guide tree** — resolve the `--guide-tree` token to a rooted binary newick.
+   - `pch_astral3` / `pch_wastral` → that method's point estimate under
+     `<output_dir>/{PCH_W_ASTRAL3,PCH_W_WASTRAL}/trees/<stem>.tree`,
+     rooted on `OUT`. A declared dependency (`CamusRunner.get_dependencies`), so the
+     scheduler guarantees it exists.
+   - `true_tree` → the simulation's base tree, via the existing
+     `scoring.resolve_reference_newick(experiment_folder, model_tree)` (reads
+     `model_graph_registry.csv` for the `horizontal_edges == 0` row). No dependency.
+
+   See "The rooted-binary constraint" below — this is the gate on the whole step.
+3. **Run CAMUS** — `bin/camus -n <procs> -o <prefix> <guide_tree> <gene_trees>`.
+   It writes `<prefix>.csv` with every k; the writer ingests that CSV into the
+   registry (`registry.md`).
+
+   No `-t`, no `-q`: CAMUS defaults (`-q 2 -t 0.5`) apply, the paper's values. `-q` is
+   the filter mode — 0 off, 1 threshold only, 2 also drops the rarest topology. The
+   filter matters for quartet input: counts 5/3/2 on one 4-taxon set leave no usable
+   quartet at the default. Making both configurable is a follow-up.
+
+## The rooted-binary constraint
+
+`prep.Preprocess` **hard-errors** on a constraint tree that isn't rooted, binary,
+and duplicate-free (`ErrUnrooted` / `ErrNonBinary` / `ErrMulTree`,
+`internal/prep/preprocess.go:31-39`). CAMUS ships **no** refinement or rooting
+code — nothing in the source matches `refine|resolve|polytom|multifurc`, and no
+flag changes it. `RemoveSingleNodes()` strips degree-2 nodes for free; polytomies
+and unrooted inputs are rejected outright.
+
+`TreeIsBinary` requires the root to have exactly 2 neighbours and every internal
+node exactly 3.
+
+Measured on `experiments/smoke_test` output (`low_0.1_4_80/sim_0_1_1`):
+
+| guide | root children | multifurcating nodes | CAMUS |
+|---|---|---|---|
+| `mp` (`{name}-maj.tree`) | 4 | 3 | **rejected** |
+| `ga` (MCC) | 3 | 0 | **rejected** (unrooted) |
+| `pch_astral3` | 2 | 0 | accepted |
+| `pch_wastral` | 2 | 0 | accepted |
+| `pch_w_tree_qmc` | 2 | 0 | accepted here, **not allowed** |
+| `true_tree` (base tree) | 2 | 0 | accepted |
+
+Over all 8 smoke datasets, `pch_astral3` and `pch_wastral` are binary every time; `pch_w_tree_qmc`
+has 2 polytomies in one (`low_0.1_4_80/sim_0_1_4`), which CAMUS would reject. So
+`pch_w_tree_qmc` is not an allowed guide for now.
+
+`mp` fails structurally, not by luck: its point estimate is a **majority
+consensus** (`consensus(trees, p=0.5, rooted=FALSE)` in `scripts/R/consensusTree.R`),
+which collapses every bipartition under 50% support — polytomies are what it is
+*for*. Real output: `(t21,t28,t23)`, `(t5,t6,t7)`.
+
+**Don't paper over this by auto-resolving polytomies.** Preprocess deletes every
+quartet the constraint tree already displays (`preprocess.go:51-57`), so an
+invented resolution deletes quartets the data never supported — suppressing
+conflicting signal exactly where support was weakest, which is where reticulation
+is most plausible. Arbitrary refinement biases CAMUS *away* from finding edges in
+the uncertain regions.
+
+**Decisions taken:**
+
+- `mp`, `ga` and `pch_w_tree_qmc` are **not** allowed guides. `SUPPORTED_GUIDE_TREES` in
+  `scripts/lib/model/guide_tree.py` is the allow-list; a
+  `CamusConfig` field validator rejects them at config load with the reason.
+- Rooting for the PCH methods (`pch_astral3`, `pch_wastral`) will be solved
+  **in the simulation: add an outgroup** — see `outgroup.md` for the config,
+  mechanism, and cost. Until that lands, they are usable only because their output
+  happens to come back with a bifurcating root; that is not something to rely on.
+- One CAMUS run per guide tree: `guide_trees` is a set and fans out at
+  scheduling time (`CamusConfig.get_runners()`).

@@ -1,0 +1,26 @@
+# Smoke test for CAMUS: networks with 1 and 2 contact events, one run per guide tree.
+#
+# true_tree needs no upstream method. Guides from a method (pch_astral3, pch_wastral) need
+# that method enabled too; it becomes a scheduler dependency. mp, ga and pch_w_tree_qmc
+# are rejected at config load: CAMUS requires a rooted binary guide tree.
+experiment_folder: experiments/camus_smoke
+simulation:
+  n_taxa: 30
+  n_horizontal_edges:
+    - 1
+    - 2
+  n_trees: 1
+  n_replicas: 2
+  base_config_dir: data/base_configs
+  base_trees_file: data/trees.txt
+  base_networks_dir: data/base_networks
+  simulation_params:
+    - poly: high
+      homoplasy_factor: 0.1
+      tree_height: 4
+      n_chars: 80
+
+methods:
+  camus:
+    guide_trees:
+      - true_tree
