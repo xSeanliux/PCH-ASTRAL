@@ -26,9 +26,7 @@ methods:
   gray_atkinson: {} # ditto
   astral_3:
     is_exact: false
-    bipartition_strategies:
-      - mp4_trees
-      - ga_trees
+    bipartition_strategies: [] # defaults to mp4_trees + ga_trees
   wastral: {}
   camus:
     guide_trees:
