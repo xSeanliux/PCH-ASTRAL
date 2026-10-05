@@ -39,7 +39,13 @@ install-mrbayes:
 install-lingphylosimulator:
 	@bash scripts/sh/installs/install_lingphylosimulator.sh
 
-install-bins: install-astral3 install-aster install-mrbayes install-paup install-w-tree-qmc install-lingphylosimulator
+install-camus:
+	@bash scripts/sh/installs/install_camus.sh
+
+install-phylonet:
+	@bash scripts/sh/installs/install_phylonet.sh
+
+install-bins: install-astral3 install-aster install-mrbayes install-paup install-w-tree-qmc install-lingphylosimulator install-camus install-phylonet
 
 setup: install-uv
 	uv sync

@@ -3,11 +3,8 @@ from pathlib import Path
 
 import polars as pl
 
-from scripts.lib.inference.inference import (
-    InferenceResult,
-    TreeInferenceMethod,
-    RunStatus,
-)
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.lib.inference.registry import (
     _iter_shard_rows,
     compact,
@@ -23,7 +20,7 @@ def _result(
 ) -> InferenceResult:
     return InferenceResult(
         dataset_id=dataset_id,
-        tree_inference_method=TreeInferenceMethod.MP,
+        method=TreeInferenceMethod.MP,
         config_hash=config_hash,
         method_config_json="{}",
         point_estimate_newick="(a,b);",

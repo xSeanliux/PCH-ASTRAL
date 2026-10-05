@@ -1,12 +1,13 @@
 import polars as pl
-from scripts.lib.inference.inference import InferenceResult, TreeInferenceMethod, RunStatus
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
 
 def _result() -> InferenceResult:
     return InferenceResult(
         dataset_id="d1",
-        tree_inference_method=TreeInferenceMethod.PCH_ASTRAL3,
+        method=TreeInferenceMethod.PCH_ASTRAL3,
         config_hash="abc",
         method_config_json="{}",
         point_estimate_newick="(a,b);",
@@ -24,7 +25,7 @@ def test_registry_row_keys_match_schema():
 def test_row_builds_dataframe():
     full = InferenceResult(
         dataset_id="/data/sim_0_1_1.csv",
-        tree_inference_method=TreeInferenceMethod.MP,
+        method=TreeInferenceMethod.MP,
         config_hash="abc",
         method_config_json="{}",
         point_estimate_newick="(a,b);",

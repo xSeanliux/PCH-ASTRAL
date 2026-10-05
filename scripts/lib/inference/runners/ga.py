@@ -1,19 +1,22 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from scripts.lib.inference.runners.base import Runner
+from scripts.lib.model.methods import ConsensusMethod, TreeInferenceMethod
 
-from scripts.lib.inference.inference import ConsensusMethod, TreeInferenceMethod
+if TYPE_CHECKING:
+    from scripts.lib.experiment import GAConfig  # noqa: F401  (used in the quoted base)
 
 
-class GARunner:
-    @staticmethod
-    def dependencies(config: BaseModel) -> list[TreeInferenceMethod]:
-        return []
+@dataclass(frozen=True)
+class GARunner(Runner["GAConfig"]):
+    @property
+    def method(self) -> TreeInferenceMethod:
+        return TreeInferenceMethod.GA
 
-    @staticmethod
     def build_argv(
-        runid: str, input_csv: Path, name: str, output_dir: Path, config: BaseModel
+        self, runid: str, input_csv: Path, name: str, output_dir: Path
     ) -> list[str]:
         return [
             "bash",
@@ -29,17 +32,17 @@ class GARunner:
         ]
 
     @staticmethod
-    def point_estimate_path(output_dir: Path, name: str) -> Path:
+    def get_point_estimate_path(output_dir: Path, name: str) -> Path:
         return output_dir / "GA" / "trees" / f"{name}.tree"
 
     @staticmethod
-    def group_estimate_path(output_dir: Path, name: str) -> Optional[Path]:
+    def get_group_estimate_path(output_dir: Path, name: str) -> Path:
         return output_dir / "GA" / "trees1" / f"{name}.trees"
 
     @staticmethod
-    def consensus_method() -> Optional[ConsensusMethod]:
+    def get_consensus_method() -> ConsensusMethod:
         return ConsensusMethod.MCC
 
     @staticmethod
-    def log_path(output_dir: Path, name: str) -> Path:
+    def get_log_path(output_dir: Path, name: str) -> Path:
         return output_dir / "GA" / "logs" / f"{name}.log"

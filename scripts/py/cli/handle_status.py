@@ -1,7 +1,7 @@
 """Status report: expected vs done inference runs for an experiment."""
 
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
 import polars as pl
@@ -9,28 +9,30 @@ from rich import print
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry, scheduler
-from scripts.lib.inference.inference import TreeInferenceMethod
 from scripts.lib.inference.scheduler import DatasetKey
-from scripts.py.cli.handle_inference import select_methods
+from scripts.lib.inference.method_config import hash_config
+from scripts.py.cli.handle_inference import select_runners
 from scripts.py.cli.schemata import SIMULATED_DATA_REGISTRY_SCHEMA
 
 _MISSING_CAP = 10
 
-# (condition, method_value) -> (done_count, expected_count)
+# (condition, label) -> (done_count, expected_count)
 StatusCounts = dict[tuple[str, str], tuple[int, int]]
-# (condition, method_value) -> [dataset stems not yet done]
+# (condition, label) -> [dataset stems not yet done]
 MissingMap = dict[tuple[str, str], list[str]]
+# One unit of work: (label, method value, config hash).
+Unit = tuple[str, str, str]
 
 
 def compute_status(
     sim_rows: Iterable[Mapping[str, str | int | float]],
-    methods: list[TreeInferenceMethod],
+    units: Sequence[Unit],
     done: dict[DatasetKey, set[tuple[str, str]]],
 ) -> tuple[StatusCounts, MissingMap]:
-    """Count done/expected per (condition, method); collect missing stems.
+    """Count done/expected per (condition, label); collect missing stems.
 
-    Pure — no I/O. Condition = parent dir name of each sim row's path.
-    A method is done for a dataset if it appears (any config_hash) in `done`.
+    Pure, no I/O. Condition = parent dir name of each sim row's path.
+    A unit is done for a dataset iff `(method, config_hash)` is in `done`.
     """
     expected: dict[tuple[str, str], int] = defaultdict(int)
     n_done: dict[tuple[str, str], int] = defaultdict(int)
@@ -39,15 +41,13 @@ def compute_status(
     for row in sim_rows:
         path = str(row["path"])
         condition = Path(path).parent.name
-        dataset_id = registry.canonical_path(path)
-        dkey = (dataset_id,)
-        ok_methods = {m for m, _ in done.get(dkey, set())}
+        ok_runs = done.get((registry.canonical_path(path),), set())
         stem = Path(path).stem
 
-        for method in methods:
-            key = (condition, method.value)
+        for label, method, config_hash in units:
+            key = (condition, label)
             expected[key] += 1
-            if method.value in ok_methods:
+            if (method, config_hash) in ok_runs:
                 n_done[key] += 1
             else:
                 missing[key].append(stem)
@@ -59,7 +59,7 @@ def compute_status(
 def _status_from_registry(config: ExperimentConfig) -> None:
     """Real-data fallback: no sim registry ⇒ no expected count, so just tally the
     inference registry's recorded runs per method (reads registry ∪ shards)."""
-    done = scheduler.completed_runs(config.experiment_folder)
+    done = scheduler.get_completed_runs(config.experiment_folder)
     per_method: dict[str, int] = defaultdict(int)
     for methods_done in done.values():
         for method, _cfg in methods_done:
@@ -86,8 +86,11 @@ def handle_status(config: ExperimentConfig) -> None:
         _status_from_registry(config)
         return
 
-    methods = select_methods(config.methods)
-    if not methods:
+    units = [
+        (r.get_run_name(r.method.value), r.method.value, hash_config(r.config))
+        for r in select_runners(config.methods)
+    ]
+    if not units:
         print("[yellow]No methods enabled in config.[/yellow]")
         return
 
@@ -96,26 +99,26 @@ def handle_status(config: ExperimentConfig) -> None:
             named=True
         )
     )
-    done = scheduler.completed_runs(config.experiment_folder)
-    counts, missing = compute_status(rows, methods, done)
+    done = scheduler.get_completed_runs(config.experiment_folder)
+    counts, missing = compute_status(rows, units, done)
 
     # Unique conditions in insertion order
     conditions: dict[str, None] = {}
     for cond, _ in counts:
         conditions[cond] = None
 
-    method_values = [m.value for m in methods]
+    labels = [label for label, _, _ in units]
     total_done = total_expected = 0
 
     for cond in conditions:
         print(f"\n[bold]{cond}[/bold]")
-        for mv in method_values:
+        for mv in labels:
             key = (cond, mv)
             d, e = counts.get(key, (0, 0))
             total_done += d
             total_expected += e
             print(f"  {mv}: {d}/{e}")
-        for mv in method_values:
+        for mv in labels:
             stems = missing.get((cond, mv), [])
             if not stems:
                 continue

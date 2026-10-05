@@ -5,7 +5,8 @@ import polars as pl
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
-from scripts.lib.inference.inference import InferenceResult, RunStatus
+from scripts.lib.inference.inference import InferenceResult
+from scripts.lib.model.methods import RunStatus
 from scripts.lib.inference.scoring import ScoreResult
 import scripts.py.cli.handle_score as hs
 from scripts.py.cli.handle_inference import handle_inference
@@ -42,10 +43,10 @@ def _setup(tmp_path: Path) -> ExperimentConfig:
 def test_handle_score_writes_fn_fp(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path)
 
-    def fake_infer(input_csv, output_dir, method, config, *, name=None):
+    def fake_infer(input_csv, output_dir, runner):
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=method,
+            method=runner.method,
             config_hash="hash",
             method_config_json="{}",
             point_estimate_newick="(A,B);",
@@ -68,22 +69,26 @@ def test_handle_score_writes_fn_fp(tmp_path: Path, monkeypatch):
     assert r["fn_rate"] == 0.25
     assert r["fp_rate"] == 0.5
     assert r["dataset_id"] == str(
-        tmp_path / "simulation_data" / "simulated_data" / "high_0.1_4_320" / "sim_0_1_1.csv"
+        tmp_path
+        / "simulation_data"
+        / "simulated_data"
+        / "high_0.1_4_320"
+        / "sim_0_1_1.csv"
     )
 
 
 def test_handle_score_dedups_duplicate_sim_rows(tmp_path: Path, monkeypatch):
     # A duplicate sim-registry `path` row fans the inf⨝sim join out; score the
-    # (dataset, method, config_hash) key once, not per duplicate.
+    # (dataset, method, hash_config) key once, not per duplicate.
     cfg = _setup(tmp_path)
     sim_csv = tmp_path / "simulation_data" / "simulated_data_registry.csv"
     sim = pl.read_csv(sim_csv)
     pl.concat([sim, sim]).write_csv(sim_csv)  # duplicate every row
 
-    def fake_infer(input_csv, output_dir, method, config, *, name=None):
+    def fake_infer(input_csv, output_dir, runner):
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=method,
+            method=runner.method,
             config_hash="hash",
             method_config_json="{}",
             point_estimate_newick="(A,B);",
@@ -109,10 +114,10 @@ def test_handle_score_incremental(tmp_path: Path, monkeypatch):
     # Re-running score does NOT re-score already-scored entries.
     cfg = _setup(tmp_path)
 
-    def fake_infer(input_csv, output_dir, method, config, *, name=None):
+    def fake_infer(input_csv, output_dir, runner):
         return InferenceResult(
             dataset_id=str(input_csv),
-            tree_inference_method=method,
+            method=runner.method,
             config_hash="hash",
             method_config_json="{}",
             point_estimate_newick="(A,B);",
