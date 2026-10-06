@@ -69,7 +69,7 @@ One row per **successful** run; failures and blocks are never rows. Last-writer-
 | `method_config_json` | String | The config that was hashed. |
 | `runtime_seconds` | Float64 | Wall time. |
 | `point_estimate_newick` | String | Tree, inline. Empty when the method has no point estimate (CAMUS). |
-| `group_estimate_path` | String | The set or family file; null if none. CAMUS: the per-k CSV. |
+| `group_estimate_path` | String | The set or family file; null if none. CAMUS: the per-k CSV. SNaQ: one network (`.net`). |
 | `consensus_method` | String | How the set collapsed to the point estimate; null if none. |
 | `status` | String | Always `ok`. |
 | `ran_at` | String | ISO8601 UTC. |
