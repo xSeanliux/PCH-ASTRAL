@@ -68,8 +68,8 @@ One row per **successful** run; failures and blocks are never rows. Last-writer-
 | `config_hash` | String | sha256 of the method config JSON (`hash_config`). |
 | `method_config_json` | String | The config that was hashed. |
 | `runtime_seconds` | Float64 | Wall time. |
-| `point_estimate_newick` | String | Tree, inline. Empty when the method has no point estimate (CAMUS). |
-| `group_estimate_path` | String | The set or family file; null if none. CAMUS: the per-k CSV. |
+| `point_estimate_newick` | String | Tree, inline. Empty when the method has no point estimate (networks). |
+| `group_estimate_path` | String | The set or family file; null if none. CAMUS: the per-k CSV; PhyloNet-MPL: the `.net` network. |
 | `consensus_method` | String | How the set collapsed to the point estimate; null if none. |
 | `status` | String | Always `ok`. |
 | `ran_at` | String | ISO8601 UTC. |
@@ -97,15 +97,15 @@ Join to the registry on the three key columns.
 
 `inference_data/network_scores.csv` · writer `handle_network_score` · `NETWORK_SCORES_SCHEMA` · key `(dataset_id, method, config_hash, edges_added)`
 
-PhyloNet `CmpNets -m cluster` of each network in a CAMUS run's family (its `group_estimate_path`) against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
+PhyloNet `CmpNets -m cluster` of each network in a network run's `group_estimate_path` (CAMUS: the family; PhyloNet-MPL: one network) against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `dataset_id` | String | As in `inference_registry`. |
 | `method` | String | As in `inference_registry`. |
-| `guide_tree` | String | From `method_config_json`; not part of the key. |
+| `guide_tree` | String | From `method_config_json`; `pch_wastral` for PhyloNet-MPL. Not part of the key. |
 | `config_hash` | String | As in `inference_registry`. |
-| `edges_added` | Int64 | Reticulation edges CAMUS added to the guide (its `Number of Branches`). |
+| `edges_added` | Int64 | Reticulation edges CAMUS added to the guide (its `Number of Branches`); PhyloNet-MPL: its `#H` count. |
 | `fn_rate` | Float64 | False-negative rate; null unless `ok`. |
 | `fp_rate` | Float64 | False-positive rate; null unless `ok`. |
 | `runtime_seconds` | Float64 | CmpNets wall time. |
