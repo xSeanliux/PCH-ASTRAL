@@ -549,7 +549,7 @@ def _fake_camus(family: str):
 def test_handle_inference_ingests_each_camus_family(tmp_path: Path, monkeypatch):
     dataset = _camus_experiment(tmp_path)
     monkeypatch.setattr(api, "infer", _fake_camus(FAMILY))
-    methods = {"camus": {"guide_trees": ["true_tree"]}}
+    methods = {"camus": {"guide_trees": ["true_tree"], "outgroup_label": "OUT"}}
     cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
     out = handle_inference(cfg)
 
@@ -571,7 +571,7 @@ def test_handle_inference_skips_inference_row_when_ingest_fails(
     monkeypatch.setattr(
         api, "infer", _fake_camus(FAMILY.replace("Extended Newick", "Newick"))
     )
-    methods = {"camus": {"guide_trees": ["true_tree"]}}
+    methods = {"camus": {"guide_trees": ["true_tree"], "outgroup_label": "OUT"}}
     cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
     out = handle_inference(cfg)
 
