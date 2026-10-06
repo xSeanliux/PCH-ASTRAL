@@ -34,7 +34,6 @@ KEY_COLUMNS = ["dataset_id", "method", "config_hash", "edges_added"]
 # CAMUS's family CSV header -> our column names.
 CAMUS_TO_COLUMN = {
     "Number of Branches": "edges_added",
-    "Quartet Satisfied Percent": "qsat_percent",
     "Extended Newick": "network_newick",
 }
 
@@ -110,9 +109,7 @@ def handle_network_score(config: ExperimentConfig) -> Path:
                 continue
             already.add(key)  # a duplicate sim `path` row fans the join out
             row: dict[str, Cell] = {c: r[c] for c in KEY_COLUMNS} | {
-                "guide_tree": r["guide_tree"],
-                "fn_rate": None,
-                "fp_rate": None,
+                "guide_tree": r["guide_tree"]
             }
             label = (
                 f"{r['dataset_id']} {r['guide_tree']} edges_added={r['edges_added']}"

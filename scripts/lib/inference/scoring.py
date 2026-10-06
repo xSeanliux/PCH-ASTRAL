@@ -19,17 +19,30 @@ class ScoreResult:
     fp_rate: float
 
 
+def find_model_graph(
+    experiment_folder: Path, horizontal_edges: int, model_tree: int
+) -> Path:
+    """The model graph file for `(horizontal_edges, model_tree)`; h == 0 is the base tree.
+
+    :raises ValueError: if the registry has no such graph.
+    """
+    reg = experiment_folder / "simulation_data" / "model_graph_registry.csv"
+    df = pl.read_csv(reg, schema=MODEL_GRAPH_REGISTRY).filter(
+        (pl.col("horizontal_edges") == horizontal_edges)
+        & (pl.col("model_tree") == model_tree)
+    )
+    if df.is_empty():
+        raise ValueError(
+            f"No model graph h={horizontal_edges}, model_tree={model_tree} in {reg}"
+        )
+    return Path(df["path"][0])
+
+
 # cache per-run; CSV parsed once per distinct (folder, model_tree). One CLI process = one run, so unbounded is fine.
 @functools.lru_cache(maxsize=None)
 def resolve_reference_newick(experiment_folder: Path, model_tree: int) -> str:
     """Newick of the BASE TREE (horizontal_edges==0) a network is scored against."""
-    reg = experiment_folder / "simulation_data" / "model_graph_registry.csv"
-    df = pl.read_csv(reg, schema=MODEL_GRAPH_REGISTRY).filter(
-        (pl.col("horizontal_edges") == 0) & (pl.col("model_tree") == model_tree)
-    )
-    if df.is_empty():
-        raise ValueError(f"No base tree for model_tree={model_tree} in {reg}")
-    return Path(df.row(0, named=True)["path"]).read_text().strip()
+    return find_model_graph(experiment_folder, 0, model_tree).read_text().strip()
 
 
 def score(
@@ -74,16 +87,8 @@ def resolve_reference_network(
     experiment_folder: Path, horizontal_edges: int, model_tree: int
 ) -> str:
     """Rich newick of the reference network; h == 0 is the base tree alone."""
-    reg = experiment_folder / "simulation_data" / "model_graph_registry.csv"
-    df = pl.read_csv(reg, schema=MODEL_GRAPH_REGISTRY).filter(
-        (pl.col("horizontal_edges") == horizontal_edges)
-        & (pl.col("model_tree") == model_tree)
-    )
-    if df.is_empty():
-        raise ValueError(
-            f"No network for h={horizontal_edges}, model_tree={model_tree} in {reg}"
-        )
-    return convert_contact_network(Path(df.row(0, named=True)["path"]).read_text())
+    path = find_model_graph(experiment_folder, horizontal_edges, model_tree)
+    return convert_contact_network(path.read_text())
 
 
 # Relative to the repo root, like RFScorer.R above: the pipeline runs from there.
@@ -99,20 +104,17 @@ def get_taxa(newick: str) -> set[str]:
     return set(_TAXON.findall(newick))
 
 
-def score_network(
-    estimate_newick: str, reference_newick: str, *, timeout_seconds: float = 7200
-) -> ScoreResult:
+def score_network(estimate_newick: str, reference_newick: str) -> ScoreResult:
     """Score an estimate with `CmpNets -m cluster`, reference as net1.
 
     :raises ValueError: if the taxon sets differ.
     :raises RuntimeError: if PhyloNet fails or prints no distance.
-    :raises subprocess.TimeoutExpired: past `timeout_seconds`.
+    :raises subprocess.TimeoutExpired: past 2 h.
     """
-    if get_taxa(estimate_newick) != get_taxa(reference_newick):
+    est_taxa, ref_taxa = get_taxa(estimate_newick), get_taxa(reference_newick)
+    if est_taxa != ref_taxa:
         # CmpNets returns numbers for mismatched sets; fail loudly instead.
-        raise ValueError(
-            f"taxon sets differ: {sorted(get_taxa(estimate_newick) ^ get_taxa(reference_newick))}"
-        )
+        raise ValueError(f"taxon sets differ: {sorted(est_taxa ^ ref_taxa)}")
     nexus = (
         "#NEXUS\nBEGIN NETWORKS;\n"
         f"Network net1 = {reference_newick.strip().rstrip(';')};\n"
@@ -128,7 +130,7 @@ def score_network(
             capture_output=True,
             text=True,
             check=False,
-            timeout=timeout_seconds,
+            timeout=7200,
         )
         if proc.returncode != 0:
             raise RuntimeError(
