@@ -17,6 +17,7 @@ def _wrap_clade(tree: str, clade: str, wrapped: str) -> str:
     """
     # Anchor on newick delimiters so `t2` never matches inside `t26`.
     pattern = re.compile(rf"(?<=[(,]){re.escape(clade)}(?=[:,)])")
+    # Only `clade` is replaced (lookarounds don't consume); lambda keeps `wrapped` literal.
     tree, n = pattern.subn(lambda _: wrapped, tree)
     if n != 1:
         raise ValueError(f"clade {clade!r} matched {n} times, want 1")
