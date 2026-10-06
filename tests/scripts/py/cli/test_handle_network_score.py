@@ -166,3 +166,27 @@ def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
     # Not retried: the rows are visible, so the next run leaves them alone.
     monkeypatch.setattr(hns, "score_network", lambda est, ref: pytest.fail("retried"))
     handle_network_score(cfg)
+
+
+def test_scores_phylonet_mpl_network(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, monkeypatch)
+    reg = tmp_path / "inference_data" / "inference_registry.csv"
+    camus = pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA)
+    net = tmp_path / "inference_data" / "PHYLONET_MPL" / "networks" / "sim_1_1_1.net"
+    net.parent.mkdir(parents=True)
+    net.write_text(NEWICKS[1] + "\n")
+    mpl = camus.with_columns(
+        method=pl.lit("phylonet_mpl"),
+        method_config_json=pl.lit("{}"),
+        group_estimate_path=pl.lit(str(net)),
+    )
+    failed = mpl.with_columns(config_hash=pl.lit("x"), group_estimate_path=None)
+    tree = failed.with_columns(method=pl.lit("pch_wastral"))  # not a network: skipped
+    pl.concat([camus, mpl, failed, tree]).write_csv(reg)
+    monkeypatch.setattr(hns, "score_network", lambda est, ref: ScoreResult(0.5, 0.0))
+
+    df = pl.read_csv(handle_network_score(cfg), schema=NETWORK_SCORES_SCHEMA)
+    row = df.filter(pl.col("method") == "phylonet_mpl").to_dicts()
+    assert [(r["edges_added"], r["guide_tree"], r["status"]) for r in row] == [
+        (1, "pch_wastral", "ok")
+    ]
