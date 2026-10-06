@@ -64,6 +64,7 @@ Path getters are static so other code can look a method up without a runner, e.g
 |---|---|---|
 | tree (`mp`, `ga`, `pch_*`) | tree file | tree set, if any |
 | network (`camus`) | `None` (picking k is analysis) | `CAMUS/networks/<name>.csv`, one row per k |
+| network (`tob_qmc`) | tree of blobs, `TOB_QMC/trees/<name>.tree` | none |
 
 ### Fan-out
 
