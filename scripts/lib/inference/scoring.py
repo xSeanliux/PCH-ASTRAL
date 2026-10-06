@@ -27,7 +27,7 @@ def resolve_reference_newick(experiment_folder: Path, model_tree: int) -> str:
     df = pl.read_csv(reg, schema=MODEL_GRAPH_REGISTRY).filter(
         (pl.col("horizontal_edges") == 0) & (pl.col("model_tree") == model_tree)
     )
-    if df.height == 0:
+    if df.is_empty():
         raise ValueError(f"No base tree for model_tree={model_tree} in {reg}")
     return Path(df.row(0, named=True)["path"]).read_text().strip()
 
@@ -79,7 +79,7 @@ def resolve_reference_network(
         (pl.col("horizontal_edges") == horizontal_edges)
         & (pl.col("model_tree") == model_tree)
     )
-    if df.height == 0:
+    if df.is_empty():
         raise ValueError(
             f"No network for h={horizontal_edges}, model_tree={model_tree} in {reg}"
         )
