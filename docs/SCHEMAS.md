@@ -23,6 +23,10 @@ Base trees (`horizontal_edges = 0`) and networks. `handle_score` reads the `0` r
 | `horizontal_edges` | Int64 | Reticulation edges; `0` = tree. |
 | `model_tree` | Int64 | Base tree number. |
 | `path` | String | Copied model file. |
+| `outgroup_label` | String | Grafted outgroup taxon; null when the experiment has none. |
+| `outgroup_seed` | Int64 | Seed for the graft's lengths. |
+| `outgroup_branch_length` | Float64 | Outgroup branch, U(0.9, 1.0). |
+| `ingroup_stem_length` | Float64 | Ingroup stem, U(0.0, 0.1). |
 
 ## `config_registry`
 

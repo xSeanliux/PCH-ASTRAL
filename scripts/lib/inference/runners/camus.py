@@ -57,6 +57,8 @@ class CamusRunner(Runner["CamusConfig"]):
             str(output_dir),
             "--guide-tree",
             str(self.guide),
+            "--outgroup",
+            self.config.outgroup_label,
         ]
 
     @staticmethod

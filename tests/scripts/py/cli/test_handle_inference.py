@@ -3,6 +3,7 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+from pydantic import ValidationError
 
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import api
@@ -81,6 +82,7 @@ def _config(folder: Path, methods: dict | None = None) -> dict:
             "n_trees": 1,
             "n_replicas": 1,
             "n_taxa": 4,
+            "outgroup_label": "OUT",
             "base_config_dir": "configs",
             "base_trees_file": "trees.txt",
             "base_networks_dir": "nets",
@@ -88,6 +90,13 @@ def _config(folder: Path, methods: dict | None = None) -> dict:
         },
         "methods": methods if methods is not None else {"mp4": {}},
     }
+
+
+def test_camus_outgroup_must_match_the_simulation():
+    camus = {"guide_trees": ["true_tree"], "outgroup_label": "OTHER"}
+    cfg = _config(Path("."), methods={"camus": camus})
+    with pytest.raises(ValidationError, match="must equal"):
+        ExperimentConfig.model_validate(cfg)
 
 
 def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):
@@ -465,7 +474,12 @@ def test_handle_inference_runs_camus_once_per_guide(tmp_path: Path, monkeypatch)
         )
 
     monkeypatch.setattr(api, "infer", fake)
-    methods = {"camus": {"guide_trees": ["true_tree", "pch_astral3", "true_tree"]}}
+    methods = {
+        "camus": {
+            "guide_trees": ["true_tree", "pch_astral3", "true_tree"],
+            "outgroup_label": "OUT",
+        }
+    }
     cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
     handle_inference(cfg)
 

@@ -15,8 +15,8 @@ optimal network for each k.
 **Done when:** `experiments/camus_smoke` — with `outgroup_label: OUT` and both guides — runs
 simulation → inference → network-score on a laptop and writes `network_scores.csv`.
 
-PR #31 (open, branch `camus-install`) wired the method in: config, runner, install
-scripts, `spec/camus/`. `scripts/sh/runCAMUS.sh` is a stub.
+PR #31 (branch `camus-install`) wired the method in: config, runner, install scripts,
+`spec/camus/`. PRs GA, 1 and 2 are built; CAMUS runs. PRs 3 and 4 remain.
 
 ## What CAMUS does
 
@@ -70,14 +70,14 @@ How we differ from the paper's evaluation:
 
 ## PR sequence
 
-| PR | Base | Content |
-|---|---|---|
-| 0 | `camus-install` | Doc fixes, method/runner type split, guide-tree split; merge #31 |
-| GA | `main` | GA NEXUS label fix |
-| 1 | `main`, after GA | Outgroup simulation |
-| 2 | PR 1 | `runCAMUS.sh`, rooting, pin CAMUS |
-| 3 | PR 2 | Network family registry |
-| 4 | PR 3 | Network scoring |
+| PR | Branch | Content | State |
+|---|---|---|---|
+| 0 | `camus-install` | Doc fixes, method/runner type split, guide-tree split | #31 |
+| GA | `ga-nexus-labels` | GA NEXUS label fix | #32 |
+| 1 | `outgroup-simulation`, on GA | Outgroup simulation | #33 |
+| 2 | `camus-run`, on #31 and PR 1 | `runCAMUS.sh`, guide tree, pin CAMUS | built |
+| 3 | on PR 2 | Network family registry | to do |
+| 4 | on PR 3 | Network scoring | to do |
 
 ---
 
@@ -111,33 +111,24 @@ simulation:
 **A. `scripts/lib/simulation/outgroup.py`**
 
 ```python
-def graft_tree(newick: str, name: str, root_len: float, og_len: float) -> str:
+def graft_tree(newick: str, name: str, stem_len: float, og_len: float) -> str:
     """Wrap `newick` so `name` is sister to everything, preserving the terminator."""
-    s = newick.strip()
-    term = ";" if s.endswith(";") else ""
-    return f"({s.rstrip(';')}:{root_len},{name}:{og_len}){term}"
 
+def graft_network(lines: list[str], name: str, stem_len: float, og_len: float) -> list[str]:
+    """Graft line 1 (the base tree) and move each contact `stem_len` later."""
 
-def graft_network(lines: list[str], name: str, root_len: float, og_len: float) -> list[str]:
-    """Graft line 1; move each contact `root_len` later, since times count from the root."""
-    out = [graft_tree(lines[0], name, root_len, og_len)]
-    for line in lines[1:]:
-        clade_a, clade_b, time, strength = line.split(";")
-        out.append(f"{clade_a};{clade_b};{float(time) + root_len};{strength}")
-    return out
-
-
-def draw_lengths(model_tree: int) -> tuple[float, float]:
-    """(root_len, og_len) — deterministic per model tree. Paper's distributions."""
-    rng = random.Random(stable_hash_dict({"model_tree": model_tree}))
-    return rng.uniform(0.0, 0.1), rng.uniform(0.9, 1.0)
+def draw_lengths(seed: int) -> tuple[float, float]:
+    """(stem_len, og_len), deterministic in `seed`."""
 ```
 
+The caller seeds with `stable_hash_dict({"model_tree": i})`.
+
 **Why the time shift.** `contact_time` is distance from the root (`Network.java:29,312`).
-The graft puts a stem above the old root, so every node moves `root_len` later. An
+The graft puts a stem above the old root, so every node moves `stem_len` later. An
 unshifted contact lands before its branch exists; the simulator has no bounds check
-(`Network.java:352-353`) and produces a negative branch length silently. 155 of 192
-contacts have under 0.05 of margin; the stem is up to 0.1.
+(`Network.java:352-353`) and produces a negative branch length silently. Measured over
+`data/base_networks`: of 384 clade-contact pairs, 0 fall outside their branch with the
+shift, 208 without.
 
 The clade fields need no rewriting: the simulator matches them by exact string
 (`Network.java:487-496`) and the wrap leaves every inner substring intact.
@@ -154,14 +145,15 @@ h = 0 vs h > 0 unconfounded.
 Null `outgroup_label` records "this run had none". The recorded stem makes the time shift
 reversible.
 
-**D. `scripts/py/cli/handle_simulation.py`** — graft at the existing copy step.
+**D. `scripts/py/cli/handle_simulation.py`** — `copy_model_graphs` grafts at the copy
+step.
 
-- Trees (`:48-51`): write `graft_tree(line, ...)`.
-- Networks (`:76-77`): replace `shutil.copy` with read → `graft_network` → write.
-- **Fix the bug at `:65-67` in the same change.** `network_registry` records the *source*
-  path, not the copy, so simulation reads the originals and grafting would be a silent
-  no-op for h > 0. Tree scoring depends on this too: `RFScorer.R` asserts equal tip
-  counts, so the registered reference must contain `OUT`.
+- **The registry records the copy, not the source.** It used to record the source, so
+  simulation read the originals and grafting would have been a silent no-op for h > 0.
+  Tree scoring depends on this too: `RFScorer.R` asserts equal tip counts, so the
+  registered reference must contain `OUT`.
+- **Base trees are written even when h = 0 is not simulated.** They are the reference,
+  and the `true_tree` guide, for every dataset built on them.
 
 ### Known effects
 
@@ -194,43 +186,44 @@ CSVs have 31 taxon columns.
 CAMUS runs and produces its CSV for every guide. The guide-tree split and the
 `api.infer` branch for network methods landed in #31.
 
-### Tasks (A, C in parallel; B depends on A)
+### Tasks
 
-**A. Rooting helper.** `Tree.root_with_outgroup()` from Biopython, already a dependency.
-`scripts/py/root_tree.py` as the shell entry point:
+**A. Guide tree.** `scripts/py/guide_tree.py` resolves and roots in one step:
 
 ```
-python3 -m scripts.py.root_tree -i <tree> -g OUT > rooted.tree
+python3 -m scripts.py.guide_tree --guide pch_astral3 --input <dataset.csv> --output <dir> > guide.tree
 ```
 
-Idempotent: `true_tree` arrives rooted, since grafting is the rooting.
+- A method guide is that method's point estimate, `<dir>/<VARIANT>/trees/<stem>.tree`.
+  `true_tree` is the dataset's base tree.
+- The experiment is found by walking up from the dataset; the model tree by the
+  simulation registry; the outgroup by the model graph registry.
+- Rooting is `Tree.root_with_outgroup()` from Biopython. It changes nothing on a tree
+  already rooted there. With no outgroup recorded, the root stays where it was.
+- Output is topology only: no lengths, no support values.
+- Polytomies are resolved arbitrarily (seeded `utils.resolve_polytomies`), per #34 review.
+  Allowed guides are binary today, so this rarely fires.
 
-**B. `scripts/sh/runCAMUS.sh`** — replace the stub. Match the `runWTREEQMC.sh` /
-`runASTRAL3.sh` skeleton. Accepts the flags `CamusRunner.build_argv` already sends:
+**B. `scripts/sh/runCAMUS.sh`**, on the `runWTREEQMC.sh` skeleton. Flags:
 `--runid --input --name --output --guide-tree`. Steps:
 
-1. Quartets → `"$PCH_SCRATCH/tmp_quartet_$RUNID.txt"` via
-   `python3 -m scripts.py.printQuartets -i "$INPUT" > ... || exit 1`.
-2. Guide tree → a method guide reads that method's point estimate,
-   `<out>/<VARIANT>/trees/<stem>.tree` (`PCH_W_ASTRAL3`, `PCH_W_WASTRAL`);
-   `true_tree` reads the grafted base tree via
-   `resolve_reference_newick`. Root it (task A).
-3. `bin/camus -n "$PROCS" -o "$TREEOUTPUT/CAMUS/networks/$NAME" <guide_tree> <quartets>`,
-   then `rc=$?`, the `✅` line, `exit $rc`. No `-t`, no `-q`: CAMUS defaults.
+1. Quartets → `"$PCH_SCRATCH/tmp_quartet_$RUNID.txt"` via `scripts.py.printQuartets`.
+2. Guide tree → `"$PCH_SCRATCH/tmp_guide_$RUNID.tree"` via task A.
+3. `bin/camus -n "${PCH_CAMUS_PROCS:-1}" -o "$TREEOUTPUT/CAMUS/networks/$NAME" <guide>
+   <quartets>`. No `-t`: CAMUS defaults.
 
 `<name>` is `f"{stem}.{guide}"`, so guides never collide; the upstream tree is named by
-`<stem>` alone. Add a `SCRIPT_CONTRACTS.md` row.
+`<stem>` alone.
 
-**C. Pin CAMUS.** `scripts/sh/installs/install_camus.sh`: `@latest` → `@v1.0.2`. v1.0.1
-lacks two fixes (`scoreEdgesDown`, `MakeNetwork` sort) that can affect rows at k ≥ 2.
+**C. Pin CAMUS.** `install_camus.sh` installs `v1.0.2` (`CAMUS_VERSION` overrides).
+v1.0.1 lacks two fixes (`scoreEdgesDown`, `MakeNetwork` sort) that can affect rows at
+k ≥ 2.
 
 ### Verification
 
 ```bash
-uv run python -m pytest tests/scripts/lib/inference/ tests/scripts/py/cli/ -q
+uv run python -m pytest tests/scripts/py/test_guide_tree.py -q
 ```
-
-Unit: rooting is idempotent on a rooted tree.
 
 End to end:
 

@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from scripts.lib.types import Polymorphism
 from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
 from scripts.lib.model.guide_tree import GuideTree, SUPPORTED_GUIDE_TREES
@@ -85,6 +85,7 @@ class GAConfig(RunnableConfig):
 
 class CamusConfig(RunnableConfig):
     guide_trees: frozenset[GuideTree] = Field(min_length=1)
+    outgroup_label: str  # every guide is rooted on it
 
     @field_validator("guide_trees")
     @classmethod
@@ -106,7 +107,11 @@ class CamusConfig(RunnableConfig):
         match a single-guide YAML exactly.
         """
         return [
-            CamusRunner(config=CamusConfig(guide_trees=frozenset({g})))
+            CamusRunner(
+                config=CamusConfig(
+                    guide_trees=frozenset({g}), outgroup_label=self.outgroup_label
+                )
+            )
             for g in sorted(self.guide_trees)
         ]
 
@@ -138,3 +143,14 @@ class ExperimentConfig(BaseModel):
     experiment_folder: Path  # where all experiment artifacts will be located
     simulation: ExperimentSimulationConfig
     methods: MethodConfig
+
+    @model_validator(mode="after")
+    def _match_camus_outgroup(self) -> "ExperimentConfig":
+        """:raises ValueError: if CAMUS roots on a taxon the simulation doesn't graft."""
+        camus = self.methods.camus
+        if camus is not None and camus.outgroup_label != self.simulation.outgroup_label:
+            raise ValueError(
+                f"methods.camus.outgroup_label ({camus.outgroup_label!r}) must equal "
+                f"simulation.outgroup_label ({self.simulation.outgroup_label!r})."
+            )
+        return self
