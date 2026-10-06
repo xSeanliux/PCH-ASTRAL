@@ -135,8 +135,10 @@ def _astral3_argv(config: ASTRAL3Config) -> list[str]:
     )
 
 
-def test_astral3_runner_build_argv_default_sources_mp4_ga():
-    argv = _astral3_argv(ASTRAL3Config(is_exact=False))
+def test_astral3_runner_build_argv_sources_mp4_ga():
+    argv = _astral3_argv(
+        ASTRAL3Config(is_exact=False, bipartition_strategies=["mp4_trees", "ga_trees"])
+    )
     assert argv[argv.index("-S") + 1] == "mp4,ga"
 
 
@@ -145,6 +147,13 @@ def test_astral3_runner_build_argv_ga_only_source():
         ASTRAL3Config(is_exact=False, bipartition_strategies=["ga_trees"])
     )
     assert argv[argv.index("-S") + 1] == "ga"
+
+
+def test_astral3_runner_no_strategies_means_no_extra_trees():
+    runner = _astral3_runner(ASTRAL3Config(is_exact=False))
+    argv = _astral3_argv(runner.config)
+    assert argv[argv.index("-S") + 1] == "none"
+    assert runner.get_dependencies() == []
 
 
 def test_astral3_runner_build_argv_exact_has_no_sources():
@@ -191,13 +200,6 @@ def test_dependencies_mp_and_ga_are_empty():
 
 def test_dependencies_astral3_exact_is_empty():
     assert _astral3_runner(ASTRAL3Config(is_exact=True)).get_dependencies() == []
-
-
-def test_dependencies_astral3_heuristic_default_is_mp_ga():
-    assert _astral3_runner(ASTRAL3Config(is_exact=False)).get_dependencies() == [
-        TreeInferenceMethod.MP,
-        TreeInferenceMethod.GA,
-    ]
 
 
 def test_dependencies_astral3_ga_only():

@@ -273,7 +273,15 @@ def test_handle_inference_skips_already_done(tmp_path: Path, monkeypatch):
 
 def test_handle_inference_blocks_astral3_without_upstream(tmp_path: Path, monkeypatch):
     # Heuristic ASTRAL3 alone, no MP4/GA success anywhere → blocked, never run.
-    cfg = _setup(tmp_path, {"astral_3": {"is_exact": False}})
+    cfg = _setup(
+        tmp_path,
+        {
+            "astral_3": {
+                "is_exact": False,
+                "bipartition_strategies": ["mp4_trees", "ga_trees"],
+            }
+        },
+    )
     calls: list = []
     monkeypatch.setattr(api, "infer", _ok_infer(calls))
 

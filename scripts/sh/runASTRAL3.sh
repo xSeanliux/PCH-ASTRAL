@@ -32,7 +32,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -V, --variant         Output folder name (e.g. PCH_W_ASTRAL3)"
             echo ""
             echo "Optional:"
-            echo "  -S, --sources         Heuristic bipartition sources, comma list (default mp4,ga)"
+            echo "  -S, --sources         Heuristic bipartition sources, comma list (default mp4,ga; none = quartets only)"
             echo "  -x, --exact           Enable exact mode (sets RUN_EXACT='-x')"
             exit 0
             ;;
@@ -68,9 +68,9 @@ mkdir -p "$TREEOUTPUT/$ASTRAL_VARIANT/trees"
 python3 -m scripts.py.printQuartets -i "$INPUT" > "$PCH_SCRATCH/tmp_quartet_$RUNID.txt" || exit 1
 echo "✅ PCH-W quartet generation, $(wc -l "$PCH_SCRATCH/tmp_quartet_$RUNID.txt" | awk '{ print $1 }') quartets"
 
-if [[ $RUN_EXACT == "-x" ]]; then
-    echo "Running in exact mode. No bipartitions used."
-    touch "$PCH_SCRATCH/tmp_bipartitions_$RUNID.bootstrap.trees"
+if [[ $RUN_EXACT == "-x" || $SOURCES == "none" ]]; then
+    echo "No extra trees (exact mode, or -S none)."
+    : > "$PCH_SCRATCH/tmp_bipartitions_$RUNID.bootstrap.trees"
 else
 
     BIP_FLAGS=()

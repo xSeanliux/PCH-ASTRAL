@@ -46,13 +46,13 @@ class ASTRAL3Runner(Runner["ASTRAL3Config"]):
         )
 
     def _get_bipartition_sources(self) -> list[BipartitionStrategy]:
-        """Which tree sets feed the heuristic run's bipartitions; empty config
-        defaults to MP4 + GA (today's behavior).
+        """Which tree sets feed the heuristic run's bipartitions, one per entry;
+        empty means the quartets alone.
 
         :raises NotImplementedError: for `binary_character`.
         """
         S = BipartitionStrategy
-        sources = self.config.bipartition_strategies or [S.MP4_TREES, S.GA_TREES]
+        sources = self.config.bipartition_strategies
         if S.BINARY_CHARACTER in sources:
             raise NotImplementedError("binary_character bipartitions not yet supported")
         return sources
@@ -78,10 +78,13 @@ class ASTRAL3Runner(Runner["ASTRAL3Config"]):
         if self.config.is_exact:
             argv.append("-x")
         else:
-            sources = ",".join(
-                ASTRAL3Runner._STRATEGY_TO_SOURCE[s]
-                for s in self._get_bipartition_sources()
-            )
+            sources = (
+                ",".join(
+                    ASTRAL3Runner._STRATEGY_TO_SOURCE[s]
+                    for s in self._get_bipartition_sources()
+                )
+                or "none"
+            )  # runASTRAL3.sh: no extra trees
             argv += ["-S", sources]
         return argv
 
