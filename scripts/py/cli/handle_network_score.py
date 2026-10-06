@@ -62,7 +62,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
         if path.exists()
         else pl.DataFrame(schema=INFERENCE_REGISTRY_SCHEMA)
     ).filter(
-        pl.col("method").is_in(list(NetworkInferenceMethod))
+        pl.col("method").is_in([m.value for m in NetworkInferenceMethod])
         & pl.col("group_estimate_path").is_not_null()  # failed runs wrote none
     )
     assert runs.height, (

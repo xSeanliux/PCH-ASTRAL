@@ -180,7 +180,10 @@ def test_scores_a_snaq_network_without_annotations(tmp_path: Path, monkeypatch):
         method_config_json=pl.lit("{}"),
         group_estimate_path=pl.lit(str(net)),
     )
-    pl.concat([camus, snaq]).write_csv(reg)
+    tree = camus.with_columns(  # the start tree's run: not a network, no estimate path
+        method=pl.lit("pch_wastral"), group_estimate_path=pl.lit(None, pl.String)
+    )
+    pl.concat([camus, snaq, tree]).write_csv(reg)
     seen: list[str] = []
     monkeypatch.setattr(
         hns, "score_network", lambda est, ref: seen.append(est) or ScoreResult(0, 0)
