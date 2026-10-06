@@ -40,12 +40,12 @@ CAMUS_TO_COLUMN = {
 }
 
 
-# SNaQ's `:length` and `:::gamma`; CmpNets rejects inheritance probabilities.
+# `:length` and `:::gamma`; CmpNets rejects inheritance probabilities.
 _ANNOTATION = re.compile(r":[^,();]*")
 
 
-def read_snaq_network(path: Path) -> pl.DataFrame:
-    """SNaQ's one network as a one-row family; `edges_added` counts its hybrids."""
+def read_network(path: Path) -> pl.DataFrame:
+    """A one-network file as a one-row family; `edges_added` counts its hybrids."""
     newick = _ANNOTATION.sub("", path.read_text().strip())
     edges_added = len(set(re.findall(r"#H\d+", newick)))
     return pl.DataFrame({"edges_added": [edges_added], "network_newick": [newick]})
@@ -61,7 +61,10 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
         pl.read_csv(path, schema=INFERENCE_REGISTRY_SCHEMA)
         if path.exists()
         else pl.DataFrame(schema=INFERENCE_REGISTRY_SCHEMA)
-    ).filter(pl.col("method").is_in([m.value for m in NetworkInferenceMethod]))
+    ).filter(
+        pl.col("method").is_in(list(NetworkInferenceMethod))
+        & pl.col("group_estimate_path").is_not_null()  # failed runs wrote none
+    )
     assert runs.height, (
         f"No network runs in {path}. Run `pch experiment inference` first."
     )
@@ -69,7 +72,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     for r in runs.iter_rows(named=True):
         guide = None  # SNaQ has none
         if r["method"] == NetworkInferenceMethod.SNAQ.value:
-            family = read_snaq_network(Path(r["group_estimate_path"]))
+            family = read_network(Path(r["group_estimate_path"]))
         else:
             config = CamusConfig.model_validate_json(r["method_config_json"])
             (guide,) = config.guide_trees
