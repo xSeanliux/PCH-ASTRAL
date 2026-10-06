@@ -23,6 +23,7 @@ def _config(folder: Path, methods: dict | None = None) -> dict:
             "n_trees": 1,
             "n_replicas": 1,
             "n_taxa": 4,
+            "outgroup_label": "OUT",
             "base_config_dir": "configs",
             "base_trees_file": "trees.txt",
             "base_networks_dir": "nets",

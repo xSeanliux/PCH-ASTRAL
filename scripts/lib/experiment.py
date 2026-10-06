@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from scripts.lib.types import Polymorphism
 from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
 from scripts.lib.model.guide_tree import GuideTree, SUPPORTED_GUIDE_TREES
@@ -138,3 +138,13 @@ class ExperimentConfig(BaseModel):
     experiment_folder: Path  # where all experiment artifacts will be located
     simulation: ExperimentSimulationConfig
     methods: MethodConfig
+
+    @model_validator(mode="after")
+    def _require_outgroup_for_camus(self) -> "ExperimentConfig":
+        """:raises ValueError: if CAMUS runs without an outgroup to root guides on."""
+        if self.methods.camus is not None and self.simulation.outgroup_label is None:
+            raise ValueError(
+                "methods.camus needs simulation.outgroup_label: "
+                "CAMUS guide trees are rooted on the outgroup."
+            )
+        return self
