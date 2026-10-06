@@ -10,6 +10,7 @@ from scripts.lib.inference.runners.camus import CamusRunner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
 from scripts.lib.inference.runners.snaq import SnaqRunner
+from scripts.lib.inference.runners.tob_qmc import TobQmcRunner
 from scripts.lib.inference.runners.w_tree_qmc import WTreeQmcRunner
 from scripts.lib.inference.runners.wastral import WASTRALRunner
 from pathlib import Path
@@ -85,6 +86,14 @@ class GAConfig(RunnableConfig):
         return [GARunner(config=self)]
 
 
+class TobQmcConfig(RunnableConfig):
+    # ponytail: no knobs; TREE-QMC's alpha (1e-7), beta (0.95) and search limit
+    # (2n^2) apply. Expose them when a sweep needs them.
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
+        return [TobQmcRunner(config=self)]
+
+
 class GuidedNetworkConfig(RunnableConfig):
     """A network method searched from a guide (start) tree; one run per guide."""
 
@@ -138,6 +147,7 @@ class MethodConfig(BaseModel):
     w_tree_qmc: WeightedTreeQMCConfig | None = Field(None)
     mp4: MP4Config | None = Field(None)
     gray_atkinson: GAConfig | None = Field(None)
+    tob_qmc: TobQmcConfig | None = Field(None)
     camus: CamusConfig | None = Field(None)
     snaq: SnaqConfig | None = Field(None)
 
@@ -149,6 +159,7 @@ class MethodConfig(BaseModel):
             self.w_tree_qmc,
             self.mp4,
             self.gray_atkinson,
+            self.tob_qmc,
             self.camus,
             self.snaq,
         ]

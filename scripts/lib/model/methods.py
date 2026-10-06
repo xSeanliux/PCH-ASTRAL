@@ -11,6 +11,8 @@ class TreeInferenceMethod(InferenceMethod):
     PCH_W_TREE_QMC = "pch_w_tree_qmc"
     MP = "mp"
     GA = "ga"
+    # A tree of blobs: input to network methods (BROOQS, NetCS), not a species tree.
+    TOB_QMC = "tob_qmc"
 
 
 class NetworkInferenceMethod(InferenceMethod):
