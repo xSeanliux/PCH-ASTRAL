@@ -10,7 +10,7 @@ TREEOUTPUT=""
 RUN_EXACT=""
 NAME=""
 ASTRAL_VARIANT=""
-SOURCES="${SOURCES:-mp4,ga}"  # comma list of heuristic bipartition sources
+SOURCES="${SOURCES:-none}"  # comma list of heuristic bipartition sources; none = no extra trees
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -32,7 +32,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -V, --variant         Output folder name (e.g. PCH_W_ASTRAL3)"
             echo ""
             echo "Optional:"
-            echo "  -S, --sources         Heuristic bipartition sources, comma list (default mp4,ga; none = quartets only)"
+            echo "  -S, --sources         Heuristic bipartition sources, comma list, e.g. mp4,ga (default none: quartets only)"
             echo "  -x, --exact           Enable exact mode (sets RUN_EXACT='-x')"
             exit 0
             ;;
