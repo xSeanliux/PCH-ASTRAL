@@ -342,16 +342,16 @@ case by inspection; two contacts on one branch; a leaf clade whose label prefixe
 `resolve_reference_newick`, which stays as is. Mirror its `lru_cache` +
 `MODEL_GRAPH_REGISTRY` read.
 
-**C. `network_score(inferred_newick, reference_newick)`** — assert equal taxon sets, write
+**C. `score_network(inferred_newick, reference_newick)`** — assert equal taxon sets, write
 the NEXUS to a `NamedTemporaryFile`, run the jar with a **2 h timeout**, parse stdout.
-Returns FN, FP, AVG and the call's runtime.
+Returns `fn_rate` and `fp_rate` (CmpNets' AVG is derivable, not kept).
 
 **D. `scripts/py/cli/handle_network_score.py` + CLI.** Clone `handle_score.py`'s shape:
 same read-back resume, same per-row `try/except → print yellow → continue`, same full
-rewrite. It reads `camus_registry.csv`, keys on `(dataset_id, guide_tree, k)`, and its
+rewrite. It reads `camus_registry.csv`, keys on `(dataset_id, method, config_hash, k)`, and its
 sim-registry `.select()` must keep `horizontal_edges`.
 
-`network_scores.csv`: `dataset_id`, `guide_tree`, `k`, `fn`, `fp`, `avg`,
+`network_scores.csv`: `dataset_id`, `method`, `guide_tree`, `config_hash`, `k`, `fn_rate`, `fp_rate`,
 `runtime_seconds`, `status` (`ok` | `failed` | `timeout`). Failed and timed-out rows are
 written with null scores so a slow network is visible, not missing.
 
