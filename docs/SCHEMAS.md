@@ -95,7 +95,7 @@ Join to the registry on the three key columns.
 
 ## `network_scores`
 
-`inference_data/network_scores.csv` · writer `handle_network_score` · `NETWORK_SCORES_SCHEMA` · key `(dataset_id, method, config_hash, k)`
+`inference_data/network_scores.csv` · writer `handle_network_score` · `NETWORK_SCORES_SCHEMA` · key `(dataset_id, method, config_hash, edges_added)`
 
 PhyloNet `CmpNets -m cluster` of each network in a CAMUS run's family (its `group_estimate_path`) against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
 
@@ -105,7 +105,7 @@ PhyloNet `CmpNets -m cluster` of each network in a CAMUS run's family (its `grou
 | `method` | String | As in `inference_registry`. |
 | `guide_tree` | String | From `method_config_json`; not part of the key. |
 | `config_hash` | String | As in `inference_registry`. |
-| `k` | Int64 | Reticulations added (CAMUS's `Number of Branches`). |
+| `edges_added` | Int64 | Reticulation edges CAMUS added to the guide (its `Number of Branches`). |
 | `fn_rate` | Float64 | False-negative rate; null unless `ok`. |
 | `fp_rate` | Float64 | False-positive rate; null unless `ok`. |
 | `runtime_seconds` | Float64 | CmpNets wall time. |

@@ -89,9 +89,9 @@ def test_writes_scores(tmp_path: Path, monkeypatch):
     )
     out = handle_network_score(cfg)
 
-    df = pl.read_csv(out, schema=NETWORK_SCORES_SCHEMA).sort("k")
+    df = pl.read_csv(out, schema=NETWORK_SCORES_SCHEMA).sort("edges_added")
     assert df.columns == list(NETWORK_SCORES_SCHEMA.keys())
-    assert df["k"].to_list() == [0, 1]
+    assert df["edges_added"].to_list() == [0, 1]
     assert df["fp_rate"].to_list() == [0.0, 0.0]
     assert df["method"].to_list() == ["camus", "camus"]
     assert df["guide_tree"].to_list() == ["true_tree", "true_tree"]
@@ -157,7 +157,7 @@ def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
     monkeypatch.setattr(hns, "score_network", fake)
     out = handle_network_score(cfg)
 
-    df = pl.read_csv(out, schema=NETWORK_SCORES_SCHEMA).sort("k")
+    df = pl.read_csv(out, schema=NETWORK_SCORES_SCHEMA).sort("edges_added")
     assert df["status"].to_list() == ["failed", "timeout"]
     assert df["fn_rate"].to_list() == [None, None]
     assert df["runtime_seconds"].null_count() == 0

@@ -64,7 +64,7 @@ SCORES_SCHEMA = pl.Schema(
     }
 )
 
-# One row per (dataset, method, config, k): CmpNets -m cluster against the
+# One row per (dataset, method, config, edges_added): CmpNets -m cluster against the
 # reference network. Null rates with status `failed` | `timeout`.
 NETWORK_SCORES_SCHEMA = pl.Schema(
     {
@@ -72,7 +72,7 @@ NETWORK_SCORES_SCHEMA = pl.Schema(
         "method": String,
         "guide_tree": String,
         "config_hash": String,
-        "k": Int64,
+        "edges_added": Int64,
         "fn_rate": Float64,
         "fp_rate": Float64,
         "runtime_seconds": Float64,

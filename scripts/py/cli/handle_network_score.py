@@ -30,10 +30,10 @@ from scripts.py.cli.schemata import (
     SIMULATED_DATA_REGISTRY_SCHEMA,
 )
 
-KEY_COLUMNS = ["dataset_id", "method", "config_hash", "k"]
+KEY_COLUMNS = ["dataset_id", "method", "config_hash", "edges_added"]
 # CAMUS's family CSV header -> our column names.
 CAMUS_TO_COLUMN = {
-    "Number of Branches": "k",
+    "Number of Branches": "edges_added",
     "Quartet Satisfied Percent": "qsat_percent",
     "Extended Newick": "network_newick",
 }
@@ -108,7 +108,9 @@ def handle_network_score(config: ExperimentConfig) -> Path:
                 "fn_rate": None,
                 "fp_rate": None,
             }
-            label = f"{r['dataset_id']} {r['guide_tree']} k={r['k']}"
+            label = (
+                f"{r['dataset_id']} {r['guide_tree']} edges_added={r['edges_added']}"
+            )
             t0 = time.perf_counter()
             try:
                 ref = resolve_reference_network(
