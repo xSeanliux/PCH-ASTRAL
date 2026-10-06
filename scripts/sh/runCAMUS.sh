@@ -7,6 +7,7 @@ INPUT=""
 TREEOUTPUT=""
 NAME=""
 GUIDE=""
+OUTGROUP=""
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -15,8 +16,9 @@ while [[ "$#" -gt 0 ]]; do
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
         -g|--guide-tree) GUIDE="$2"; shift ;;
+        -O|--outgroup) OUTGROUP="$2"; shift ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide>"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide> -O <outgroup>"
             echo ""
             echo "Required:"
             echo "  -H, --runid        Run ID"
@@ -25,6 +27,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -n, --name         Run name; names the output files"
             echo "  -g, --guide-tree   Guide tree, e.g. pch_astral3 or true_tree"
             echo "                     (all: SUPPORTED_GUIDE_TREES in scripts/lib/model/guide_tree.py)"
+            echo "  -O, --outgroup     Outgroup taxon; the guide tree is rooted on it"
             echo ""
             echo "Environment:"
             echo "  PCH_CAMUS_PROCS    CAMUS parallel processes (default 1)"
@@ -40,8 +43,8 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Check required arguments
-if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$TREEOUTPUT" || -z "$GUIDE" ]]; then
-    echo "Error: --runid, --input, --name, --output and --guide-tree must be provided."
+if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$TREEOUTPUT" || -z "$GUIDE" || -z "$OUTGROUP" ]]; then
+    echo "Error: --runid, --input, --name, --output, --guide-tree and --outgroup must be provided."
     echo "Use -h or --help for usage."
     exit 1
 fi
@@ -60,8 +63,9 @@ python3 -m scripts.py.printQuartets -i "$INPUT" > "$SCRATCH_QUARTET_PATH" || exi
 echo "✅ PCH-W quartet generation, $(wc -l "$SCRATCH_QUARTET_PATH" | awk '{ print $1 }') quartets"
 
 python3 -m scripts.py.guide_tree --guide "$GUIDE" --input "$INPUT" --output "$TREEOUTPUT" \
+    --outgroup "$OUTGROUP" \
     > "$SCRATCH_GUIDE_PATH" || exit 1
-echo "✅ guide tree ($GUIDE), rooted"
+echo "✅ guide tree ($GUIDE), rooted on $OUTGROUP"
 
 # No -t: CAMUS's default quartet filter applies.
 bin/camus -n "${PCH_CAMUS_PROCS:-1}" \

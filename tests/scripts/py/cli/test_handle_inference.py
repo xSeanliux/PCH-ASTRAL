@@ -92,10 +92,10 @@ def _config(folder: Path, methods: dict | None = None) -> dict:
     }
 
 
-def test_camus_without_an_outgroup_is_rejected():
-    cfg = _config(Path("."), methods={"camus": {"guide_trees": ["true_tree"]}})
-    del cfg["simulation"]["outgroup_label"]
-    with pytest.raises(ValidationError, match="outgroup_label"):
+def test_camus_outgroup_must_match_the_simulation():
+    camus = {"guide_trees": ["true_tree"], "outgroup_label": "OTHER"}
+    cfg = _config(Path("."), methods={"camus": camus})
+    with pytest.raises(ValidationError, match="must equal"):
         ExperimentConfig.model_validate(cfg)
 
 
@@ -474,7 +474,12 @@ def test_handle_inference_runs_camus_once_per_guide(tmp_path: Path, monkeypatch)
         )
 
     monkeypatch.setattr(api, "infer", fake)
-    methods = {"camus": {"guide_trees": ["true_tree", "pch_astral3", "true_tree"]}}
+    methods = {
+        "camus": {
+            "guide_trees": ["true_tree", "pch_astral3", "true_tree"],
+            "outgroup_label": "OUT",
+        }
+    }
     cfg = ExperimentConfig.model_validate(_config(tmp_path, methods=methods))
     handle_inference(cfg)
 

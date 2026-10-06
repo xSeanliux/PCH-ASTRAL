@@ -29,13 +29,13 @@ pl.read_csv(p, infer_schema=False).rename({"tree_set_path": "group_estimate_path
 
 Unmigrated shards (`shards/*.jsonl`) have the old key; run `pch experiment compact` on the old code first, or delete them and rerun.
 
-## CAMUS guide values renamed
+## CAMUS guide values renamed; `outgroup_label` required
 
-**Affects:** CAMUS runs. Guides `astral3` and `wastral` are now `pch_astral3` and `pch_wastral` (YAML `guide_trees:`). The guide is part of the CAMUS config, so every CAMUS `config_hash` changed; old rows never match, so resume would rerun them beside stale ones. `true_tree` is unchanged.
+**Affects:** CAMUS runs. Guides `astral3` and `wastral` are now `pch_astral3` and `pch_wastral` (YAML `guide_trees:`). The guide is part of the CAMUS config, so every CAMUS `config_hash` changed; old rows never match, so resume would rerun them beside stale ones. `true_tree` is unchanged. The CAMUS block also gains a required `outgroup_label`, equal to `simulation.outgroup_label`; it is hashed too.
 
 Tree-method hashes did **not** change.
 
-1. Update the YAML: `guide_trees: [pch_astral3, true_tree]`.
+1. Update the YAML: `guide_trees: [pch_astral3, true_tree]` and `outgroup_label: OUT`.
 2. Drop CAMUS rows:
 
 ```python

@@ -16,7 +16,7 @@ WASTRAL = TreeInferenceMethod.PCH_WASTRAL
 
 
 def _config(*guides: GuideTree) -> CamusConfig:
-    return CamusConfig(guide_trees=frozenset(guides))
+    return CamusConfig(guide_trees=frozenset(guides), outgroup_label="OUT")
 
 
 @pytest.mark.parametrize(
@@ -39,7 +39,7 @@ def test_unsupported_guides_are_rejected(guide: GuideTree):
 @pytest.mark.parametrize("guide", ["mp", "ga", "pch_w_tree_qmc"])
 def test_unsupported_guides_are_rejected_from_yaml(guide: str):
     with pytest.raises(ValidationError, match="unsupported CAMUS guide tree"):
-        CamusConfig.model_validate({"guide_trees": [guide]})
+        CamusConfig.model_validate({"guide_trees": [guide], "outgroup_label": "OUT"})
 
 
 def test_no_guides_is_rejected():
@@ -49,7 +49,10 @@ def test_no_guides_is_rejected():
 
 def test_yaml_list_loads_as_a_set():
     config = CamusConfig.model_validate(
-        {"guide_trees": ["true_tree", "pch_astral3", "true_tree"]}
+        {
+            "guide_trees": ["true_tree", "pch_astral3", "true_tree"],
+            "outgroup_label": "OUT",
+        }
     )
     assert config.guide_trees == {ASTRAL3, TRUE_TREE}
 
@@ -75,10 +78,10 @@ def test_camus_runner_hash_config_matches_single_guide_config():
     assert r.config == _config(ASTRAL3)
 
 
-def test_build_argv_passes_one_guide(tmp_path: Path):
+def test_build_argv_passes_one_guide_and_the_outgroup(tmp_path: Path):
     (runner,) = _config(TRUE_TREE).get_runners()
     argv = runner.build_argv("r1", tmp_path / "d.csv", "d.true_tree", tmp_path)
-    assert argv[-2:] == ["--guide-tree", "true_tree"]
+    assert argv[-4:] == ["--guide-tree", "true_tree", "--outgroup", "OUT"]
 
 
 def test_infer_records_group_estimate_and_no_newick(

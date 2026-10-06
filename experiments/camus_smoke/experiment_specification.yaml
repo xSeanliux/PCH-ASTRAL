@@ -29,6 +29,7 @@ methods:
     bipartition_strategies: [] # defaults to mp4_trees + ga_trees
   wastral: {}
   camus:
+    outgroup_label: OUT # must equal simulation.outgroup_label
     guide_trees:
       - pch_astral3
       - pch_wastral

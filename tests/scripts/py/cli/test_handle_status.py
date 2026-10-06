@@ -123,7 +123,14 @@ def test_compute_status_counts_each_guide_tree(tmp_path: Path) -> None:
     # One guide finishing must not mark the other done.
     cond = tmp_path / "cond_a"
     paths = [cond / "sim_1.csv", cond / "sim_2.csv"]
-    units = _units({"camus": {"guide_trees": ["true_tree", "pch_astral3"]}})
+    units = _units(
+        {
+            "camus": {
+                "guide_trees": ["true_tree", "pch_astral3"],
+                "outgroup_label": "OUT",
+            }
+        }
+    )
     hashes = {label: h for label, _, h in units}
 
     done: dict[DatasetKey, set[tuple[str, str]]] = {

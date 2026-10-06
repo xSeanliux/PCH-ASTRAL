@@ -1,9 +1,10 @@
 """Print the guide tree for one dataset: binary topology, rooted on the outgroup.
 
-    python3 -m scripts.py.guide_tree --guide pch_astral3 --input <dataset.csv> --output <output_dir>
+    python3 -m scripts.py.guide_tree --guide pch_astral3 --input <dataset.csv> \
+        --output <output_dir> --outgroup <label>
 
-A method guide is that method's point estimate for the dataset. `true_tree` is the
-dataset's base tree. The outgroup is the one recorded for the dataset's model tree.
+A method guide is that method's point estimate for the dataset, so any dataset
+works. `true_tree` is the base tree of a simulated dataset.
 """
 
 import argparse
@@ -21,24 +22,23 @@ from scripts.lib.utils import resolve_polytomies, tree_to_newick
 from scripts.py.cli.schemata import MODEL_GRAPH_REGISTRY, SIMULATED_DATA_REGISTRY_SCHEMA
 
 
-def root_topology(newick: str, outgroup_label: str | None) -> str:
-    """`newick` as a binary topology, rooted on `outgroup_label` if given.
+def root_topology(newick: str, outgroup_label: str) -> str:
+    """`newick` as a binary topology, rooted on `outgroup_label`.
 
     Polytomies are resolved arbitrarily (seeded): CAMUS needs a binary guide.
 
     :raises ValueError: if the outgroup is not a leaf of the tree.
     """
     tree = Phylo.read(StringIO(newick), "newick")
-    if outgroup_label is not None:
-        if outgroup_label not in {t.name for t in tree.get_terminals()}:
-            raise ValueError(f"outgroup {outgroup_label!r} is not in the tree")
-        tree.root_with_outgroup(outgroup_label)
+    if outgroup_label not in {t.name for t in tree.get_terminals()}:
+        raise ValueError(f"outgroup {outgroup_label!r} is not in the tree")
+    tree.root_with_outgroup(outgroup_label)
     resolve_polytomies(tree)
     return tree_to_newick(tree).strip()
 
 
-def find_base_tree(input_csv: Path) -> tuple[str, str | None]:
-    """(newick, outgroup label or None) of the base tree `input_csv` was simulated from.
+def find_base_tree(input_csv: Path) -> str:
+    """Newick of the base tree a simulated dataset was simulated from.
 
     :raises ValueError: if the dataset is outside an experiment, or it or its base
         tree is not registered.
@@ -64,18 +64,18 @@ def find_base_tree(input_csv: Path) -> tuple[str, str | None]:
     rows = datasets.select("model_tree").join(base_trees, on="model_tree")
     if rows.height == 0:
         raise ValueError(f"No registered base tree for {input_csv}")
-    row = rows.row(0, named=True)
-    return Path(row["path"]).read_text().strip(), row["outgroup_label"]
+    return Path(rows["path"][0]).read_text().strip()
 
 
-def build_guide_newick(guide: GuideTree, input_csv: Path, output_dir: Path) -> str:
-    """The rooted binary guide tree for one dataset.
+def build_guide_newick(
+    guide: GuideTree, input_csv: Path, output_dir: Path, outgroup_label: str
+) -> str:
+    """The guide tree for one dataset, rooted on `outgroup_label`.
 
     :param guide: `true_tree` or the tree method whose estimate guides.
     """
-    base_tree, outgroup_label = find_base_tree(input_csv)
     if guide == TRUE_TREE:
-        return root_topology(base_tree, outgroup_label)
+        return root_topology(find_base_tree(input_csv), outgroup_label)
     estimate = METHOD_TO_RUNNER_CLASS[guide].get_point_estimate_path(
         output_dir, input_csv.stem
     )
@@ -93,9 +93,10 @@ def main() -> None:
     )
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--outgroup", required=True)
     args = parser.parse_args()
     guide = TRUE_TREE if args.guide == TRUE_TREE else TreeInferenceMethod(args.guide)
-    print(build_guide_newick(guide, args.input, args.output))
+    print(build_guide_newick(guide, args.input, args.output, args.outgroup))
 
 
 if __name__ == "__main__":

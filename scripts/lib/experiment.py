@@ -85,6 +85,7 @@ class GAConfig(RunnableConfig):
 
 class CamusConfig(RunnableConfig):
     guide_trees: frozenset[GuideTree] = Field(min_length=1)
+    outgroup_label: str  # every guide is rooted on it
 
     @field_validator("guide_trees")
     @classmethod
@@ -106,7 +107,11 @@ class CamusConfig(RunnableConfig):
         match a single-guide YAML exactly.
         """
         return [
-            CamusRunner(config=CamusConfig(guide_trees=frozenset({g})))
+            CamusRunner(
+                config=CamusConfig(
+                    guide_trees=frozenset({g}), outgroup_label=self.outgroup_label
+                )
+            )
             for g in sorted(self.guide_trees)
         ]
 
@@ -140,11 +145,12 @@ class ExperimentConfig(BaseModel):
     methods: MethodConfig
 
     @model_validator(mode="after")
-    def _require_outgroup_for_camus(self) -> "ExperimentConfig":
-        """:raises ValueError: if CAMUS runs without an outgroup to root guides on."""
-        if self.methods.camus is not None and self.simulation.outgroup_label is None:
+    def _match_camus_outgroup(self) -> "ExperimentConfig":
+        """:raises ValueError: if CAMUS roots on a taxon the simulation doesn't graft."""
+        camus = self.methods.camus
+        if camus is not None and camus.outgroup_label != self.simulation.outgroup_label:
             raise ValueError(
-                "methods.camus needs simulation.outgroup_label: "
-                "CAMUS guide trees are rooted on the outgroup."
+                f"methods.camus.outgroup_label ({camus.outgroup_label!r}) must equal "
+                f"simulation.outgroup_label ({self.simulation.outgroup_label!r})."
             )
         return self
