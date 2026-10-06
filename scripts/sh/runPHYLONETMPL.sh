@@ -52,11 +52,13 @@ python3 -m scripts.py.phylonet_mpl_nexus --input "$INPUT" --output "$TREEOUTPUT"
 echo "✅ NEXUS: $(grep -c '^Tree gt' "$NEXUS") rooted quartets, $(grep -o 'InferNetwork_MPL (all) [0-9]*' "$NEXUS")"
 
 # ponytail: no wall-clock cap here; the scheduler's job limit is the cap.
-# PhyloNet writes logfile.txt to its cwd, so give each run its own. stdout
-# echoes every gene tree id; keep it out of the log.
+# PhyloNet logs every proposal to logfile.txt in its cwd (~150 MB/h): run in
+# its own dir with that file sent to /dev/null. stdout echoes every gene tree
+# id; keep it out of the log too.
 JAR="$PWD/bin/PhyloNet.jar"
-mkdir -p "$PCH_SCRATCH/phylonet_mpl_$RUNID"
-(cd "$PCH_SCRATCH/phylonet_mpl_$RUNID" && java -jar "$JAR" "$NEXUS" > /dev/null) || exit 1
+RUNDIR="$PCH_SCRATCH/phylonet_mpl_$RUNID"
+mkdir -p "$RUNDIR" && ln -sf /dev/null "$RUNDIR/logfile.txt"
+(cd "$RUNDIR" && java -jar "$JAR" "$NEXUS" > /dev/null) || exit 1
 
 # Best network = first newick in the result; strip lengths and inheritance
 # probabilities (CmpNets wants topology only).
