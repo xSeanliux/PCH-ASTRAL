@@ -56,9 +56,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     for r in runs.iter_rows(named=True):
         (guide,) = CamusConfig.model_validate_json(r["method_config_json"]).guide_trees
         family = pl.read_csv(
-            r["group_estimate_path"],
-            columns=list(CAMUS_TO_COLUMN),
-            schema_overrides={"Number of Branches": pl.Int64},
+            r["group_estimate_path"], columns=list(CAMUS_TO_COLUMN)
         ).rename(CAMUS_TO_COLUMN)
         families.append(
             family.with_columns(
