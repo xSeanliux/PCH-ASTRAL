@@ -18,8 +18,9 @@ class NetworkInferenceMethod(InferenceMethod):
 
 
 class RunStatus(StrEnum):
-    OK = "ok"  # the inference command exited 0
+    OK = "ok"  # the command exited 0
     FAILED = "failed"  # non-zero exit
+    TIMEOUT = "timeout"  # killed past its time limit (network scoring only)
 
 
 class ConsensusMethod(StrEnum):

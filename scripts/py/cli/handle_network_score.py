@@ -23,7 +23,7 @@ from scripts.lib.inference.scoring import (
     score_network,
     resolve_reference_network,
 )
-from scripts.lib.model.methods import NetworkInferenceMethod
+from scripts.lib.model.methods import NetworkInferenceMethod, RunStatus
 from scripts.py.cli.schemata import (
     INFERENCE_REGISTRY_SCHEMA,
     NETWORK_SCORES_SCHEMA,
@@ -117,12 +117,16 @@ def handle_network_score(config: ExperimentConfig) -> Path:
                     experiment_folder, r["horizontal_edges"], r["model_tree"]
                 )
                 s = score_network(r["network_newick"], ref)
-                row |= {"fn_rate": s.fn_rate, "fp_rate": s.fp_rate, "status": "ok"}
+                row |= {
+                    "fn_rate": s.fn_rate,
+                    "fp_rate": s.fp_rate,
+                    "status": RunStatus.OK.value,
+                }
             except subprocess.TimeoutExpired:
-                row["status"] = "timeout"
+                row["status"] = RunStatus.TIMEOUT.value
                 print(f"[yellow]Timed out: {label}[/yellow]")
             except Exception as e:  # noqa: BLE001 — one bad score must not abort the pass
-                row["status"] = "failed"
+                row["status"] = RunStatus.FAILED.value
                 print(f"[yellow]Scoring failed for {label}: {e}[/yellow]")
             row["runtime_seconds"] = time.perf_counter() - t0
             print(f"{row['status']} {label} in {row['runtime_seconds']:.1f}s")
