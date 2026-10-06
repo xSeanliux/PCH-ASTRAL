@@ -77,7 +77,7 @@ consensus** (`consensus(trees, p=0.5, rooted=FALSE)` in `scripts/R/consensusTree
 which collapses every bipartition under 50% support — polytomies are what it is
 *for*. Real output: `(t21,t28,t23)`, `(t5,t6,t7)`.
 
-**Don't paper over this by auto-resolving polytomies.** Preprocess deletes every
+**Cost of auto-resolving polytomies** (done anyway since #34 review; the allow-list keeps it rare): Preprocess deletes every
 quartet the constraint tree already displays (`preprocess.go:51-57`), so an
 invented resolution deletes quartets the data never supported — suppressing
 conflicting signal exactly where support was weakest, which is where reticulation

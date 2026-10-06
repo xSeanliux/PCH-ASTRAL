@@ -1,4 +1,3 @@
-import argparse
 from io import StringIO
 from pathlib import Path
 
@@ -9,13 +8,7 @@ from Bio import Phylo
 from scripts.lib.inference.runners import ASTRAL3Runner
 from scripts.lib.model.guide_tree import TRUE_TREE
 from scripts.lib.model.methods import TreeInferenceMethod
-from scripts.py.guide_tree import (
-    build_guide_newick,
-    find_experiment,
-    find_model_tree,
-    parse_guide,
-    root_topology,
-)
+from scripts.py.guide_tree import build_guide_newick, find_base_tree, root_topology
 
 BASE_TREE = "(((t1:0.1,t2:0.1):0.2,(t3:0.1,t4:0.1):0.2):0.05,OUT:0.95);"
 # As ASTRAL writes it: unrooted, with support values and lengths.
@@ -84,10 +77,23 @@ def test_without_an_outgroup_the_root_stays_where_it_was():
     assert root_topology("((t1:1,t2:1):1,(t3:1,t4:1):1);", None) == "((t1,t2),(t3,t4));"
 
 
-def test_polytomies_are_kept():
-    rooted = root_topology("((t1,t2,t3),(t4,OUT));", "OUT")
+def test_polytomies_are_resolved():
+    rooted = root_topology("((t1,t2,t3,t5),(t4,OUT));", "OUT")
     tree = Phylo.read(StringIO(rooted), "newick")
-    assert any(len(c.clades) == 3 for c in tree.get_nonterminals())
+    assert all(len(c.clades) == 2 for c in tree.get_nonterminals())
+    assert {t.name for t in tree.get_terminals()} == {
+        "t1",
+        "t2",
+        "t3",
+        "t4",
+        "t5",
+        "OUT",
+    }
+
+
+def test_resolution_is_deterministic():
+    newick = "((t1,t2,t3,t5),(t4,OUT));"
+    assert root_topology(newick, "OUT") == root_topology(newick, "OUT")
 
 
 def test_an_absent_outgroup_is_an_error():
@@ -95,15 +101,14 @@ def test_an_absent_outgroup_is_an_error():
         root_topology("((t1,t2),(t3,t4));", "OUT")
 
 
-def test_a_dataset_finds_its_experiment_and_model_tree(tmp_path: Path):
+def test_a_dataset_finds_its_base_tree_and_outgroup(tmp_path: Path):
     dataset, _ = _experiment(tmp_path)
-    assert find_experiment(dataset) == tmp_path.resolve()
-    assert find_model_tree(tmp_path, dataset) == 1
+    assert find_base_tree(dataset) == (BASE_TREE, "OUT")
 
 
 def test_a_dataset_outside_an_experiment_is_an_error(tmp_path: Path):
     with pytest.raises(ValueError, match="not inside an experiment"):
-        find_experiment(tmp_path / "loose.csv")
+        find_base_tree(tmp_path / "loose.csv")
 
 
 def test_true_tree_is_the_base_tree(tmp_path: Path):
@@ -125,14 +130,3 @@ def test_a_method_guide_is_that_methods_estimate_rooted(tmp_path: Path):
         {"OUT"},
         {"t1", "t2", "t3", "t4"},
     ]
-
-
-def test_guide_parses_true_tree_and_methods():
-    assert parse_guide("true_tree") == TRUE_TREE
-    assert parse_guide("pch_wastral") is TreeInferenceMethod.PCH_WASTRAL
-
-
-@pytest.mark.parametrize("value", ["mp", "ga", "pch_w_tree_qmc", "astral3", "camus"])
-def test_guide_rejects_unsupported(value: str):
-    with pytest.raises(argparse.ArgumentTypeError, match="not a guide"):
-        parse_guide(value)

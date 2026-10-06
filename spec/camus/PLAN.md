@@ -201,8 +201,8 @@ python3 -m scripts.py.guide_tree --guide pch_astral3 --input <dataset.csv> --out
 - Rooting is `Tree.root_with_outgroup()` from Biopython. It changes nothing on a tree
   already rooted there. With no outgroup recorded, the root stays where it was.
 - Output is topology only: no lengths, no support values.
-- Polytomies are kept, never resolved. CAMUS then rejects the tree, which is the
-  honest outcome.
+- Polytomies are resolved arbitrarily (seeded `utils.resolve_polytomies`), per #34 review.
+  Allowed guides are binary today, so this rarely fires.
 
 **B. `scripts/sh/runCAMUS.sh`**, on the `runWTREEQMC.sh` skeleton. Flags:
 `--runid --input --name --output --guide-tree`. Steps:
