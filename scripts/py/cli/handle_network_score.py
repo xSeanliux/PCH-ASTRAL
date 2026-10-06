@@ -100,7 +100,13 @@ def handle_network_score(config: ExperimentConfig) -> Path:
     try:
         for r in joined.iter_rows(named=True):
             key = tuple(r[c] for c in KEY_COLUMNS)
-            if key in already or not r["network_newick"]:
+            # No reference yet: skip, so a later pass can score it (failures stick).
+            if (
+                key in already
+                or not r["network_newick"]
+                or r["model_tree"] is None
+                or r["horizontal_edges"] is None
+            ):
                 continue
             already.add(key)  # a duplicate sim `path` row fans the join out
             row: dict[str, Cell] = {c: r[c] for c in KEY_COLUMNS} | {
