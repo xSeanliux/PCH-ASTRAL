@@ -6,6 +6,7 @@ import pytest
 
 from scripts.lib.inference.scoring import (
     PHYLONET_JAR,
+    find_model_graph,
     score_network,
     resolve_reference_network,
     score,
@@ -65,8 +66,25 @@ def test_resolve_reference_network_reads_the_registered_file(tmp_path: Path):
         }
     ).write_csv(tmp_path / "simulation_data" / "model_graph_registry.csv")
     assert resolve_reference_network(tmp_path, 1, 1) == REF
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="0 model graphs"):
         resolve_reference_network(tmp_path, 2, 1)
+
+
+def test_find_model_graph_rejects_duplicates(tmp_path: Path):
+    (tmp_path / "simulation_data").mkdir()
+    pl.DataFrame(
+        {
+            "horizontal_edges": [1, 1],
+            "model_tree": [1, 1],
+            "path": ["a", "b"],
+            "outgroup_label": ["OUT"] * 2,
+            "outgroup_seed": [1] * 2,
+            "outgroup_branch_length": [1.0] * 2,
+            "ingroup_stem_length": [1.0] * 2,
+        }
+    ).write_csv(tmp_path / "simulation_data" / "model_graph_registry.csv")
+    with pytest.raises(ValueError, match="2 model graphs"):
+        find_model_graph(tmp_path, 1, 1)
 
 
 @needs_phylonet

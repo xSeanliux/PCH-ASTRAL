@@ -24,16 +24,17 @@ def find_model_graph(
 ) -> Path:
     """The model graph file for `(horizontal_edges, model_tree)`; h == 0 is the base tree.
 
-    :raises ValueError: if the registry has no such graph.
+    :raises ValueError: unless the registry has exactly one such graph.
     """
     reg = experiment_folder / "simulation_data" / "model_graph_registry.csv"
     df = pl.read_csv(reg, schema=MODEL_GRAPH_REGISTRY).filter(
         (pl.col("horizontal_edges") == horizontal_edges)
         & (pl.col("model_tree") == model_tree)
     )
-    if df.is_empty():
+    if df.height != 1:
         raise ValueError(
-            f"No model graph h={horizontal_edges}, model_tree={model_tree} in {reg}"
+            f"{df.height} model graphs for h={horizontal_edges}, "
+            f"model_tree={model_tree} in {reg}; want 1"
         )
     return Path(df["path"][0])
 
