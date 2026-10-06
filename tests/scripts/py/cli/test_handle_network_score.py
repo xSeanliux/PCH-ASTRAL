@@ -64,7 +64,10 @@ def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ExperimentConfig:
         schema=CAMUS_REGISTRY_SCHEMA,
     ).write_csv(tmp_path / "inference_data" / "camus_registry.csv")
     return ExperimentConfig.model_validate(
-        _config(tmp_path, methods={"camus": {"guide_trees": ["true_tree"]}})
+        _config(
+            tmp_path,
+            methods={"camus": {"guide_trees": ["true_tree"], "outgroup_label": "OUT"}},
+        )
     )
 
 
