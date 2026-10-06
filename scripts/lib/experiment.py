@@ -8,6 +8,7 @@ from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.camus import CamusRunner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
+from scripts.lib.inference.runners.snaq import SnaqRunner
 from scripts.lib.inference.runners.w_tree_qmc import WTreeQmcRunner
 from scripts.lib.inference.runners.wastral import WASTRALRunner
 from pathlib import Path
@@ -116,6 +117,12 @@ class CamusConfig(RunnableConfig):
         ]
 
 
+class SnaqConfig(RunnableConfig):
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
+        return [SnaqRunner(config=self)]
+
+
 class MethodConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     astral_3: ASTRAL3Config | None = Field(None)
@@ -124,6 +131,7 @@ class MethodConfig(BaseModel):
     mp4: MP4Config | None = Field(None)
     gray_atkinson: GAConfig | None = Field(None)
     camus: CamusConfig | None = Field(None)
+    snaq: SnaqConfig | None = Field(None)
 
     def get_enabled_configs(self) -> list[RunnableConfig]:
         """The configured methods, in field-declaration order."""
@@ -134,6 +142,7 @@ class MethodConfig(BaseModel):
             self.mp4,
             self.gray_atkinson,
             self.camus,
+            self.snaq,
         ]
         return [f for f in fields if f is not None]
 

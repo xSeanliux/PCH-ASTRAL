@@ -42,10 +42,13 @@ install-lingphylosimulator:
 install-camus:
 	@bash scripts/sh/installs/install_camus.sh
 
+install-snaq:
+	@bash scripts/sh/installs/install_snaq.sh
+
 install-phylonet:
 	@bash scripts/sh/installs/install_phylonet.sh
 
-install-bins: install-astral3 install-aster install-mrbayes install-paup install-w-tree-qmc install-lingphylosimulator install-camus install-phylonet
+install-bins: install-astral3 install-aster install-mrbayes install-paup install-w-tree-qmc install-lingphylosimulator install-camus install-phylonet install-snaq
 
 setup: install-uv
 	uv sync
