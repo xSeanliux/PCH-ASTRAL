@@ -128,6 +128,7 @@ simulation_data/                       # handle_simulation
 inference_data/
 ├─ inference_registry.csv              # registry.compact
 ├─ scores.csv                          # handle_score
+├─ network_scores.csv                  # handle_network_score
 ├─ manifest.json                       # registry.init/finalize_manifest
 ├─ shards/{job}.jsonl                  # registry.write_result; removed by compact
 ├─ batches/<cond>.txt, spec.snapshot.*.yaml   # SlurmExecutor

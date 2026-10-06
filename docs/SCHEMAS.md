@@ -10,6 +10,7 @@ erDiagram
   config_registry ||--o{ simulated_data_registry : "sim config key"
   simulated_data_registry ||--o{ inference_registry : "path = dataset_id"
   inference_registry ||--o| scores : "dataset_id, method, config_hash"
+  inference_registry ||--o{ network_scores : "dataset_id, method, config_hash"
 ```
 
 ## `model_graph_registry`
@@ -91,3 +92,21 @@ RF error of each point estimate against the base tree. Rows with an empty `point
 | `fp_rate` | Float64 | False-positive rate. |
 
 Join to the registry on the three key columns.
+
+## `network_scores`
+
+`inference_data/network_scores.csv` · writer `handle_network_score` · `NETWORK_SCORES_SCHEMA` · key `(dataset_id, method, config_hash, k)`
+
+PhyloNet `CmpNets -m cluster` of each network in a CAMUS run's family (its `group_estimate_path`) against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `dataset_id` | String | As in `inference_registry`. |
+| `method` | String | As in `inference_registry`. |
+| `guide_tree` | String | From `method_config_json`; not part of the key. |
+| `config_hash` | String | As in `inference_registry`. |
+| `k` | Int64 | Reticulations added (CAMUS's `Number of Branches`). |
+| `fn_rate` | Float64 | False-negative rate; null unless `ok`. |
+| `fp_rate` | Float64 | False-positive rate; null unless `ok`. |
+| `runtime_seconds` | Float64 | CmpNets wall time. |
+| `status` | String | `ok`, `failed` or `timeout`. |

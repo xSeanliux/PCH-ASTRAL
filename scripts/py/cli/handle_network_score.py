@@ -1,8 +1,9 @@
 """`pch experiment network-score` — CmpNets each network family row against its
 reference network.
 
-Reads camus_registry.csv, joins simulated_data_registry on dataset_id == path for
-(horizontal_edges, model_tree), writes inference_data/network_scores.csv. A key
+Reads each CAMUS run's family CSV (`group_estimate_path` in inference_registry), joins
+simulated_data_registry on dataset_id == path for (horizontal_edges, model_tree),
+writes inference_data/network_scores.csv. A key
 already in the file is kept, failed and timed-out rows included: a slow network
 stays visible and is not retried every run. Never touches inference rows.
 """
@@ -14,30 +15,66 @@ from pathlib import Path
 import polars as pl
 from rich import print
 
-from scripts.lib.experiment import ExperimentConfig
-from scripts.lib.inference import camus_registry, registry
+from scripts.lib.experiment import CamusConfig, ExperimentConfig
+from scripts.lib.inference import registry
 from scripts.lib.inference.registry import Cell
 from scripts.lib.inference.scoring import (
     PHYLONET_JAR,
     score_network,
     resolve_reference_network,
 )
+from scripts.lib.model.methods import NetworkInferenceMethod
 from scripts.py.cli.schemata import (
-    CAMUS_REGISTRY_SCHEMA,
+    INFERENCE_REGISTRY_SCHEMA,
     NETWORK_SCORES_SCHEMA,
     SIMULATED_DATA_REGISTRY_SCHEMA,
 )
 
 KEY_COLUMNS = ["dataset_id", "method", "config_hash", "k"]
+# CAMUS's family CSV header -> our column names.
+CAMUS_TO_COLUMN = {
+    "Number of Branches": "k",
+    "Quartet Satisfied Percent": "qsat_percent",
+    "Extended Newick": "network_newick",
+}
+
+
+def read_families(experiment_folder: Path) -> pl.DataFrame:
+    """One row per CAMUS network: every registered run's family, tagged with its run.
+
+    :raises AssertionError: if no CAMUS run is registered.
+    """
+    path = registry.registry_path(experiment_folder)
+    runs = (
+        pl.read_csv(path, schema=INFERENCE_REGISTRY_SCHEMA)
+        if path.exists()
+        else pl.DataFrame(schema=INFERENCE_REGISTRY_SCHEMA)
+    ).filter(pl.col("method") == NetworkInferenceMethod.CAMUS.value)
+    assert runs.height, (
+        f"No CAMUS runs in {path}. Run `pch experiment inference` first."
+    )
+    families = []
+    for r in runs.iter_rows(named=True):
+        (guide,) = CamusConfig.model_validate_json(r["method_config_json"]).guide_trees
+        family = pl.read_csv(
+            r["group_estimate_path"],
+            columns=list(CAMUS_TO_COLUMN),
+            schema_overrides={"Number of Branches": pl.Int64},
+        ).rename(CAMUS_TO_COLUMN)
+        families.append(
+            family.with_columns(
+                dataset_id=pl.lit(r["dataset_id"]),
+                method=pl.lit(r["method"]),
+                config_hash=pl.lit(r["config_hash"]),
+                guide_tree=pl.lit(str(guide)),
+            )
+        )
+    return pl.concat(families)
 
 
 def handle_network_score(config: ExperimentConfig) -> Path:
     """Score every unscored network family row and write network_scores.csv."""
     experiment_folder = config.experiment_folder
-    fam_csv = camus_registry.get_registry_path(experiment_folder)
-    assert fam_csv.exists(), (
-        f"No network family registry at {fam_csv}. Run `pch experiment inference` with camus first."
-    )
     sim_csv = experiment_folder / "simulation_data" / "simulated_data_registry.csv"
     assert sim_csv.exists(), f"No simulation registry at {sim_csv}."
     # Failed rows are never retried, so a missing jar must not mark every key failed.
@@ -51,7 +88,7 @@ def handle_network_score(config: ExperimentConfig) -> Path:
     )
     already = {tuple(r[c] for c in KEY_COLUMNS) for r in existing.iter_rows(named=True)}
 
-    fam = pl.read_csv(fam_csv, schema=CAMUS_REGISTRY_SCHEMA)
+    fam = read_families(experiment_folder)
     sim = pl.read_csv(sim_csv, schema=SIMULATED_DATA_REGISTRY_SCHEMA).select(
         pl.col("path").map_elements(registry.canonical_path, return_dtype=pl.String),
         "horizontal_edges",

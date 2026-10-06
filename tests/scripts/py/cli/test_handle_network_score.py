@@ -8,7 +8,7 @@ import scripts.py.cli.handle_network_score as hns
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference.scoring import ScoreResult
 from scripts.py.cli.handle_network_score import handle_network_score
-from scripts.py.cli.schemata import CAMUS_REGISTRY_SCHEMA, NETWORK_SCORES_SCHEMA
+from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA, NETWORK_SCORES_SCHEMA
 
 from tests.scripts.py.cli.test_handle_inference import _config
 
@@ -49,20 +49,28 @@ def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ExperimentConfig:
             "path": [str(dataset)],
         }
     ).write_csv(tmp_path / "simulation_data" / "simulated_data_registry.csv")
-    (tmp_path / "inference_data").mkdir()
+    family = (
+        tmp_path / "inference_data" / "CAMUS" / "networks" / "sim_1_1_1.true_tree.csv"
+    )
+    family.parent.mkdir(parents=True)
     pl.DataFrame(
         {
-            "dataset_id": [str(dataset)] * 2,
-            "method": ["camus"] * 2,
-            "guide_tree": ["true_tree"] * 2,
-            "config_hash": ["h"] * 2,
-            "ran_at": ["2026-09-29T00:00:00+00:00"] * 2,
-            "k": [0, 1],
-            "qsat_percent": [0.0, 50.0],
-            "network_newick": NEWICKS,
-        },
-        schema=CAMUS_REGISTRY_SCHEMA,
-    ).write_csv(tmp_path / "inference_data" / "camus_registry.csv")
+            "Number of Branches": [0, 1],
+            "Quartet Satisfied Percent": [0.0, 50.0],
+            "Extended Newick": NEWICKS,
+        }
+    ).write_csv(family)
+    run = dict.fromkeys(INFERENCE_REGISTRY_SCHEMA, None) | {
+        "dataset_id": str(dataset),
+        "method": "camus",
+        "config_hash": "h",
+        "method_config_json": '{"guide_trees":["true_tree"],"outgroup_label":"OUT"}',
+        "group_estimate_path": str(family),
+        "status": "ok",
+    }
+    pl.DataFrame([run], schema=INFERENCE_REGISTRY_SCHEMA).write_csv(
+        tmp_path / "inference_data" / "inference_registry.csv"
+    )
     return ExperimentConfig.model_validate(
         _config(
             tmp_path,
@@ -92,9 +100,10 @@ def test_writes_scores(tmp_path: Path, monkeypatch):
     assert all(t >= 0 for t in df["runtime_seconds"].to_list())
     assert [e for e, _ in seen] == NEWICKS
     assert {r for _, r in seen} == {"((((A,((B)#H2,#H1)),((C)#H1,#H2)),(D,E)),OUT);"}
-    # Scoring is its own stage: reads the family registry, writes one file.
+    # Scoring is its own stage: reads the families, writes one file.
     assert {p.name for p in (tmp_path / "inference_data").iterdir()} == {
-        "camus_registry.csv",
+        "CAMUS",
+        "inference_registry.csv",
         "network_scores.csv",
     }
 

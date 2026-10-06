@@ -192,7 +192,7 @@ def score_experiment(config_path: Path):
 def score_networks_experiment(config_path: Path):
     """CmpNets every network family row against its reference network."""
     out = handle_network_score(_get_experiment_config(config_path))
-    print(f"Network scores in [green]{out}[/green] (join to camus_registry.csv).")
+    print(f"Network scores in [green]{out}[/green].")
 
 
 @experiment.command()
