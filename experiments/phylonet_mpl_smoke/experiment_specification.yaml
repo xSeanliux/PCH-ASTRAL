@@ -1,0 +1,25 @@
+# Smoke test for PhyloNet-MPL(FT): networks with 1 and 2 contact events.
+#
+# phylonet_mpl fixes the pch_wastral tree, rooted on the outgroup, and adds one
+# reticulation; wastral must be enabled too (it becomes a scheduler dependency).
+experiment_folder: experiments/phylonet_mpl_smoke
+simulation:
+  n_taxa: 30
+  outgroup_label: OUT # required: gene trees and the start tree are rooted on it
+  n_horizontal_edges:
+    - 1
+    - 2
+  n_trees: 1
+  n_replicas: 1 # one dataset per h: MPL takes hours at 31 taxa
+  base_config_dir: data/base_configs
+  base_trees_file: data/trees.txt
+  base_networks_dir: data/base_networks
+  simulation_params:
+    - poly: high
+      homoplasy_factor: 0.1
+      tree_height: 4
+      n_chars: 80
+
+methods:
+  wastral: {} # the start tree
+  phylonet_mpl: {}
