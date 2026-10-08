@@ -26,7 +26,10 @@ def _config(folder: Path) -> ExperimentConfig:
             "methods": {
                 "mp4": {},
                 "gray_atkinson": {},
-                "astral_3": {"is_exact": False},  # heuristic ⇒ deps on MP4+GA
+                "astral_3": {
+                    "is_exact": False,
+                    "bipartition_strategies": ["mp4_trees", "ga_trees"],
+                },  # ⇒ deps on MP4+GA
             },
         }
     )

@@ -2,6 +2,23 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## `bipartition_strategies: []` means no extra trees
+
+**Affects:** heuristic ASTRAL3 configs with an empty or missing `bipartition_strategies`. It used to mean `mp4_trees` + `ga_trees`; now ASTRAL runs on the quartets alone. The `config_hash` is unchanged, so old rows would wrongly count as done.
+
+To keep the old behaviour, list both strategies in the YAML (this gives a new hash, so the runs rerun). To keep the new behaviour, drop the old ASTRAL3 rows whose `method_config_json` has `"bipartition_strategies":[]` and `"is_exact":false`:
+
+```python
+import polars as pl
+
+p = "experiments/my_run/inference_data/inference_registry.csv"
+df = pl.read_csv(p, infer_schema=False)
+old = (pl.col("method") == "pch_astral3") & pl.col("method_config_json").str.contains(
+    '"bipartition_strategies":[],"is_exact":false', literal=True
+)
+df.filter(~old).write_csv(p)
+```
+
 ## `outgroup` renamed `outgroup_label`
 
 **Affects:** YAML `simulation.outgroup:` and `simulation_data/model_graph_registry.csv`. No read-time shim; old files fail the schema.

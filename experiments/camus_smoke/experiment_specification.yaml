@@ -22,11 +22,9 @@ simulation:
       n_chars: 80
 
 methods:
-  mp4: {} # astral_3's bipartitions
-  gray_atkinson: {} # ditto
   astral_3:
     is_exact: false
-    bipartition_strategies: [] # defaults to mp4_trees + ga_trees
+    bipartition_strategies: [] # quartets only, no extra trees
   wastral: {}
   camus:
     outgroup_label: OUT # must equal simulation.outgroup_label
