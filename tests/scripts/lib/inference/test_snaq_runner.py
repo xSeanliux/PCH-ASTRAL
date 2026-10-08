@@ -28,18 +28,21 @@ def test_build_argv(tmp_path: Path):
     assert argv[argv.index("--input") + 1] == str(tmp_path / "d.csv")
 
 
-def test_infer_records_the_network_as_group_estimate(
+def test_infer_records_best_network_and_alternatives(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    network = SnaqRunner.get_group_estimate_path(tmp_path, "d")
+    best = SnaqRunner.get_point_estimate_path(tmp_path, "d")
+    alternatives = SnaqRunner.get_group_estimate_path(tmp_path, "d")
+    newick = "((A,(B)#H1),(C,(D,#H1)),OUT);"
 
     def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
-        network.parent.mkdir(parents=True, exist_ok=True)
-        network.write_text("((A,(B)#H1),(C,(D,#H1)),OUT);\n")
+        best.parent.mkdir(parents=True, exist_ok=True)
+        best.write_text(newick + "\n")
+        alternatives.write_text(newick + ", with -loglik 1.0\n")
         return subprocess.CompletedProcess(argv, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     result = api.infer(tmp_path / "d.csv", tmp_path, SnaqRunner(SnaqConfig()))
     assert result.status is RunStatus.OK
-    assert result.point_estimate_newick == ""
-    assert result.group_estimate_path == str(network)
+    assert result.point_estimate_newick == newick
+    assert result.group_estimate_path == str(alternatives)

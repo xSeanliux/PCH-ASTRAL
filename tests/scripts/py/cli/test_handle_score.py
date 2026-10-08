@@ -4,13 +4,14 @@ from pathlib import Path
 import polars as pl
 
 from scripts.lib.experiment import ExperimentConfig
-from scripts.lib.inference import api
+from scripts.lib.inference import api, registry
 from scripts.lib.inference.inference import InferenceResult
 from scripts.lib.model.methods import RunStatus
 from scripts.lib.inference.scoring import ScoreResult
 import scripts.py.cli.handle_score as hs
 from scripts.py.cli.handle_inference import handle_inference
 from scripts.py.cli.handle_score import handle_score
+from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA
 
 from tests.scripts.py.cli.test_handle_inference import _config
 
@@ -108,6 +109,39 @@ def test_handle_score_dedups_duplicate_sim_rows(tmp_path: Path, monkeypatch):
 
     assert len(calls) == 1  # scored once despite the duplicate sim row
     assert pl.read_csv(out).height == 1  # one score row, not one per duplicate
+
+
+def test_handle_score_skips_networks(tmp_path: Path, monkeypatch):
+    # SNaQ's point estimate is a network; RF scoring would fail on it.
+    cfg = _setup(tmp_path)
+
+    def fake_infer(input_csv, output_dir, runner):
+        return InferenceResult(
+            dataset_id=str(input_csv),
+            method=runner.method,
+            config_hash="hash",
+            method_config_json="{}",
+            point_estimate_newick="(A,B);",
+            runtime_seconds=1.0,
+            status=RunStatus.OK,
+            ran_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    monkeypatch.setattr(api, "infer", fake_infer)
+    handle_inference(cfg)
+    reg = registry.registry_path(tmp_path)
+    inf = pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA)
+    snaq = inf.with_columns(
+        method=pl.lit("snaq"), point_estimate_newick=pl.lit("((A,(B)#H1),#H1);")
+    )
+    pl.concat([inf, snaq]).write_csv(reg)
+
+    seen: list[str] = []
+    monkeypatch.setattr(
+        hs, "score", lambda est, ref: seen.append(est) or ScoreResult(0, 0)
+    )
+    handle_score(cfg)
+    assert seen == ["(A,B);"]
 
 
 def test_handle_score_incremental(tmp_path: Path, monkeypatch):

@@ -42,14 +42,14 @@ class SnaqRunner(Runner["SnaqConfig"]):
         ]
 
     @staticmethod
-    def get_point_estimate_path(output_dir: Path, name: str) -> None:
-        # A network, not a tree: kept off the point estimate so tree scoring skips it.
-        return None
+    def get_point_estimate_path(output_dir: Path, name: str) -> Path:
+        """The best network, Rich newick; `run_snaq.jl` writes it."""
+        return output_dir / "SNAQ" / "networks" / f"{name}.net"
 
     @staticmethod
     def get_group_estimate_path(output_dir: Path, name: str) -> Path:
-        """One Rich newick network."""
-        return output_dir / "SNAQ" / "networks" / f"{name}.net"
+        """SNaQ's alternatives to the best network, each with its -loglik."""
+        return output_dir / "SNAQ" / "networks" / f"{name}.networks"
 
     @staticmethod
     def get_log_path(output_dir: Path, name: str) -> Path:

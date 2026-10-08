@@ -170,20 +170,19 @@ def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
 
 def test_scores_a_snaq_network_without_annotations(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path, monkeypatch)
-    net = tmp_path / "inference_data" / "SNAQ" / "networks" / "sim_1_1_1.net"
-    net.parent.mkdir(parents=True)
-    net.write_text("(OUT,((C:1.2,(B)#H7:::0.8):0.5,((A,#H7:::0.2),(D,E):10.0)));\n")
+    newick = "(OUT,((C:1.2,(B)#H7:::0.8):0.5,((A,#H7:::0.2),(D,E):10.0)));"
     reg = tmp_path / "inference_data" / "inference_registry.csv"
     camus = pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA)
     snaq = camus.with_columns(
         method=pl.lit("snaq"),
         method_config_json=pl.lit("{}"),
-        group_estimate_path=pl.lit(str(net)),
+        point_estimate_newick=pl.lit(newick),
     )
-    tree = camus.with_columns(  # the start tree's run: not a network, no estimate path
-        method=pl.lit("pch_wastral"), group_estimate_path=pl.lit(None, pl.String)
+    failed = snaq.with_columns(  # a failed run wrote nothing
+        config_hash=pl.lit("failed"), status=pl.lit("failed")
     )
-    pl.concat([camus, snaq, tree]).write_csv(reg)
+    tree = camus.with_columns(method=pl.lit("pch_wastral"))  # not a network
+    pl.concat([camus, snaq, failed, tree]).write_csv(reg)
     seen: list[str] = []
     monkeypatch.setattr(
         hns, "score_network", lambda est, ref: seen.append(est) or ScoreResult(0, 0)

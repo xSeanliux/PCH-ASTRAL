@@ -17,6 +17,7 @@ from rich import print
 from scripts.lib.experiment import ExperimentConfig
 from scripts.lib.inference import registry
 from scripts.lib.inference.scoring import resolve_reference_newick, score
+from scripts.lib.model.methods import TreeInferenceMethod
 from scripts.py.cli.schemata import (
     INFERENCE_REGISTRY_SCHEMA,
     SCORES_SCHEMA,
@@ -51,7 +52,10 @@ def handle_score(config: ExperimentConfig) -> Path:
         pl.col("path").map_elements(registry.canonical_path, return_dtype=pl.String),
         "model_tree",
     )
-    joined = inf.join(sim, left_on="dataset_id", right_on="path")
+    # A network's point estimate (SNaQ) is network-score's, not RF's.
+    joined = inf.filter(
+        pl.col("method").is_in([m.value for m in TreeInferenceMethod])
+    ).join(sim, left_on="dataset_id", right_on="path")
 
     # TODO: parallelize — scoring is independent per row but runs sequentially,
     # so a full pass is one Rscript subprocess per estimate (~2s each, hours at

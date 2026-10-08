@@ -1,8 +1,8 @@
 """`pch experiment network-score` — CmpNets each network family row against its
 reference network.
 
-Reads each CAMUS run's family CSV and SNaQ run's network (`group_estimate_path` in
-inference_registry), joins
+Reads each CAMUS run's family CSV (`group_estimate_path` in inference_registry) and
+SNaQ run's network (`point_estimate_newick`), joins
 simulated_data_registry on dataset_id == path for (horizontal_edges, model_tree),
 writes inference_data/network_scores.csv. A key
 already in the file is kept, failed and timed-out rows included: a slow network
@@ -44,9 +44,9 @@ CAMUS_TO_COLUMN = {
 _ANNOTATION = re.compile(r":[^,();]*")
 
 
-def read_network(path: Path) -> pl.DataFrame:
-    """A one-network file as a one-row family; `edges_added` counts its hybrids."""
-    newick = _ANNOTATION.sub("", path.read_text().strip())
+def newick_to_family(newick: str) -> pl.DataFrame:
+    """One network as a one-row family; `edges_added` counts its hybrids."""
+    newick = _ANNOTATION.sub("", newick)
     edges_added = len(set(re.findall(r"#H\d+", newick)))
     return pl.DataFrame({"edges_added": [edges_added], "network_newick": [newick]})
 
@@ -63,7 +63,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
         else pl.DataFrame(schema=INFERENCE_REGISTRY_SCHEMA)
     ).filter(
         pl.col("method").is_in([m.value for m in NetworkInferenceMethod])
-        & pl.col("group_estimate_path").is_not_null()  # failed runs wrote none
+        & (pl.col("status") == RunStatus.OK.value)  # failed runs wrote nothing
     )
     assert runs.height, (
         f"No network runs in {path}. Run `pch experiment inference` first."
@@ -72,7 +72,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     for r in runs.iter_rows(named=True):
         guide = None  # SNaQ has none
         if r["method"] == NetworkInferenceMethod.SNAQ.value:
-            family = read_network(Path(r["group_estimate_path"]))
+            family = newick_to_family(r["point_estimate_newick"])
         else:
             config = CamusConfig.model_validate_json(r["method_config_json"])
             (guide,) = config.guide_trees
