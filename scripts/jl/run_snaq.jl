@@ -1,6 +1,7 @@
 # SNaQ as the CAMUS paper ran it (gist.github.com/jsdoublel/870d2b53e55b105a7954a7b4db291d60):
 # CFs counted from gene trees, search from a start tree. Env JULIA_PROJECT=scripts/jl.
-# Usage: run_snaq.jl <gene_trees> <start_tree> <out_prefix> <hmax> <outgroup> <runs> <procs>
+const USAGE = "usage: run_snaq.jl <gene_trees> <start_tree> <out_prefix> <hmax> <outgroup> <runs> <procs>"
+length(ARGS) == 7 || (println(stderr, USAGE); exit(1))
 using Distributed
 gtrees_path, start_path, prefix, hmax, outgroup, runs, procs = ARGS
 parse(Int, procs) > 1 && addprocs(parse(Int, procs))  # one SNaQ run per worker
