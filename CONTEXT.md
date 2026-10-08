@@ -36,6 +36,10 @@ _Avoid_: Constraint tree (CAMUS's own term; use only when quoting it)
 The number of contact edges a network method added to the guide tree.
 _Avoid_: Number of branches
 
+**Tree of blobs**:
+A network's tree with each blob (cycle-bearing region) contracted to one node; TOB-QMC's estimate. Unrooted, may have polytomies.
+_Avoid_: TOB (except as TOB-QMC)
+
 **Network family**:
 All networks from one inference run, one per k, starting at k = 0 (the guide tree).
 _Avoid_: Point estimate, per-k output

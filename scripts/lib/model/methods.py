@@ -15,6 +15,7 @@ class TreeInferenceMethod(InferenceMethod):
 
 class NetworkInferenceMethod(InferenceMethod):
     CAMUS = "camus"
+    TOB_QMC = "tob_qmc"  # tree of blobs: a network summary, not a species tree
 
 
 class RunStatus(StrEnum):

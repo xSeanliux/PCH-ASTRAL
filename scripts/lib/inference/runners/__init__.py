@@ -10,6 +10,7 @@ from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.camus import CamusRunner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
+from scripts.lib.inference.runners.tob_qmc import TobQmcRunner
 from scripts.lib.inference.runners.w_tree_qmc import WTreeQmcRunner
 from scripts.lib.inference.runners.wastral import WASTRALRunner
 
@@ -23,6 +24,7 @@ METHOD_TO_RUNNER_CLASS: dict[InferenceMethod, type[Runner[BaseModel]]] = {
     TreeInferenceMethod.PCH_W_TREE_QMC: WTreeQmcRunner,
     TreeInferenceMethod.PCH_WASTRAL: WASTRALRunner,
     NetworkInferenceMethod.CAMUS: CamusRunner,
+    NetworkInferenceMethod.TOB_QMC: TobQmcRunner,
 }
 
 __all__ = [
@@ -33,5 +35,6 @@ __all__ = [
     "WTreeQmcRunner",
     "CamusRunner",
     "WASTRALRunner",
+    "TobQmcRunner",
     "METHOD_TO_RUNNER_CLASS",
 ]
