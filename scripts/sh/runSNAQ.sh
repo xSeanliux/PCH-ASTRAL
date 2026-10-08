@@ -52,9 +52,7 @@ python3 -m scripts.py.guide_tree --guide pch_wastral --input "$INPUT" --output "
     --outgroup "$OUTGROUP" > "$SCRATCH_START_PATH" || exit 1
 echo "✅ start tree (pch_wastral)"
 
-# ponytail: runs fixed at 10 (SNaQ default; the paper used one per core, 32), killed
-# after 12 h (the paper's limit) so a hopeless search fails instead of hanging.
-# One run is ~20 min at 12 taxa, hours at 31; PCH_SNAQ_PROCS=10 runs all 10 at once.
+# 10 runs (SNaQ default; paper: 32), killed after 12 h (paper's limit).
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.." && pwd)"
 JULIA_DEPOT_PATH="$REPO_ROOT/bin/julia-depot" JULIA_PROJECT="$REPO_ROOT/scripts/jl" \
     perl -e 'alarm shift; exec @ARGV' 43200 \
