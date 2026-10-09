@@ -99,3 +99,9 @@ def test_score_network_plain_tree_has_fn():
     s = score_network("((((A,B),C),(D,E)),OUT);", REF)
     assert s.fn_rate == pytest.approx(1 / 3)
     assert s.fp_rate == 0.0
+
+
+@needs_phylonet
+def test_score_network_strips_estimate_annotations():
+    s = score_network("((((A:1,B:2):0.5,C),(D,E)),OUT:3);", REF)
+    assert s.fn_rate == pytest.approx(1 / 3)

@@ -50,14 +50,18 @@ def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ExperimentConfig:
         }
     ).write_csv(tmp_path / "simulation_data" / "simulated_data_registry.csv")
     family = (
-        tmp_path / "inference_data" / "CAMUS" / "networks" / "sim_1_1_1.true_tree.csv"
+        tmp_path
+        / "inference_data"
+        / "CAMUS"
+        / "networks"
+        / "sim_1_1_1.true_tree.family.csv"
     )
     family.parent.mkdir(parents=True)
     pl.DataFrame(
         {
-            "Number of Branches": [0, 1],
-            "Quartet Satisfied Percent": [0.0, 50.0],
-            "Extended Newick": NEWICKS,
+            "edges_added": [0, 1],
+            "network_newick": NEWICKS,
+            "quartet_satisfied_percent": [0.0, 50.0],
         }
     ).write_csv(family)
     run = dict.fromkeys(INFERENCE_REGISTRY_SCHEMA, None) | {
@@ -168,25 +172,34 @@ def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
     handle_network_score(cfg)
 
 
-def test_scores_phylonet_mpl_network(tmp_path: Path, monkeypatch):
+def test_reads_a_phylonet_mpl_family(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path, monkeypatch)
+    newick = "(OUT,((C:1.2,(B)#H7:::0.8):0.5,((A,#H7:::0.2),(D,E):10.0)));"
+    family = tmp_path / "inference_data" / "PHYLONET_MPL" / "networks" / "sim.family.csv"
+    family.parent.mkdir(parents=True)
+    pl.DataFrame(
+        {"edges_added": [1], "network_newick": [newick], "log_probability": [-22.3]}
+    ).write_csv(family)
     reg = tmp_path / "inference_data" / "inference_registry.csv"
     camus = pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA)
-    net = tmp_path / "inference_data" / "PHYLONET_MPL" / "networks" / "sim_1_1_1.net"
-    net.parent.mkdir(parents=True)
-    net.write_text(NEWICKS[1] + "\n")
     mpl = camus.with_columns(
         method=pl.lit("phylonet_mpl"),
         method_config_json=pl.lit("{}"),
-        group_estimate_path=pl.lit(str(net)),
+        group_estimate_path=pl.lit(str(family)),
     )
-    failed = mpl.with_columns(config_hash=pl.lit("x"), group_estimate_path=None)
-    tree = failed.with_columns(method=pl.lit("pch_wastral"))  # not a network: skipped
+    failed = mpl.with_columns(  # a failed run wrote nothing
+        config_hash=pl.lit("failed"),
+        status=pl.lit("failed"),
+        group_estimate_path=pl.lit("missing.csv"),
+    )
+    tree = camus.with_columns(method=pl.lit("pch_wastral"))  # not a network
     pl.concat([camus, mpl, failed, tree]).write_csv(reg)
-    monkeypatch.setattr(hns, "score_network", lambda est, ref: ScoreResult(0.5, 0.0))
-
+    seen: list[str] = []
+    monkeypatch.setattr(
+        hns, "score_network", lambda est, ref: seen.append(est) or ScoreResult(0, 0)
+    )
     df = pl.read_csv(handle_network_score(cfg), schema=NETWORK_SCORES_SCHEMA)
-    row = df.filter(pl.col("method") == "phylonet_mpl").to_dicts()
-    assert [(r["edges_added"], r["guide_tree"], r["status"]) for r in row] == [
-        (1, "pch_wastral", "ok")
-    ]
+
+    row = df.filter(pl.col("method") == "phylonet_mpl").row(0, named=True)
+    assert (row["edges_added"], row["guide_tree"], row["status"]) == (1, None, "ok")
+    assert seen[-1] == newick  # as written; score_network strips it
