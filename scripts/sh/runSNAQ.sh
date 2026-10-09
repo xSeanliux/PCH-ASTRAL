@@ -1,7 +1,8 @@
 #!/bin/bash
 # SNaQ network inference: PCH-W quartets as gene trees, the pch_wastral tree as start,
 # hmax = the dataset's true reticulation count. Writes <output>/SNAQ/networks/<name>.net
-# (Rich newick, rooted on the outgroup when compatible) plus SNaQ's .out/.log/.networks.
+# (Rich newick, rooted on the outgroup when compatible), <name>.family.csv (every network)
+# and SNaQ's .out/.log/.networks.
 RUNID=""
 INPUT=""
 TREEOUTPUT=""
@@ -53,13 +54,17 @@ python3 -m scripts.py.guide_tree --guide pch_wastral --input "$INPUT" --output "
 echo "✅ start tree (pch_wastral)"
 
 # 10 runs (SNaQ default; paper: 32), killed after 12 h (paper's limit).
+# SNaQ writes no .networks when the best is a tree; drop a stale one.
+rm -f "$TREEOUTPUT/SNAQ/networks/$NAME.networks"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.." && pwd)"
 JULIA_DEPOT_PATH="$REPO_ROOT/bin/julia-depot" JULIA_PROJECT="$REPO_ROOT/scripts/jl" \
     perl -e 'alarm shift; exec @ARGV' 43200 \
     "$REPO_ROOT/bin/julia" "$REPO_ROOT/scripts/jl/run_snaq.jl" \
     "$SCRATCH_QUARTET_PATH" "$SCRATCH_START_PATH" "$TREEOUTPUT/SNAQ/networks/$NAME" \
-    "$HMAX" "$OUTGROUP" 10 "${PCH_SNAQ_PROCS:-1}"
-rc=$?
-
+    "$HMAX" "$OUTGROUP" 10 "${PCH_SNAQ_PROCS:-1}" || exit
 echo "✅ SNaQ network inference"
-exit $rc
+
+PREFIX="$TREEOUTPUT/SNAQ/networks/$NAME"
+python3 -m scripts.py.snaq_family --networks "$PREFIX.networks" --best "$PREFIX.net" \
+    --output "$PREFIX.family.csv" || exit 1
+echo "✅ SNaQ family CSV"

@@ -48,8 +48,8 @@ class SnaqRunner(Runner["SnaqConfig"]):
 
     @staticmethod
     def get_group_estimate_path(output_dir: Path, name: str) -> Path:
-        """SNaQ's alternatives to the best network, each with its -loglik."""
-        return output_dir / "SNAQ" / "networks" / f"{name}.networks"
+        """Family CSV: the best network, then SNaQ's alternatives, with -loglik."""
+        return output_dir / "SNAQ" / "networks" / f"{name}.family.csv"
 
     @staticmethod
     def get_log_path(output_dir: Path, name: str) -> Path:
