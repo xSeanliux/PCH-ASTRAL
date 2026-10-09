@@ -64,7 +64,7 @@ Path getters are static so other code can look a method up without a runner, e.g
 |---|---|---|
 | tree (`mp`, `ga`, `pch_*`) | tree file | tree set, if any |
 | network (`camus`) | `None` (picking k is analysis) | `CAMUS/networks/<name>.family.csv`, one row per k |
-| network (`phylonet_mpl`) | `None` (tree scoring skips networks) | `PHYLONET_MPL/networks/<name>.net`, one Rich newick |
+| network (`phylonet_mpl`) | best network, `PHYLONET_MPL/networks/<name>.net` (Rich newick) | `PHYLONET_MPL/networks/<name>.family.csv` |
 
 ### Fan-out
 

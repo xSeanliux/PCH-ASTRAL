@@ -68,7 +68,7 @@ One row per **successful** run; failures and blocks are never rows. Last-writer-
 | `config_hash` | String | sha256 of the method config JSON (`hash_config`). |
 | `method_config_json` | String | The config that was hashed. |
 | `runtime_seconds` | Float64 | Wall time. |
-| `point_estimate_newick` | String | Tree, inline. Empty when the method has no point estimate (networks). |
+| `point_estimate_newick` | String | Tree, or network (PhyloNet-MPL), inline. Empty when the method has no point estimate (CAMUS). |
 | `group_estimate_path` | String | The set file (trees) or family CSV (networks, see [network family](#network-family-csv)); null if none. |
 | `consensus_method` | String | How the set collapsed to the point estimate; null if none. |
 | `status` | String | Always `ok`. |
@@ -95,7 +95,7 @@ Join to the registry on the three key columns.
 
 ## Network family CSV
 
-`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's shell script (`runCAMUS.sh` via `scripts.py.camus_family`) · `NETWORK_FAMILY_SCHEMA` · one row per network
+`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's shell script (`runCAMUS.sh` via `scripts.py.camus_family`, `runPHYLONETMPL.sh` via `scripts.py.phylonet_mpl_family`) · `NETWORK_FAMILY_SCHEMA` · one row per network
 
 A network run's `group_estimate_path`. The tool's raw output stays beside it.
 
@@ -104,7 +104,7 @@ A network run's `group_estimate_path`. The tool's raw output stays beside it.
 | `edges_added` | Int64 | Reticulation edges in the network. |
 | `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring. |
 
-Method-specific columns may follow: CAMUS `quartet_satisfied_percent`.
+Method-specific columns may follow: CAMUS `quartet_satisfied_percent`; PhyloNet-MPL `log_probability` (log pseudo-likelihood), `is_best`.
 
 ## `network_scores`
 

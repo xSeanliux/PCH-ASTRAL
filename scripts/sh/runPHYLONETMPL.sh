@@ -1,7 +1,8 @@
 #!/bin/bash
 # PhyloNet-MPL(FT): PCH-W quartets rooted on the outgroup plus the fixed pch_wastral
-# tree in, one network with k = the dataset's contact event count out.
-# Writes <output>/PHYLONET_MPL/networks/<name>.net (topology-only Rich newick).
+# tree in, networks with k = the dataset's contact event count out. Writes
+# <output>/PHYLONET_MPL/networks/<name>.family.csv and <name>.net (best network)
+# beside PhyloNet's raw <name>.result.
 RUNID=""
 INPUT=""
 TREEOUTPUT=""
@@ -42,10 +43,13 @@ fi
 
 PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
 mkdir -p "$PCH_SCRATCH" "$TREEOUTPUT/PHYLONET_MPL/networks"
-PCH_SCRATCH="$(cd "$PCH_SCRATCH" && pwd)"  # absolute: PhyloNet runs elsewhere
+# Absolute: PhyloNet runs elsewhere.
+PCH_SCRATCH="$(cd "$PCH_SCRATCH" && pwd)"
+PREFIX="$(cd "$TREEOUTPUT/PHYLONET_MPL/networks" && pwd)/$NAME"
 
 NEXUS="$PCH_SCRATCH/tmp_phylonet_mpl_$RUNID.nex"
-RESULT="$PCH_SCRATCH/tmp_phylonet_mpl_$RUNID.txt"
+RESULT="$PREFIX.result"
+rm -f "$RESULT"  # a stale one would pass for this run's
 
 python3 -m scripts.py.phylonet_mpl_nexus --input "$INPUT" --output "$TREEOUTPUT" \
     --result "$RESULT" --procs "${PCH_PHYLONET_PROCS:-1}" > "$NEXUS" || exit 1
@@ -60,9 +64,11 @@ RUNDIR="$PCH_SCRATCH/phylonet_mpl_$RUNID"
 mkdir -p "$RUNDIR" && ln -sf /dev/null "$RUNDIR/logfile.txt"
 (cd "$RUNDIR" && java -jar "$JAR" "$NEXUS" > /dev/null) || exit 1
 
-# Best network = first newick in the result; strip lengths and inheritance
-# probabilities (CmpNets wants topology only).
-grep -m1 ';$' "$RESULT" | sed -E 's/:[^,();]*//g' > "$TREEOUTPUT/PHYLONET_MPL/networks/$NAME.net"
-[[ -s "$TREEOUTPUT/PHYLONET_MPL/networks/$NAME.net" ]] || { rm -f "$TREEOUTPUT/PHYLONET_MPL/networks/$NAME.net"; echo "no network in $RESULT"; exit 1; }
 cat "$RESULT"
 echo "✅ PhyloNet-MPL(FT)"
+
+python3 -m scripts.py.phylonet_mpl_family --result "$RESULT" \
+    --output "$PREFIX.family.csv" || exit 1
+# Best network = the result's first newick, as written.
+grep -m1 ';$' "$RESULT" > "$PREFIX.net" || exit 1
+echo "✅ PhyloNet-MPL family CSV"

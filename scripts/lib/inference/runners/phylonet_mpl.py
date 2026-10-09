@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class PhyloNetMPLRunner(Runner["PhyloNetMPLConfig"]):
     """PhyloNet-MPL(FT): rooted PCH-W quartets plus the fixed pch_wastral tree in,
-    one network out."""
+    networks out."""
 
     @property
     def method(self) -> NetworkInferenceMethod:
@@ -43,13 +43,14 @@ class PhyloNetMPLRunner(Runner["PhyloNetMPLConfig"]):
         ]
 
     @staticmethod
-    def get_point_estimate_path(output_dir: Path, name: str) -> None:
-        # A network, not a tree: tree scoring must skip it (empty newick), as for CAMUS.
-        return None
+    def get_point_estimate_path(output_dir: Path, name: str) -> Path:
+        """The best network, Rich newick as PhyloNet wrote it."""
+        return output_dir / "PHYLONET_MPL" / "networks" / f"{name}.net"
 
     @staticmethod
     def get_group_estimate_path(output_dir: Path, name: str) -> Path:
-        return output_dir / "PHYLONET_MPL" / "networks" / f"{name}.net"
+        """Family CSV: PhyloNet's networks, best first, with log pseudo-likelihoods."""
+        return output_dir / "PHYLONET_MPL" / "networks" / f"{name}.family.csv"
 
     @staticmethod
     def get_log_path(output_dir: Path, name: str) -> Path:

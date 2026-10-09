@@ -50,18 +50,21 @@ def test_root_quartets_keeps_outgroup_quartets_rooted_and_weighted():
     assert root_quartets(quartets, "OUT") == ["(((b,c),a),OUT);"] * 2
 
 
-def test_infer_records_network_as_group_estimate(
+def test_infer_records_best_network_and_family(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    net = PhyloNetMPLRunner.get_group_estimate_path(tmp_path, "d")
+    net = PhyloNetMPLRunner.get_point_estimate_path(tmp_path, "d")
+    family = PhyloNetMPLRunner.get_group_estimate_path(tmp_path, "d")
+    newick = "((a,(b)#H1:1.0::0.7),(#H1:0.5::0.3,c));"
 
     def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
         net.parent.mkdir(parents=True, exist_ok=True)
-        net.write_text("((a,(b)#H1),(#H1,c));\n")
+        net.write_text(newick + "\n")
+        family.write_text(f"edges_added,network_newick\n1,{newick}\n")
         return subprocess.CompletedProcess(argv, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     result = api.infer(tmp_path / "d.csv", tmp_path, _runner())
     assert result.status is RunStatus.OK
-    assert result.point_estimate_newick == ""  # tree scoring skips it
-    assert result.group_estimate_path == str(net)
+    assert result.point_estimate_newick == newick  # as written
+    assert result.group_estimate_path == str(family)
