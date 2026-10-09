@@ -1,0 +1,28 @@
+# Smoke test for SNaQ: networks with 1 and 2 contact events, one dataset each.
+# SNaQ starts from pch_wastral's tree (a scheduler dependency) and needs the outgroup.
+#
+# 11 taxa, not 30: one SNaQ search at 31 taxa takes hours (the CAMUS paper's SNaQ
+# timed out at 26 taxa in 12 h). data/ (local, not committed) is net{1,2}-1 from
+# data/base_networks pruned to the taxa around their contact events; contact times
+# stay on their edges.
+experiment_folder: experiments/snaq_smoke
+simulation:
+  n_taxa: 11
+  outgroup_label: OUT # SNaQ roots its network on it
+  n_horizontal_edges:
+    - 1
+    - 2
+  n_trees: 1
+  n_replicas: 1
+  base_config_dir: data/base_configs
+  base_trees_file: experiments/snaq_smoke/data/trees.txt
+  base_networks_dir: experiments/snaq_smoke/data/base_networks
+  simulation_params:
+    - poly: high
+      homoplasy_factor: 0.1
+      tree_height: 4
+      n_chars: 80
+
+methods:
+  wastral: {} # start tree
+  snaq: {}

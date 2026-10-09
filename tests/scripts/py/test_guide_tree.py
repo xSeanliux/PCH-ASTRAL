@@ -9,6 +9,7 @@ from scripts.lib.inference.runners import ASTRAL3Runner
 from scripts.lib.model.guide_tree import TRUE_TREE
 from scripts.lib.model.methods import TreeInferenceMethod
 from scripts.py.guide_tree import build_guide_newick, find_base_tree, root_topology
+from scripts.py.model_graph import find_dataset_model_graph
 
 BASE_TREE = "(((t1:0.1,t2:0.1):0.2,(t3:0.1,t4:0.1):0.2):0.05,OUT:0.95);"
 # As ASTRAL writes it: unrooted, with support values and lengths.
@@ -39,10 +40,10 @@ def _experiment(tmp_path: Path) -> tuple[Path, Path]:
     ).write_csv(sim / "simulated_data_registry.csv")
     pl.DataFrame(
         {
-            "horizontal_edges": [0],
-            "model_tree": [1],
-            "path": [str(base_tree)],
-            "outgroup_label": ["OUT"],
+            "horizontal_edges": [0, 1],
+            "model_tree": [1, 1],
+            "path": [str(base_tree), str(sim / "net1-1.txt")],
+            "outgroup_label": ["OUT", "OUT"],
         },
         schema_overrides={"outgroup_label": pl.String},
     ).write_csv(sim / "model_graph_registry.csv")
@@ -98,6 +99,12 @@ def test_an_absent_outgroup_is_an_error():
 def test_a_simulated_dataset_finds_its_base_tree(tmp_path: Path):
     dataset, _ = _experiment(tmp_path)
     assert find_base_tree(dataset) == BASE_TREE
+
+
+def test_a_simulated_dataset_finds_its_own_model_graph(tmp_path: Path):
+    dataset, _ = _experiment(tmp_path)
+    row = find_dataset_model_graph(dataset)
+    assert (row["horizontal_edges"][0], row["outgroup_label"][0]) == (1, "OUT")
 
 
 def test_a_dataset_outside_an_experiment_is_an_error(tmp_path: Path):
