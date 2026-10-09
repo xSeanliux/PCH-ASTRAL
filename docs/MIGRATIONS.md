@@ -18,7 +18,9 @@ import polars as pl
 
 p = "experiments/my_run/inference_data/inference_registry.csv"
 df = pl.read_csv(p, infer_schema=False)
-net = pl.col("method").is_in(["camus", "snaq"])
+net = pl.col("method").is_in(["camus", "snaq"]) & ~pl.col(
+    "group_estimate_path"
+).str.ends_with(".family.csv")  # rerunnable
 df.with_columns(
     group_estimate_path=pl.when(net)
     .then(pl.col("group_estimate_path").str.replace(r"\.(csv|networks)$", ".family.csv"))
