@@ -2,6 +2,30 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## Network group estimates are family CSVs
+
+**Affects:** CAMUS and SNaQ rows in `inference_data/inference_registry.csv`. `group_estimate_path` pointed at CAMUS's raw `<name>.csv` or SNaQ's `<name>.networks`; `network-score` now reads `<name>.family.csv` (`SCHEMAS.md`). Hashes did not change.
+
+Convert each run and repoint its row (or drop the rows and rerun):
+
+```bash
+python -m scripts.py.camus_family --input N.csv --output N.family.csv
+python -m scripts.py.snaq_family --networks N.networks --best N.net --output N.family.csv
+```
+
+```python
+import polars as pl
+
+p = "experiments/my_run/inference_data/inference_registry.csv"
+df = pl.read_csv(p, infer_schema=False)
+net = pl.col("method").is_in(["camus", "snaq"])
+df.with_columns(
+    group_estimate_path=pl.when(net)
+    .then(pl.col("group_estimate_path").str.replace(r"\.(csv|networks)$", ".family.csv"))
+    .otherwise(pl.col("group_estimate_path"))
+).write_csv(p)
+```
+
 ## `outgroup` renamed `outgroup_label`
 
 **Affects:** YAML `simulation.outgroup:` and `simulation_data/model_graph_registry.csv`. No read-time shim; old files fail the schema.

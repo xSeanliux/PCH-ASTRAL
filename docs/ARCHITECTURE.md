@@ -63,8 +63,8 @@ Path getters are static so other code can look a method up without a runner, e.g
 | Method | Point estimate | Group estimate |
 |---|---|---|
 | tree (`mp`, `ga`, `pch_*`) | tree file | tree set, if any |
-| network (`camus`) | `None` (picking k is analysis) | `CAMUS/networks/<name>.csv`, one row per k |
-| network (`snaq`) | best network, `SNAQ/networks/<name>.net` (Rich newick) | `SNAQ/networks/<name>.networks`, alternatives with -loglik |
+| network (`camus`) | `None` (picking k is analysis) | `CAMUS/networks/<name>.family.csv`, one row per k |
+| network (`snaq`) | best network, `SNAQ/networks/<name>.net` (Rich newick) | `SNAQ/networks/<name>.family.csv` |
 
 ### Fan-out
 
@@ -143,7 +143,7 @@ inference_data/
 - **Success-only ledger**: blocks and failures are logged, never rows. A row is analyzable data.
 - **Dependency gate** is on method name, via the registry (this run or prior).
 - `api.infer` never raises; failure is `status=failed`.
-- A network row has an empty `point_estimate_newick` and a `group_estimate_path`; scoring skips empty newicks.
+- A network row's `group_estimate_path` is a family CSV (`SCHEMAS.md`); scoring reads only it.
 - `compact` is last-writer-wins by `ran_at`, seeds from the existing registry, deletes shards.
 - Tree-method `config_hash` must not change across refactors; see `MIGRATIONS.md`.
 
@@ -152,7 +152,7 @@ inference_data/
 | Add | Write |
 |---|---|
 | Tree method | Member in `TreeInferenceMethod` (`model/methods.py`); `*Config` + `MethodConfig` field (`experiment.py`); entry in `METHOD_TO_CONFIG_CLASS`; `runners/<m>.py` subclassing `Runner[<Config>]`; entry in `METHOD_TO_RUNNER_CLASS`. |
-| Network method | Same, member in `NetworkInferenceMethod`; `get_point_estimate_path` returns `None`, set `get_group_estimate_path`. |
+| Network method | Same, member in `NetworkInferenceMethod`; `get_group_estimate_path` returns a family CSV (`NETWORK_FAMILY_SCHEMA`). |
 | Fan-out | Have the config's `get_runners()` return several runners; give each a distinct config and `suffix`. |
 | Dependency | Override `get_dependencies()`; nothing else to order. |
 | Guide tree | Add the method to `SUPPORTED_GUIDE_TREES` (`model/guide_tree.py`); it must emit a rooted binary tree. |

@@ -1,15 +1,13 @@
 """`pch experiment network-score` — CmpNets each network family row against its
 reference network.
 
-Reads each CAMUS run's family CSV (`group_estimate_path` in inference_registry) and
-SNaQ run's network (`point_estimate_newick`), joins
-simulated_data_registry on dataset_id == path for (horizontal_edges, model_tree),
-writes inference_data/network_scores.csv. A key
+Reads each network run's family CSV (`group_estimate_path` in inference_registry),
+joins simulated_data_registry on dataset_id == path for (horizontal_edges,
+model_tree), writes inference_data/network_scores.csv. A key
 already in the file is kept, failed and timed-out rows included: a slow network
 stays visible and is not retried every run. Never touches inference rows.
 """
 
-import re
 import subprocess
 import time
 from pathlib import Path
@@ -28,33 +26,18 @@ from scripts.lib.inference.scoring import (
 from scripts.lib.model.methods import NetworkInferenceMethod, RunStatus
 from scripts.py.cli.schemata import (
     INFERENCE_REGISTRY_SCHEMA,
+    NETWORK_FAMILY_SCHEMA,
     NETWORK_SCORES_SCHEMA,
     SIMULATED_DATA_REGISTRY_SCHEMA,
 )
 
 KEY_COLUMNS = ["dataset_id", "method", "config_hash", "edges_added"]
-# CAMUS's family CSV header -> our column names.
-CAMUS_TO_COLUMN = {
-    "Number of Branches": "edges_added",
-    "Extended Newick": "network_newick",
-}
-
-
-# `:length` and `:::gamma`; CmpNets rejects inheritance probabilities.
-_ANNOTATION = re.compile(r":[^,();]*")
-
-
-def newick_to_family(newick: str) -> pl.DataFrame:
-    """One network as a one-row family; `edges_added` counts its hybrids."""
-    newick = _ANNOTATION.sub("", newick)
-    edges_added = len(set(re.findall(r"#H\d+", newick)))
-    return pl.DataFrame({"edges_added": [edges_added], "network_newick": [newick]})
 
 
 def read_families(experiment_folder: Path) -> pl.DataFrame:
     """One row per network: every registered run's family, tagged with its run.
 
-    :raises AssertionError: if no CAMUS or SNaQ run is registered.
+    :raises AssertionError: if no network run is registered.
     """
     path = registry.registry_path(experiment_folder)
     runs = (
@@ -70,15 +53,15 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     )
     families = []
     for r in runs.iter_rows(named=True):
-        guide = None  # SNaQ has none
-        if r["method"] == NetworkInferenceMethod.SNAQ.value:
-            family = newick_to_family(r["point_estimate_newick"])
-        else:
+        guide = None  # only CAMUS has one
+        if r["method"] == NetworkInferenceMethod.CAMUS.value:
             config = CamusConfig.model_validate_json(r["method_config_json"])
             (guide,) = config.guide_trees
-            family = pl.read_csv(
-                r["group_estimate_path"], columns=list(CAMUS_TO_COLUMN)
-            ).rename(CAMUS_TO_COLUMN)
+        family = pl.read_csv(
+            r["group_estimate_path"],
+            columns=list(NETWORK_FAMILY_SCHEMA),
+            schema_overrides=NETWORK_FAMILY_SCHEMA,
+        )
         families.append(
             family.with_columns(
                 dataset_id=pl.lit(r["dataset_id"]),

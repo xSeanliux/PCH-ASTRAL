@@ -1,6 +1,7 @@
 #!/bin/bash
 # CAMUS network inference: PCH-W quartets plus one rooted guide tree in, one
-# network per k out. Writes <output>/CAMUS/networks/<name>.csv (also .log, .png).
+# network per k out. Writes <output>/CAMUS/networks/<name>.family.csv beside CAMUS's
+# raw <name>.csv (also .log, .png).
 # Initialize variables with defaults
 RUNID=""
 INPUT=""
@@ -71,8 +72,10 @@ echo "✅ guide tree ($GUIDE), rooted on $OUTGROUP"
 bin/camus -n "${PCH_CAMUS_PROCS:-1}" \
     -o "$TREEOUTPUT/CAMUS/networks/$NAME" \
     "$SCRATCH_GUIDE_PATH" \
-    "$SCRATCH_QUARTET_PATH"
-rc=$?
-
+    "$SCRATCH_QUARTET_PATH" || exit 1
 echo "✅ CAMUS network inference"
-exit $rc
+
+python3 -m scripts.py.camus_family \
+    --input "$TREEOUTPUT/CAMUS/networks/$NAME.csv" \
+    --output "$TREEOUTPUT/CAMUS/networks/$NAME.family.csv" || exit 1
+echo "✅ family CSV"

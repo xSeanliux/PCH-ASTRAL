@@ -50,14 +50,18 @@ def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ExperimentConfig:
         }
     ).write_csv(tmp_path / "simulation_data" / "simulated_data_registry.csv")
     family = (
-        tmp_path / "inference_data" / "CAMUS" / "networks" / "sim_1_1_1.true_tree.csv"
+        tmp_path
+        / "inference_data"
+        / "CAMUS"
+        / "networks"
+        / "sim_1_1_1.true_tree.family.csv"
     )
     family.parent.mkdir(parents=True)
     pl.DataFrame(
         {
-            "Number of Branches": [0, 1],
-            "Quartet Satisfied Percent": [0.0, 50.0],
-            "Extended Newick": NEWICKS,
+            "edges_added": [0, 1],
+            "network_newick": NEWICKS,
+            "quartet_satisfied_percent": [0.0, 50.0],
         }
     ).write_csv(family)
     run = dict.fromkeys(INFERENCE_REGISTRY_SCHEMA, None) | {
@@ -168,18 +172,25 @@ def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
     handle_network_score(cfg)
 
 
-def test_scores_a_snaq_network_without_annotations(tmp_path: Path, monkeypatch):
+def test_reads_a_snaq_family(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path, monkeypatch)
     newick = "(OUT,((C:1.2,(B)#H7:::0.8):0.5,((A,#H7:::0.2),(D,E):10.0)));"
+    family = tmp_path / "inference_data" / "SNAQ" / "networks" / "sim.family.csv"
+    family.parent.mkdir(parents=True)
+    pl.DataFrame(
+        {"edges_added": [1], "network_newick": [newick], "neg_loglik": [1.5]}
+    ).write_csv(family)
     reg = tmp_path / "inference_data" / "inference_registry.csv"
     camus = pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA)
     snaq = camus.with_columns(
         method=pl.lit("snaq"),
         method_config_json=pl.lit("{}"),
-        point_estimate_newick=pl.lit(newick),
+        group_estimate_path=pl.lit(str(family)),
     )
     failed = snaq.with_columns(  # a failed run wrote nothing
-        config_hash=pl.lit("failed"), status=pl.lit("failed")
+        config_hash=pl.lit("failed"),
+        status=pl.lit("failed"),
+        group_estimate_path=pl.lit("missing.csv"),
     )
     tree = camus.with_columns(method=pl.lit("pch_wastral"))  # not a network
     pl.concat([camus, snaq, failed, tree]).write_csv(reg)
@@ -191,4 +202,4 @@ def test_scores_a_snaq_network_without_annotations(tmp_path: Path, monkeypatch):
 
     row = df.filter(pl.col("method") == "snaq").row(0, named=True)
     assert (row["edges_added"], row["guide_tree"], row["status"]) == (1, None, "ok")
-    assert seen[-1] == "(OUT,((C,(B)#H7),((A,#H7),(D,E))));"
+    assert seen[-1] == newick  # as written; score_network strips it

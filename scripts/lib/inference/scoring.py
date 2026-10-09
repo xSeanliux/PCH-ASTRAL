@@ -97,6 +97,8 @@ PHYLONET_JAR = Path("bin/PhyloNet.jar")
 
 # A leaf label follows `(` or `,`; a hybrid reference `#H1` starts with `#`.
 _TAXON = re.compile(r"(?<=[(,])[^(),:;#]+")
+# `:length` and `:::gamma`; CmpNets rejects inheritance probabilities.
+_ANNOTATION = re.compile(r":[^,();]*")
 _DISTANCE = re.compile(r"distance between two networks:\s*(\S+)\s+(\S+)\s+(\S+)")
 
 
@@ -108,10 +110,13 @@ def get_taxa(newick: str) -> set[str]:
 def score_network(estimate_newick: str, reference_newick: str) -> ScoreResult:
     """Score an estimate with `CmpNets -m cluster`, reference as net1.
 
+    The estimate's lengths and inheritance probabilities are stripped first.
+
     :raises ValueError: if the taxon sets differ.
     :raises RuntimeError: if PhyloNet fails or prints no distance.
     :raises subprocess.TimeoutExpired: past 2 h.
     """
+    estimate_newick = _ANNOTATION.sub("", estimate_newick)
     est_taxa, ref_taxa = get_taxa(estimate_newick), get_taxa(reference_newick)
     if est_taxa != ref_taxa:
         # CmpNets returns numbers for mismatched sets; fail loudly instead.
