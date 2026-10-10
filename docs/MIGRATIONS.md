@@ -2,6 +2,15 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## SNaQ point estimate: rootable on the outgroup
+
+**Affects:** SNaQ runs. `N.net` could keep an arbitrary root (outgroup below a hybrid); the family CSV gains `is_rooted_on_outgroup` and needs `N.choice`. Hashes did not change. Per run, then set the registry row's `point_estimate_newick` to the new `N.net` and rescore:
+
+```bash
+JULIA_DEPOT_PATH=bin/julia-depot JULIA_PROJECT=scripts/jl bin/julia scripts/jl/run_snaq.jl --choose N OUT
+python -m scripts.py.snaq_family --networks N.networks --best N.net --choice N.choice --output N.family.csv
+```
+
 ## Network group estimates are family CSVs
 
 **Affects:** CAMUS and SNaQ rows in `inference_data/inference_registry.csv`. `group_estimate_path` pointed at CAMUS's raw `<name>.csv` or SNaQ's `<name>.networks`; `network-score` now reads `<name>.family.csv` (`SCHEMAS.md`). Hashes did not change.
@@ -10,7 +19,7 @@ Convert each run and repoint its row (or drop the rows and rerun):
 
 ```bash
 python -m scripts.py.camus_family --input N.csv --output N.family.csv
-python -m scripts.py.snaq_family --networks N.networks --best N.net --output N.family.csv
+python -m scripts.py.snaq_family --networks N.networks --best N.net --output N.family.csv  # now also --choice: see above
 ```
 
 ```python

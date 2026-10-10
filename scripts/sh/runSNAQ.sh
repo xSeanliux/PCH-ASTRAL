@@ -1,8 +1,8 @@
 #!/bin/bash
 # SNaQ network inference: PCH-W quartets as gene trees, the pch_wastral tree as start,
 # hmax = the dataset's true reticulation count. Writes <output>/SNAQ/networks/<name>.net
-# (Rich newick, rooted on the outgroup when compatible), <name>.family.csv (every network)
-# and SNaQ's .out/.log/.networks.
+# (Rich newick: the lowest -loglik network rootable on the outgroup, see run_snaq.jl),
+# <name>.choice (its .networks row), <name>.family.csv (every network) and SNaQ's .out/.log/.networks.
 RUNID=""
 INPUT=""
 TREEOUTPUT=""
@@ -66,5 +66,5 @@ echo "✅ SNaQ network inference"
 
 PREFIX="$TREEOUTPUT/SNAQ/networks/$NAME"
 python3 -m scripts.py.snaq_family --networks "$PREFIX.networks" --best "$PREFIX.net" \
-    --output "$PREFIX.family.csv" || exit 1
+    --choice "$PREFIX.choice" --output "$PREFIX.family.csv" || exit 1
 echo "✅ SNaQ family CSV"

@@ -103,9 +103,11 @@ A network run's `group_estimate_path`. The tool's raw output stays beside it.
 |---|---|---|
 | `edges_added` | Int64 | Reticulation edges in the network. |
 | `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring. |
-| `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: exactly one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik`. |
+| `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: exactly one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik` rootable on the outgroup (see below). |
 
-Method-specific columns may follow: CAMUS `quartet_satisfied_percent`; SNaQ `neg_loglik`.
+Method-specific columns may follow: CAMUS `quartet_satisfied_percent`; SNaQ `neg_loglik`, `is_rooted_on_outgroup`.
+
+SNaQ only: it fits unrooted quartet CFs, so its networks are semi-directed and the best may place the outgroup below a hybrid. There no root on the outgroup exists, the root stays arbitrary, and cluster scoring (root-dependent) is penalized for it. Rows are `.networks` order: SNaQ's best, then its alternatives (same undirected topology, each hybrid moved within its cycle, already filtered by SNaQ for outgroup compatibility) by `-loglik`. `is_best` is the first that `rootatnode!` accepts, its newick rerooted on the outgroup; none rootable: SNaQ's best, unrooted, `is_rooted_on_outgroup` false. Other rows keep SNaQ's newick and null `is_rooted_on_outgroup` (not tried). Not done: `fliphybrid!` searches beyond `.networks`. Trees root on any edge; CAMUS and PhyloNet output rooted networks.
 
 ## `network_scores`
 
