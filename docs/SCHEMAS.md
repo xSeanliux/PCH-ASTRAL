@@ -103,20 +103,21 @@ A network run's `group_estimate_path`. The tool's raw output stays beside it.
 |---|---|---|
 | `edges_added` | Int64 | Reticulation edges in the network. |
 | `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring. |
+| `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: exactly one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); PhyloNet-MPL: highest `log_probability`. |
 
-Method-specific columns may follow: CAMUS `quartet_satisfied_percent`; PhyloNet-MPL `log_probability` (log pseudo-likelihood), `is_best`.
+Method-specific columns may follow: CAMUS `quartet_satisfied_percent`; PhyloNet-MPL `log_probability` (log pseudo-likelihood).
 
 ## `network_scores`
 
 `inference_data/network_scores.csv` · writer `handle_network_score` · `NETWORK_SCORES_SCHEMA` · key `(dataset_id, method, config_hash, edges_added)`
 
-PhyloNet `CmpNets -m cluster` of each row of each network run's family CSV, lengths and γ stripped, against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
+PhyloNet `CmpNets -m cluster` of each `is_best` row of each network run's family CSV, lengths and γ stripped, against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `dataset_id` | String | As in `inference_registry`. |
 | `method` | String | As in `inference_registry`. |
-| `guide_tree` | String | From `method_config_json`; null for PhyloNet-MPL; not part of the key. |
+| `guide_tree` | String | CAMUS: from `method_config_json`; PhyloNet-MPL: `pch_wastral`, its fixed tree. Not part of the key. |
 | `config_hash` | String | As in `inference_registry`. |
 | `edges_added` | Int64 | From the family CSV. |
 | `fn_rate` | Float64 | False-negative rate; null unless `ok`. |

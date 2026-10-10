@@ -17,8 +17,8 @@ def test_phylonet_mpl_to_family(tmp_path: Path):
         f"Inferred Network #2:\n{OTHER}\nTotal log probability: -24.27"
     )
     family = phylonet_mpl_to_family(result)
-    assert list(family.schema.items())[:2] == list(NETWORK_FAMILY_SCHEMA.items())
-    assert family.rows() == [(1, BEST, -22.27, True), (1, OTHER, -24.27, False)]
+    assert list(family.schema.items())[:3] == list(NETWORK_FAMILY_SCHEMA.items())
+    assert family.rows() == [(1, BEST, True, -22.27), (1, OTHER, False, -24.27)]
 
 
 def test_empty_result_raises(tmp_path: Path):

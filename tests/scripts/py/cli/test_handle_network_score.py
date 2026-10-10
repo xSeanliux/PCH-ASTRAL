@@ -61,6 +61,7 @@ def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ExperimentConfig:
         {
             "edges_added": [0, 1],
             "network_newick": NEWICKS,
+            "is_best": [True, True],
             "quartet_satisfied_percent": [0.0, 50.0],
         }
     ).write_csv(family)
@@ -175,10 +176,20 @@ def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
 def test_reads_a_phylonet_mpl_family(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path, monkeypatch)
     newick = "(OUT,((C:1.2,(B)#H7:::0.8):0.5,((A,#H7:::0.2),(D,E):10.0)));"
-    family = tmp_path / "inference_data" / "PHYLONET_MPL" / "networks" / "sim.family.csv"
+    worse = (
+        "(OUT,((A,(B)#H7),((C,#H7),(D,E))));"  # same edges_added, not PhyloNet's pick
+    )
+    family = (
+        tmp_path / "inference_data" / "PHYLONET_MPL" / "networks" / "sim.family.csv"
+    )
     family.parent.mkdir(parents=True)
     pl.DataFrame(
-        {"edges_added": [1], "network_newick": [newick], "log_probability": [-22.3]}
+        {
+            "edges_added": [1, 1],
+            "network_newick": [newick, worse],
+            "is_best": [True, False],
+            "log_probability": [-1.5, -2.5],
+        }
     ).write_csv(family)
     reg = tmp_path / "inference_data" / "inference_registry.csv"
     camus = pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA)
@@ -200,6 +211,21 @@ def test_reads_a_phylonet_mpl_family(tmp_path: Path, monkeypatch):
     )
     df = pl.read_csv(handle_network_score(cfg), schema=NETWORK_SCORES_SCHEMA)
 
-    row = df.filter(pl.col("method") == "phylonet_mpl").row(0, named=True)
-    assert (row["edges_added"], row["guide_tree"], row["status"]) == (1, None, "ok")
+    (row,) = df.filter(pl.col("method") == "phylonet_mpl").rows(named=True)
+    assert (row["edges_added"], row["guide_tree"], row["status"]) == (
+        1,
+        "pch_wastral",
+        "ok",
+    )
+    assert worse not in seen
     assert seen[-1] == newick  # as written; score_network strips it
+
+
+def test_two_best_per_edges_added_is_an_error(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, monkeypatch)
+    (family,) = (tmp_path / "inference_data" / "CAMUS" / "networks").glob("*.csv")
+    pl.DataFrame(
+        {"edges_added": [1, 1], "network_newick": NEWICKS, "is_best": [True, True]}
+    ).write_csv(family)
+    with pytest.raises(ValueError, match="more than one is_best"):
+        handle_network_score(cfg)

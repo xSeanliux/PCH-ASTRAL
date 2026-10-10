@@ -66,8 +66,11 @@ SCORES_SCHEMA = pl.Schema(
 
 # Required columns of every network method's family CSV (`group_estimate_path`), one
 # row per network. `network_newick` is as the tool wrote it, lengths and γ included;
-# scoring strips them. Methods may add their own columns after these.
-NETWORK_FAMILY_SCHEMA = pl.Schema({"edges_added": Int64, "network_newick": String})
+# scoring strips them. `is_best`: the method's own pick by its own objective, exactly
+# one per `edges_added` in a family; only it is scored. Extra columns may follow.
+NETWORK_FAMILY_SCHEMA = pl.Schema(
+    {"edges_added": Int64, "network_newick": String, "is_best": Boolean}
+)
 
 # One row per (dataset, method, config, edges_added): CmpNets -m cluster against the
 # reference network. Null rates with status `failed` | `timeout`.

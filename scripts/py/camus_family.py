@@ -17,9 +17,17 @@ CAMUS_TO_COLUMN = {
 
 
 def camus_to_family(path: Path) -> pl.DataFrame:
-    """The family of CAMUS's network CSV at `path`, one row per network."""
+    """The family of CAMUS's network CSV at `path`, one row per network.
+
+    Each row is CAMUS's optimum for its k, so every row is `is_best`.
+    """
     df = pl.read_csv(path, columns=list(CAMUS_TO_COLUMN)).rename(CAMUS_TO_COLUMN)
-    return df.select(CAMUS_TO_COLUMN.values())  # required columns first
+    return df.select(
+        "edges_added",
+        "network_newick",
+        is_best=pl.lit(True),
+        quartet_satisfied_percent="quartet_satisfied_percent",
+    )
 
 
 if __name__ == "__main__":

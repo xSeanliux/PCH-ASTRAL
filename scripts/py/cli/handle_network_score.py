@@ -23,7 +23,12 @@ from scripts.lib.inference.scoring import (
     score_network,
     resolve_reference_network,
 )
-from scripts.lib.model.methods import NetworkInferenceMethod, RunStatus
+from scripts.lib.model.guide_tree import GuideTree
+from scripts.lib.model.methods import (
+    NetworkInferenceMethod,
+    RunStatus,
+    TreeInferenceMethod,
+)
 from scripts.py.cli.schemata import (
     INFERENCE_REGISTRY_SCHEMA,
     NETWORK_FAMILY_SCHEMA,
@@ -35,9 +40,10 @@ KEY_COLUMNS = ["dataset_id", "method", "config_hash", "edges_added"]
 
 
 def read_families(experiment_folder: Path) -> pl.DataFrame:
-    """One row per network: every registered run's family, tagged with its run.
+    """One row per scored network: each registered run's `is_best` rows, tagged.
 
     :raises AssertionError: if no network run is registered.
+    :raises ValueError: if a family has more than one `is_best` per `edges_added`.
     """
     path = registry.registry_path(experiment_folder)
     runs = (
@@ -53,7 +59,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     )
     families = []
     for r in runs.iter_rows(named=True):
-        guide = None  # only CAMUS has one
+        guide: GuideTree = TreeInferenceMethod.PCH_WASTRAL  # the others' input tree
         if r["method"] == NetworkInferenceMethod.CAMUS.value:
             config = CamusConfig.model_validate_json(r["method_config_json"])
             (guide,) = config.guide_trees
@@ -61,13 +67,17 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
             r["group_estimate_path"],
             columns=list(NETWORK_FAMILY_SCHEMA),
             schema_overrides=NETWORK_FAMILY_SCHEMA,
-        )
+        ).filter("is_best")
+        if not family["edges_added"].is_unique().all():
+            raise ValueError(
+                f"{r['group_estimate_path']}: more than one is_best per edges_added"
+            )
         families.append(
             family.with_columns(
                 dataset_id=pl.lit(r["dataset_id"]),
                 method=pl.lit(r["method"]),
                 config_hash=pl.lit(r["config_hash"]),
-                guide_tree=pl.lit(None if guide is None else str(guide), pl.String),
+                guide_tree=pl.lit(str(guide)),
             )
         )
     return pl.concat(families)

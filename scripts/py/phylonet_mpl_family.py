@@ -32,14 +32,14 @@ def phylonet_mpl_to_family(result_path: Path) -> pl.DataFrame:
         {
             "edges_added": [len(set(HYBRID.findall(n))) for n, _ in matches],
             "network_newick": [n for n, _ in matches],
-            "log_probability": [float(x) for _, x in matches],
             "is_best": [i == 0 for i in range(len(matches))],
+            "log_probability": [float(x) for _, x in matches],
         },
         schema={
             "edges_added": pl.Int64,
             "network_newick": pl.String,
-            "log_probability": pl.Float64,
             "is_best": pl.Boolean,
+            "log_probability": pl.Float64,
         },
     )
 
