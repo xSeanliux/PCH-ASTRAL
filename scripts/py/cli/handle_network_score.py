@@ -59,7 +59,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     )
     families = []
     for r in runs.iter_rows(named=True):
-        guide: GuideTree = TreeInferenceMethod.PCH_WASTRAL  # the others' start tree
+        guide: GuideTree = TreeInferenceMethod.PCH_WASTRAL  # the others' input tree
         if r["method"] == NetworkInferenceMethod.CAMUS.value:
             config = CamusConfig.model_validate_json(r["method_config_json"])
             (guide,) = config.guide_trees
