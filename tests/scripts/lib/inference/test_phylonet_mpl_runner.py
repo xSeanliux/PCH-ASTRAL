@@ -28,7 +28,7 @@ def test_runner_depends_on_the_start_tree_method():
 
 def test_build_argv(tmp_path: Path):
     argv = _runner().build_argv("r1", tmp_path / "d.csv", "d", tmp_path)
-    assert argv[:2] == ["bash", "scripts/sh/runPHYLONETMPL.sh"]
+    assert argv[:2] == ["bash", "scripts/sh/runPhyloNetMPL.sh"]
     assert argv[-2:] == ["--output", str(tmp_path)]
 
 

@@ -31,7 +31,7 @@ class PhyloNetMPLRunner(Runner["PhyloNetMPLConfig"]):
     ) -> list[str]:
         return [
             "bash",
-            "scripts/sh/runPHYLONETMPL.sh",
+            "scripts/sh/runPhyloNetMPL.sh",
             "--runid",
             runid,
             "--input",
