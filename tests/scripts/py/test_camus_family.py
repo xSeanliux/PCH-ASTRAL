@@ -15,4 +15,4 @@ def test_camus_to_family_renames_losslessly(tmp_path: Path):
             "Extended Newick": [newick],
         }
     ).write_csv(raw)
-    assert camus_to_family(raw).rows() == [(1, newick, 50.0)]
+    assert camus_to_family(raw).rows() == [(1, newick, True, 50.0)]

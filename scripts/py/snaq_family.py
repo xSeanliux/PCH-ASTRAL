@@ -31,14 +31,14 @@ def snaq_to_family(networks_path: Path, best_path: Path) -> pl.DataFrame:
         {
             "edges_added": [len(set(HYBRID.findall(n))) for n in newicks],
             "network_newick": newicks,
-            "neg_loglik": [None if x == -1 else x for x in neg_logliks],
             "is_best": [i == 0 for i in range(len(newicks))],
+            "neg_loglik": [None if x == -1 else x for x in neg_logliks],
         },
         schema={
             "edges_added": pl.Int64,
             "network_newick": pl.String,
-            "neg_loglik": pl.Float64,
             "is_best": pl.Boolean,
+            "neg_loglik": pl.Float64,
         },
     )
 
