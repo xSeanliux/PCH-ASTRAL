@@ -7,6 +7,7 @@ key) and `simulation_data/model_graph_registry.csv` (key → graph file).
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 import polars as pl
 
@@ -28,32 +29,45 @@ class ModelGraph:
     path: Path
     outgroup_label: str | None  # None when the experiment has no outgroup
 
+    @classmethod
+    def from_registry(
+        cls, experiment_folder: Path, horizontal_edges: int, model_tree: int
+    ) -> Self:
+        """Read the registered model graph for a key; e.g. (2, 1) → `net2-1.txt`,
+        base tree (0, 1) → `model_tree_1.txt`.
 
-def find_model_graph(
-    experiment_folder: Path, horizontal_edges: int, model_tree: int
-) -> ModelGraph:
-    """The registered model graph for a key; e.g. (2, 1) → `net2-1.txt`, base tree
-    (0, 1) → `model_tree_1.txt`.
-
-    :param experiment_folder: experiment root, holding `simulation_data/`.
-    :param horizontal_edges: reticulation count; 0 for the base tree.
-    :param model_tree: base tree index.
-    :returns: the graph's registry row.
-    :raises ValueError: if the registry has zero or several such graphs.
-    """
-    reg = experiment_folder / "simulation_data" / "model_graph_registry.csv"
-    df = pl.read_csv(reg, schema=MODEL_GRAPH_REGISTRY).filter(
-        (pl.col("horizontal_edges") == horizontal_edges)
-        & (pl.col("model_tree") == model_tree)
-    )
-    if df.height != 1:
-        raise ValueError(
-            f"{df.height} model graphs for h={horizontal_edges}, "
-            f"model_tree={model_tree} in {reg}; want 1"
+        :param experiment_folder: experiment root, holding `simulation_data/`.
+        :param horizontal_edges: reticulation count; 0 for the base tree.
+        :param model_tree: base tree index.
+        :returns: the graph's registry row.
+        :raises ValueError: if the registry has zero or several such graphs.
+        """
+        reg = experiment_folder / "simulation_data" / "model_graph_registry.csv"
+        df = pl.read_csv(reg, schema=MODEL_GRAPH_REGISTRY).filter(
+            (pl.col("horizontal_edges") == horizontal_edges)
+            & (pl.col("model_tree") == model_tree)
         )
-    return ModelGraph(
-        horizontal_edges, model_tree, Path(df["path"][0]), df["outgroup_label"][0]
-    )
+        if df.height != 1:
+            raise ValueError(
+                f"{df.height} model graphs for h={horizontal_edges}, "
+                f"model_tree={model_tree} in {reg}; want 1"
+            )
+        return cls(
+            horizontal_edges, model_tree, Path(df["path"][0]), df["outgroup_label"][0]
+        )
+
+    @classmethod
+    def from_dataset(cls, input_csv: Path) -> Self:
+        """Read the model graph a simulated dataset was simulated from; e.g.
+        `sim_2_1_1.csv` → (2, 1) → `net2-1.txt`. Base-tree callers use
+        `scoring.resolve_reference_newick`.
+
+        :param input_csv: dataset CSV under an experiment's `simulation_data/`.
+        :returns: the dataset's own graph (h as simulated, not the base tree).
+        :raises ValueError: as `find_dataset_key`, or `from_registry` if the graph
+            is not registered exactly once.
+        """
+        return cls.from_registry(*find_dataset_key(input_csv))
 
 
 def find_dataset_key(input_csv: Path) -> tuple[Path, int, int]:
@@ -94,15 +108,3 @@ def find_dataset_key(input_csv: Path) -> tuple[Path, int, int]:
             else f"{keys.height} conflicting registry rows for {input_csv}"
         )
     return sim_dir.parent, keys["horizontal_edges"][0], keys["model_tree"][0]
-
-
-def find_dataset_model_graph(input_csv: Path) -> ModelGraph:
-    """The model graph a simulated dataset was simulated from; e.g. `sim_2_1_1.csv`
-    → (2, 1) → `net2-1.txt`. Base-tree callers use `scoring.resolve_reference_newick`.
-
-    :param input_csv: dataset CSV under an experiment's `simulation_data/`.
-    :returns: the dataset's own graph (h as simulated, not the base tree).
-    :raises ValueError: as `find_dataset_key`, or `find_model_graph` if the graph
-        is not registered exactly once.
-    """
-    return find_model_graph(*find_dataset_key(input_csv))

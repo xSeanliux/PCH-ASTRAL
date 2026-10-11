@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from scripts.lib.inference.network_format import convert_contact_network
-from scripts.lib.model.model_graph import find_model_graph
+from scripts.lib.model.model_graph import ModelGraph
 
 
 @dataclass
@@ -27,7 +27,11 @@ def resolve_reference_newick(experiment_folder: Path, model_tree: int) -> str:
     :returns: the base tree's newick, stripped.
     :raises ValueError: if the base tree is not registered exactly once.
     """
-    return find_model_graph(experiment_folder, 0, model_tree).path.read_text().strip()
+    return (
+        ModelGraph.from_registry(experiment_folder, 0, model_tree)
+        .path.read_text()
+        .strip()
+    )
 
 
 def score(
@@ -79,7 +83,7 @@ def resolve_reference_network(
     :returns: the network as rich newick.
     :raises ValueError: if the graph is not registered exactly once.
     """
-    graph = find_model_graph(experiment_folder, horizontal_edges, model_tree)
+    graph = ModelGraph.from_registry(experiment_folder, horizontal_edges, model_tree)
     return convert_contact_network(graph.path.read_text())
 
 
