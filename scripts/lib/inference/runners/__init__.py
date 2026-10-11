@@ -10,6 +10,7 @@ from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.camus import CamusRunner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
+from scripts.lib.inference.runners.phylonet_mpl import PhyloNetMPLRunner
 from scripts.lib.inference.runners.snaq import SnaqRunner
 from scripts.lib.inference.runners.tob_qmc import TobQmcRunner
 from scripts.lib.inference.runners.w_tree_qmc import WTreeQmcRunner
@@ -27,6 +28,7 @@ METHOD_TO_RUNNER_CLASS: dict[InferenceMethod, type[Runner[BaseModel]]] = {
     TreeInferenceMethod.TOB_QMC: TobQmcRunner,
     NetworkInferenceMethod.CAMUS: CamusRunner,
     NetworkInferenceMethod.SNAQ: SnaqRunner,
+    NetworkInferenceMethod.PHYLONET_MPL: PhyloNetMPLRunner,
 }
 
 __all__ = [
@@ -39,5 +41,6 @@ __all__ = [
     "WASTRALRunner",
     "SnaqRunner",
     "TobQmcRunner",
+    "PhyloNetMPLRunner",
     "METHOD_TO_RUNNER_CLASS",
 ]

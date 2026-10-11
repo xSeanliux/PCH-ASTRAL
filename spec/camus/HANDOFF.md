@@ -11,11 +11,8 @@ output contract.
 - Closed: #35 `camus_registry`. Each network run's family CSV (`N.family.csv`) is its
   `group_estimate_path` in `inference_registry`; `handle_network_score.read_families` reads them
   from there.
-- Open: **#50** `snaq` (SNaQ, plus the shared network contract below). **#51** `phylonet-mpl`
-  (PhyloNet-MPL(FT); carries an identical copy of the shared files, so it merges cleanly on its
-  own). Whichever merges second re-conflicts in docs (`MIGRATIONS.md`, `SCHEMAS.md`,
-  `SCRIPT_CONTRACTS.md`), `test_handle_network_score.py` and method registration
-  (`experiment.py`, `runners/__init__.py`, `methods.py`): keep both sides.
+- Open stack: #52 model graph <- #53 family CSV <- #54 `GuidedNetworkConfig` <- **#50** SNaQ <-
+  **#51** PhyloNet-MPL(FT). Merge in that order.
 - Open: #47 TOB-QMC (separate). Issues #43–#46: other network methods; #40: outgroup length.
 
 ## Network output contract (#50, #51)
@@ -32,8 +29,7 @@ raw output (kept beside it) by its `Runner.execute` (e.g. `camus_to_family`, `sn
 
 CAMUS marks every k `is_best` (each is its own optimum). Network point estimates are
 `point_estimate_newick`; tree scoring skips network methods. `guide_tree` in `network_scores` is
-from `method_config_json` for CAMUS and SNaQ (`pch_wastral` in the smoke test, as in the CAMUS
-paper); `pch_wastral` for MPL (its fixed tree). Schema:
+from `method_config_json` (`pch_wastral` in the smoke tests, as in the CAMUS paper). Schema:
 `NETWORK_FAMILY_SCHEMA` in `scripts/py/cli/schemata.py`; details in `docs/SCHEMAS.md`.
 
 ## SNaQ rooting

@@ -106,6 +106,7 @@ scores = pl.read_csv("experiments/my_run/inference_data/scores.csv")
 | `MB_EXEC` | `bin/mb` | MrBayes binary for GA. `make install-mrbayes` puts it at `bin/mb`; only override to use an mb elsewhere (e.g. a conda env). |
 | `PCH_SCRATCH` | `$HOME/scratch` | Per-run temp (nexus, quartets, bipartitions). **Keep it short** — MrBayes 3.2.7a caps input filenames at 99 chars, so a deep scratch path silently fails GA (`Error when setting parameter "Filename" (2)`). |
 | `PCH_ASTRAL_XMX` | `8g` | ASTRAL JVM heap. Bump for large inputs (e.g. `12g`, `64g`). |
+| `PCH_PHYLONET_PROCS` | `1` | PhyloNet-MPL `-pl` processes. |
 
 **Scale note (ASTRAL memory):** the quartet file ASTRAL consumes has ≈ `n_chars × character_weight` weighted quartets (each character's quartets are emitted `weight` times as gene trees). High `n_chars` explodes this — 320 chars (weight ≈50) → ~410k quartets → OOMs the 8g default. Mitigate with `PCH_ASTRAL_XMX≥12g` or fewer characters.
 

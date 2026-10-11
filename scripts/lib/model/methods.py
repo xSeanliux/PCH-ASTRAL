@@ -18,6 +18,7 @@ class TreeInferenceMethod(InferenceMethod):
 class NetworkInferenceMethod(InferenceMethod):
     CAMUS = "camus"
     SNAQ = "snaq"
+    PHYLONET_MPL = "phylonet_mpl"
 
 
 class RunStatus(StrEnum):

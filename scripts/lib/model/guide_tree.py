@@ -14,3 +14,8 @@ GUIDE_TREES: Final[frozenset[GuideTree]] = frozenset({*TreeInferenceMethod, TRUE
 CAMUS_GUIDE_TREES: Final[frozenset[GuideTree]] = frozenset(
     {TreeInferenceMethod.PCH_ASTRAL3, TreeInferenceMethod.PCH_WASTRAL, TRUE_TREE}
 )
+# Binary: -fs keeps the tree fixed, so a resolved polytomy would be kept as found.
+# Rooting is free: every guide is rooted on the outgroup (ga's MCC tree is unrooted).
+PHYLONET_MPL_GUIDE_TREES: Final[frozenset[GuideTree]] = CAMUS_GUIDE_TREES | {
+    TreeInferenceMethod.GA
+}

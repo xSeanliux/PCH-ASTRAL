@@ -1,0 +1,27 @@
+# PhyloNet-MPL(FT) at 26 taxa (25 + OUT): the CAMUS paper's SNaQ timed out here.
+#
+# data/ (local, not committed) is tree 1 and net{1,2}-1 from data/ with
+# t9, t10, t11, t14, t15 pruned (Bio.Phylo, branch lengths merged); none touch a
+# contact edge, so contact lines and times are unchanged.
+experiment_folder: experiments/phylonet_mpl_26
+simulation:
+  n_taxa: 25
+  outgroup_label: OUT # required: gene trees and the start tree are rooted on it
+  n_horizontal_edges:
+    - 1
+    - 2
+  n_trees: 1
+  n_replicas: 1
+  base_config_dir: data/base_configs
+  base_trees_file: experiments/phylonet_mpl_26/data/trees.txt
+  base_networks_dir: experiments/phylonet_mpl_26/data/base_networks
+  simulation_params:
+    - poly: high
+      homoplasy_factor: 0.1
+      tree_height: 4
+      n_chars: 80
+
+methods:
+  wastral: {} # the fixed tree
+  phylonet_mpl:
+    guide_trees: [pch_wastral] # fixed tree, as in the CAMUS paper
