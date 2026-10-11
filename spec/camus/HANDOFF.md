@@ -51,8 +51,8 @@ below a hybrid, rooting there would reverse hybrid edges (`RootMismatch`). Rule 
 Rejected: scoring SNaQ's arbitrary root (inflated error); moving hybrids ourselves
 (`hybridatnode!`, c205b43); re-orienting all edges away from `OUT` (undefined on odd cycles,
 discards SNaQ's hybrids). The CAMUS paper and its gists don't say how SNaQ was rooted for scoring;
-ask James Willson. Smoke (11 taxa) FN/FP: sim_1 0.25/0.36 (row 0), sim_2 0.44/0.33 (row 1; was
-0.83/0.79 with SNaQ's root).
+ask James Willson. The earlier smoke FN/FP (sim_1 0.25/0.36, sim_2 0.44/0.33; 0.83/0.79 with
+SNaQ's root) came from hand-pruned 11-taxon models and are void; rerun at 30 taxa.
 
 ## Smoke runs
 
@@ -67,12 +67,10 @@ python3 -m scripts.py.cli.main experiment score $S
 python3 -m scripts.py.cli.main experiment network-score $S
 ```
 
-- `experiments/snaq_smoke` (#50): 11 taxa, h = 1 and 2. SNaQ is ~20 min per dataset at 11–12
-  taxa and did not finish in 65 min at 31; `PCH_SNAQ_PROCS=10` runs the 10 runs in parallel.
-- `experiments/phylonet_mpl_26` (#51): 26 taxa, MPL(FT) (`-fs`), h = 1 and 2. Running since
-  2026-10-10; >6 h wall on the first dataset (the laptop slept). No result yet.
-- Both use a local, git-ignored `data/` of base networks pruned from `data/base_networks`; don't
-  commit it. The specs say how it was made.
+- `experiments/snaq_smoke` (#50): 30 taxa + `OUT`, h = 1 and 2. SNaQ did not finish in 65 min
+  at 31 leaves; `PCH_SNAQ_PROCS=10` runs the 10 runs in parallel. Not yet run at this size.
+- Only the base models in `data/` are valid inputs: there is no tree simulation, and
+  `simulation.n_taxa` is not read (the base tree file sets the taxa). Don't hand-prune models.
 
 ## Gotchas
 
@@ -89,7 +87,7 @@ python3 -m scripts.py.cli.main experiment network-score $S
 
 ## Next
 
-1. Finish the MPL 26-taxon run; merge #50, then #51 (re-resolve docs conflicts).
+1. Rerun `snaq_smoke` (and MPL's smoke) at 30 taxa; merge the stack.
 2. Refresh #50's PR body (contract, rooting rule, hmax wording).
 3. Ask James how the paper rooted SNaQ; revisit step 2 if needed.
 4. Report the simulator bug; add a caveat to CLAUDE.md ("seeds are deterministic").
