@@ -14,6 +14,7 @@ Check `docs/` first for anything not covered here:
 - `docs/SCRIPT_CONTRACTS.md` — I/O contracts for the primitives the inference API shells out to.
 - `docs/CLI.md` — the config-driven `simulation`/`inference` CLI.
 - `docs/OPERATIONAL_ISSUES.md` — cluster-scale runbook: R-version ABI breaks, GA/4h-cap limits, ASTRAL heap, maintenance reservations, resume.
+- `docs/method_docs/<method>/` — per inference method: what it computes, how we run and configure it, how its output is normalised (best network, rooting), references. Start from `docs/method_docs/TEMPLATE.md`; `snaq/` is the worked example.
 
 ## What this is
 

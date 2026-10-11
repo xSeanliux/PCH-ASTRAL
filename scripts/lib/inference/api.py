@@ -19,8 +19,9 @@ def infer(
 ) -> InferenceResult:
     """Run one unit of work on one dataset.
 
-    OK iff `runner.execute` returns 0 and writes the point estimate, else the group
-    estimate (a method with only a family, like CAMUS, has no point estimate).
+    OK iff `runner.execute` returns 0 and the required estimate exists: the point
+    estimate if declared (CAMUS declares none), else the group estimate; only the
+    group estimate if `is_point_estimate_optional` (SNaQ).
     An exception from `execute` fails the run, its traceback in the log.
     """
     name = runner.get_run_name(input_csv.stem)
@@ -40,11 +41,17 @@ def infer(
 
     point_estimate_path = runner.get_point_estimate_path(output_dir, name)
     group_estimate_path = runner.get_group_estimate_path(output_dir, name)
-    required_path = point_estimate_path or group_estimate_path
+    required_path = (
+        group_estimate_path
+        if runner.is_point_estimate_optional
+        else point_estimate_path or group_estimate_path
+    )
     assert required_path is not None, f"{runner.method} declares no estimate"
     is_ok = returncode == 0 and required_path.exists()
     newick = (
-        point_estimate_path.read_text().strip() if is_ok and point_estimate_path else ""
+        point_estimate_path.read_text().strip()
+        if is_ok and point_estimate_path and point_estimate_path.exists()
+        else ""
     )
     # Recorded only when the file exists (None = "no set").
     is_group_recorded = (

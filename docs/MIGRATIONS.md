@@ -2,9 +2,68 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## SNaQ start tree is configurable
+
+**Affects:** SNaQ rows. `method_config_json` `{}` became `{"guide_trees":["pch_wastral"]}`, so `config_hash` changed, and output names gain the guide suffix (`N` → `N.pch_wastral`). Old rows no longer match: rerun, or rename the outputs and rewrite the rows (and `network_scores.csv` hashes). From the repo root (registry paths are relative to it):
+
+```python
+import sys
+from pathlib import Path
+
+import polars as pl
+
+from scripts.lib.experiment import SnaqConfig
+from scripts.lib.inference.method_config import hash_config
+
+inf = Path(sys.argv[1])  # experiments/my_run/inference_data
+config = SnaqConfig(guide_trees=frozenset({"pch_wastral"}))
+new = {"config_hash": hash_config(config), "method_config_json": config.model_dump_json()}
+p = inf / "inference_registry.csv"
+df = pl.read_csv(p, infer_schema=False)
+old = (pl.col("method") == "snaq") & (pl.col("method_config_json") == "{}")
+for r in df.filter(old).iter_rows(named=True):
+    stem = Path(r["dataset_id"]).stem
+    for d in {Path(r["group_estimate_path"]).parent, Path(r["log_path"]).parent}:
+        for f in d.glob(f"{stem}[._]*"):
+            f.rename(d / f.name.replace(stem, f"{stem}.pch_wastral", 1))
+paths = [
+    pl.col(c).str.replace(r"/([^/.]+)\.([^/]+)$", "/$1.pch_wastral.$2")
+    for c in ["group_estimate_path", "log_path"]
+]
+df.with_columns(
+    pl.when(old).then(e).otherwise(pl.col(e.meta.output_name())) for e in paths
+).with_columns(
+    pl.when(old).then(pl.lit(v)).otherwise(pl.col(c)).alias(c) for c, v in new.items()
+).write_csv(p)
+s = inf / "network_scores.csv"  # or delete its snaq rows and rescore
+if s.exists():
+    sc = pl.read_csv(s, infer_schema=False)
+    snaq = (pl.col("method") == "snaq") & (pl.col("guide_tree") == "pch_wastral")
+    sc.with_columns(
+        config_hash=pl.when(snaq).then(pl.lit(new["config_hash"])).otherwise("config_hash")
+    ).write_csv(s)
+```
+
+Run as `python <script> experiments/my_run/inference_data`.
+
+## SNaQ point estimate: consistent with the outgroup
+
+**Affects:** SNaQ runs. `N.net` could keep an arbitrary root (outgroup below a hybrid); the family CSV now needs `N.choice`, and a run with no network consistent with the outgroup has no `N.net` and no `is_best` row. Hashes did not change. Per run, then set the registry row's `point_estimate_newick` to the new `N.net` (empty if absent) and rescore:
+
+```bash
+JULIA_DEPOT_PATH=bin/julia-depot JULIA_PROJECT=scripts/jl bin/julia scripts/jl/run_snaq.jl --choose N OUT
+```
+
+```python
+from pathlib import Path
+from scripts.lib.inference.runners.snaq import snaq_to_family
+
+snaq_to_family(Path("N.networks"), Path("N.net"), Path("N.choice")).write_csv("N.family.csv")
+```
+
 ## Network group estimates are family CSVs
 
-**Affects:** every network method's rows in `inference_data/inference_registry.csv` (today only CAMUS). `group_estimate_path` pointed at the tool's raw output (CAMUS: `<name>.csv`); `network-score` now reads `<name>.family.csv` (`SCHEMAS.md`). Hashes did not change.
+**Affects:** every network method's rows in `inference_data/inference_registry.csv` (CAMUS, SNaQ). `group_estimate_path` pointed at the tool's raw output (CAMUS: `<name>.csv`; SNaQ: `<name>.networks`); `network-score` now reads `<name>.family.csv` (`SCHEMAS.md`). Hashes did not change.
 
 Convert each run with its method's converter and repoint its row (or drop the rows and rerun). CAMUS:
 
@@ -15,17 +74,19 @@ from scripts.lib.inference.runners.camus import camus_to_family
 camus_to_family(Path("N.csv")).write_csv("N.family.csv")
 ```
 
+SNaQ: run `run_snaq.jl --choose` for `N.choice`, then `snaq_to_family`, as in "SNaQ point estimate: consistent with the outgroup".
+
 ```python
 import polars as pl
 
 p = "experiments/my_run/inference_data/inference_registry.csv"
 df = pl.read_csv(p, infer_schema=False)
-net = pl.col("method").is_in(["camus"]) & ~pl.col(  # every network method
+net = pl.col("method").is_in(["camus", "snaq"]) & ~pl.col(  # every network method
     "group_estimate_path"
 ).str.ends_with(".family.csv")  # rerunnable
 df.with_columns(
     group_estimate_path=pl.when(net)
-    .then(pl.col("group_estimate_path").str.replace(r"\.csv$", ".family.csv"))
+    .then(pl.col("group_estimate_path").str.replace(r"\.(csv|networks)$", ".family.csv"))
     .otherwise(pl.col("group_estimate_path"))
 ).write_csv(p)
 ```

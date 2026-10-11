@@ -52,10 +52,10 @@ One abstract `Runner[ConfigT]` for tree and network methods (`runners/base.py`).
 | `suffix` | Tells apart runs of one method on one dataset (`None` = bare stem). |
 | `get_run_name(stem)` | `stem`, or `stem.suffix`. |
 | `build_argv(...)` | The command `execute` runs. |
-| `execute(..., log_file)` | What `api.infer` calls; returns the exit code. Default runs `build_argv`; override to post-process (CAMUS writes its family CSV). An exception fails the run, traceback in the log. |
+| `execute(..., log_file)` | What `api.infer` calls; returns the exit code. Default runs `build_argv`; override to post-process (CAMUS and SNaQ write their family CSVs). An exception fails the run, traceback in the log. |
 | `get_dependencies()` | Methods whose output it consumes. Methods, not runners: the gate is on method names. |
 | `get_log_path` | Static. |
-| `get_point_estimate_path` | Static. One tree, or `None` if the method has no single estimate. |
+| `get_point_estimate_path` | Static. One tree or network, or `None` if the method has no single estimate. |
 | `get_group_estimate_path` | Static. The set the estimate summarises (trees) or the family (networks); default `None`. |
 | `get_consensus_method()` | How a set collapses to the point estimate; default `None`. |
 
@@ -65,10 +65,11 @@ Path getters are static so other code can look a method up without a runner, e.g
 |---|---|---|
 | tree (`mp`, `ga`, `pch_*`) | tree file | tree set, if any |
 | network (`camus`) | `None` (picking k is analysis) | `CAMUS/networks/<name>.family.csv`, one row per k |
+| network (`snaq`) | best network, `SNAQ/networks/<name>.net` (Rich newick) | `SNAQ/networks/<name>.family.csv` |
 
 ### Fan-out
 
-One config may yield several runners. `GuidedNetworkConfig.get_runners()` (CAMUS) returns one runner per guide, each with a single-guide config, its own `hash_config`, and output name `<stem>.<guide>`. `experiment status` counts each as `<method>.<guide>`.
+One config may yield several runners. `GuidedNetworkConfig.get_runners()` (CAMUS, SNaQ) returns one runner per guide, each with a single-guide config, its own `hash_config`, and output name `<stem>.<guide>`. `experiment status` counts each as `<method>.<guide>`.
 
 ### Guide trees
 
@@ -79,7 +80,7 @@ A guide is a tree *method* or `true_tree`; there is no separate guide enum (`mod
 | a tree method | that method; the network method reads its point estimate |
 | `true_tree` | none; the simulation base tree |
 
-`GUIDE_TREES` holds every guide; CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). A guide names a method, not a config: `MethodConfig` holds one config per method.
+SNaQ takes any (`GUIDE_TREES`): `snaq!` resolves polytomies and unroots its start tree. CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). A guide names a method, not a config: `MethodConfig` holds one config per method.
 
 ## Scheduling (`scheduler.py`)
 

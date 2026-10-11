@@ -1,0 +1,28 @@
+# Smoke test for SNaQ: networks with 1 and 2 contact events, one dataset each.
+# SNaQ starts from its guide tree (a scheduler dependency) and needs the outgroup.
+#
+# Slow: one SNaQ search at 30 taxa + OUT takes hours; procs: 10 runs its 10 runs in
+# parallel.
+experiment_folder: experiments/snaq_smoke
+simulation:
+  n_taxa: 30
+  outgroup_label: OUT # SNaQ roots its network on it
+  n_horizontal_edges:
+    - 1
+    - 2
+  n_trees: 1
+  n_replicas: 1
+  base_config_dir: data/base_configs
+  base_trees_file: data/trees.txt
+  base_networks_dir: data/base_networks
+  simulation_params:
+    - poly: high
+      homoplasy_factor: 0.1
+      tree_height: 4
+      n_chars: 80
+
+methods:
+  wastral: {} # start tree
+  snaq:
+    guide_trees: [pch_wastral] # start tree, as in the CAMUS paper
+    procs: 10 # Julia workers; not part of config_hash
