@@ -7,10 +7,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-import polars as pl
-
 from scripts.lib.inference.network_format import convert_contact_network
-from scripts.py.cli.schemata import MODEL_GRAPH_REGISTRY
+from scripts.lib.model.model_graph import ModelGraph
 
 
 @dataclass
@@ -19,31 +17,21 @@ class ScoreResult:
     fp_rate: float
 
 
-def find_model_graph(
-    experiment_folder: Path, horizontal_edges: int, model_tree: int
-) -> Path:
-    """The model graph file for `(horizontal_edges, model_tree)`; h == 0 is the base tree.
-
-    :raises ValueError: unless the registry has exactly one such graph.
-    """
-    reg = experiment_folder / "simulation_data" / "model_graph_registry.csv"
-    df = pl.read_csv(reg, schema=MODEL_GRAPH_REGISTRY).filter(
-        (pl.col("horizontal_edges") == horizontal_edges)
-        & (pl.col("model_tree") == model_tree)
-    )
-    if df.height != 1:
-        raise ValueError(
-            f"{df.height} model graphs for h={horizontal_edges}, "
-            f"model_tree={model_tree} in {reg}; want 1"
-        )
-    return Path(df["path"][0])
-
-
 # cache per-run; CSV parsed once per distinct (folder, model_tree). One CLI process = one run, so unbounded is fine.
 @functools.lru_cache(maxsize=None)
 def resolve_reference_newick(experiment_folder: Path, model_tree: int) -> str:
-    """Newick of the BASE TREE (horizontal_edges==0) a network is scored against."""
-    return find_model_graph(experiment_folder, 0, model_tree).read_text().strip()
+    """Newick of the base tree (h = 0) a network is scored against.
+
+    :param experiment_folder: experiment root, holding `simulation_data/`.
+    :param model_tree: base tree index.
+    :returns: the base tree's newick, stripped.
+    :raises ValueError: if the base tree is not registered exactly once.
+    """
+    return (
+        ModelGraph.from_registry(experiment_folder, 0, model_tree)
+        .path.read_text()
+        .strip()
+    )
 
 
 def score(
@@ -87,9 +75,16 @@ def score(
 def resolve_reference_network(
     experiment_folder: Path, horizontal_edges: int, model_tree: int
 ) -> str:
-    """Rich newick of the reference network; h == 0 is the base tree alone."""
-    path = find_model_graph(experiment_folder, horizontal_edges, model_tree)
-    return convert_contact_network(path.read_text())
+    """Rich newick of the reference network; h = 0 is the base tree alone.
+
+    :param experiment_folder: experiment root, holding `simulation_data/`.
+    :param horizontal_edges: reticulation count.
+    :param model_tree: base tree index.
+    :returns: the network as rich newick.
+    :raises ValueError: if the graph is not registered exactly once.
+    """
+    graph = ModelGraph.from_registry(experiment_folder, horizontal_edges, model_tree)
+    return convert_contact_network(graph.path.read_text())
 
 
 # Relative to the repo root, like RFScorer.R above: the pipeline runs from there.
