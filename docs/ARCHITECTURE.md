@@ -52,7 +52,7 @@ One abstract `Runner[ConfigT]` for tree and network methods (`runners/base.py`).
 | `suffix` | Tells apart runs of one method on one dataset (`None` = bare stem). |
 | `get_run_name(stem)` | `stem`, or `stem.suffix`. |
 | `build_argv(...)` | The command `execute` runs. |
-| `execute(..., log_file)` | What `api.infer` calls; returns the exit code. Default runs `build_argv`; override to post-process (CAMUS writes its family CSV). An exception fails the run, traceback in the log. |
+| `execute(..., log_file)` | What `api.infer` calls; returns the exit code. Default runs `build_argv`; override to post-process (CAMUS and SNaQ write their family CSVs). An exception fails the run, traceback in the log. |
 | `get_dependencies()` | Methods whose output it consumes. Methods, not runners: the gate is on method names. |
 | `get_log_path` | Static. |
 | `get_point_estimate_path` | Static. One tree or network, or `None` if the method has no single estimate. |

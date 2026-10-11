@@ -1,6 +1,8 @@
 import subprocess
 from pathlib import Path
+from typing import TextIO
 
+import polars as pl
 import pytest
 
 from pydantic import ValidationError
@@ -53,40 +55,58 @@ def test_build_argv_passes_the_guide(tmp_path: Path):
     assert argv[-2:] == ["--guide-tree", "mp"]
 
 
+NEWICK = "((A,(B)#H1),(C,(D,#H1)),OUT);"
+
+
+def _fake_snaq(networks_dir: Path, choice: str, returncode: int = 0):
+    """A `subprocess.run` that writes SNaQ's raw output for `d.pch_wastral`."""
+
+    def fake_run(
+        argv: list[str], **_: int | TextIO
+    ) -> subprocess.CompletedProcess[bytes]:
+        networks_dir.mkdir(parents=True, exist_ok=True)
+        prefix = networks_dir / "d.pch_wastral"
+        Path(f"{prefix}.networks").write_text(f"{NEWICK}, with -loglik 1.5\n")
+        Path(f"{prefix}.choice").write_text(f"{choice}\n")
+        if choice != "none":
+            Path(f"{prefix}.net").write_text(NEWICK + "\n")
+        return subprocess.CompletedProcess(argv, returncode)
+
+    return fake_run
+
+
+def test_execute_skips_family_on_snaq_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    family = SnaqRunner.get_group_estimate_path(tmp_path, "d.pch_wastral")
+    monkeypatch.setattr(subprocess, "run", _fake_snaq(family.parent, "0", 1))
+    with (tmp_path / "log").open("w") as log:
+        assert (
+            _runner().execute("r", tmp_path / "d.csv", "d.pch_wastral", tmp_path, log)
+            == 1
+        )
+    assert not family.exists()
+
+
 def test_infer_records_best_network_and_family(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    best = SnaqRunner.get_point_estimate_path(tmp_path, "d.pch_wastral")
     family = SnaqRunner.get_group_estimate_path(tmp_path, "d.pch_wastral")
-    newick = "((A,(B)#H1),(C,(D,#H1)),OUT);"
-
-    def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
-        best.parent.mkdir(parents=True, exist_ok=True)
-        best.write_text(newick + "\n")
-        family.write_text(f"edges_added,network_newick\n1,{newick}\n")
-        return subprocess.CompletedProcess(argv, 0)
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(subprocess, "run", _fake_snaq(family.parent, "0"))
     result = api.infer(tmp_path / "d.csv", tmp_path, _runner())
     assert result.status is RunStatus.OK
-    assert result.point_estimate_newick == newick
+    assert result.point_estimate_newick == NEWICK
     assert result.group_estimate_path == str(family)
+    assert pl.read_csv(family)["is_best"].to_list() == [True]
 
 
 def test_infer_without_consistent_network_is_ok(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     family = SnaqRunner.get_group_estimate_path(tmp_path, "d.pch_wastral")
-
-    def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
-        family.parent.mkdir(parents=True, exist_ok=True)
-        family.write_text(
-            "edges_added,network_newick,is_best\n1,(A,(B)#H1,#H1);,false\n"
-        )
-        return subprocess.CompletedProcess(argv, 0)
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(subprocess, "run", _fake_snaq(family.parent, "none"))
     result = api.infer(tmp_path / "d.csv", tmp_path, _runner())
     assert result.status is RunStatus.OK
     assert result.point_estimate_newick == ""
     assert result.group_estimate_path == str(family)
+    assert pl.read_csv(family)["is_best"].to_list() == [False]

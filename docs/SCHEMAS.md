@@ -95,7 +95,7 @@ Join to the registry on the three key columns.
 
 ## Network family CSV
 
-`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's `Runner.execute` (`CamusRunner` via `camus_to_family`); `runSNAQ.sh` via `scripts.py.snaq_family` · `NETWORK_FAMILY_SCHEMA` · one row per network
+`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's `Runner.execute` (`CamusRunner` via `camus_to_family`, `SnaqRunner` via `snaq_to_family`) · `NETWORK_FAMILY_SCHEMA` · one row per network
 
 A network run's `group_estimate_path`. The tool's raw output stays beside it.
 

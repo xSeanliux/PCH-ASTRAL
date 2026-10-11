@@ -2,8 +2,8 @@
 # SNaQ network inference: PCH-W quartets as gene trees, the --guide-tree tree as start,
 # hmax = the dataset's true reticulation count. Writes <output>/SNAQ/networks/<name>.net
 # (Rich newick: the lowest -loglik network consistent with the outgroup, rerooted on it; none
-# consistent: no .net, see run_snaq.jl), <name>.choice (its .networks row or `none`),
-# <name>.family.csv (every network) and SNaQ's .out/.log/.networks.
+# consistent: no .net, see run_snaq.jl), <name>.choice (its .networks row or `none`)
+# and SNaQ's .out/.log/.networks; SnaqRunner.execute then writes <name>.family.csv.
 RUNID=""
 INPUT=""
 TREEOUTPUT=""
@@ -69,8 +69,3 @@ JULIA_DEPOT_PATH="$REPO_ROOT/bin/julia-depot" JULIA_PROJECT="$REPO_ROOT/scripts/
     "$SCRATCH_QUARTET_PATH" "$SCRATCH_START_PATH" "$TREEOUTPUT/SNAQ/networks/$NAME" \
     "$HMAX" "$OUTGROUP" 10 "${PCH_SNAQ_PROCS:-1}" || exit
 echo "✅ SNaQ network inference"
-
-PREFIX="$TREEOUTPUT/SNAQ/networks/$NAME"
-python3 -m scripts.py.snaq_family --networks "$PREFIX.networks" --best "$PREFIX.net" \
-    --choice "$PREFIX.choice" --output "$PREFIX.family.csv" || exit 1
-echo "✅ SNaQ family CSV"

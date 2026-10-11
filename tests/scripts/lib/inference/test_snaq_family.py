@@ -6,9 +6,9 @@ import polars as pl
 import pytest
 
 from scripts.py.cli.schemata import NETWORK_FAMILY_SCHEMA
-from scripts.py.snaq_family import snaq_to_family
+from scripts.lib.inference.runners.snaq import snaq_to_family
 
-REPO = Path(__file__).parents[3]
+REPO = Path(__file__).parents[4]
 BEST = "((A,(B)#H1:::0.8),(C,(D,#H1:::0.2)),OUT);"
 OTHER = "((A,#H1:::0.3),(C,(D)#H1:::0.7),(B,OUT));"
 NETWORKS = (

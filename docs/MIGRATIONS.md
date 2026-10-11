@@ -52,7 +52,13 @@ Run as `python <script> experiments/my_run/inference_data`.
 
 ```bash
 JULIA_DEPOT_PATH=bin/julia-depot JULIA_PROJECT=scripts/jl bin/julia scripts/jl/run_snaq.jl --choose N OUT
-python -m scripts.py.snaq_family --networks N.networks --best N.net --choice N.choice --output N.family.csv
+```
+
+```python
+from pathlib import Path
+from scripts.lib.inference.runners.snaq import snaq_to_family
+
+snaq_to_family(Path("N.networks"), Path("N.net"), Path("N.choice")).write_csv("N.family.csv")
 ```
 
 ## Network group estimates are family CSVs
@@ -67,6 +73,8 @@ from scripts.lib.inference.runners.camus import camus_to_family
 
 camus_to_family(Path("N.csv")).write_csv("N.family.csv")
 ```
+
+SNaQ: run `run_snaq.jl --choose` for `N.choice`, then `snaq_to_family`, as in "SNaQ point estimate: consistent with the outgroup".
 
 ```python
 import polars as pl
