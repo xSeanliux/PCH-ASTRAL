@@ -1,7 +1,9 @@
 import subprocess
 from collections import Counter
 from pathlib import Path
+from typing import TextIO
 
+import polars as pl
 import pytest
 import yaml
 from pydantic import ValidationError
@@ -66,21 +68,49 @@ def test_root_quartets_keeps_outgroup_quartets_rooted_and_weighted():
     assert root_quartets(quartets, "OUT") == ["(((b,c),a),OUT);"] * 2
 
 
+NEWICK = "((a,(b)#H1:1.0::0.7),(#H1:0.5::0.3,c));"
+
+
+def _fake_phylonet(networks_dir: Path, returncode: int = 0):
+    """A `subprocess.run` that writes PhyloNet's raw result for `d.pch_wastral`."""
+
+    def fake_run(
+        argv: list[str], **_: int | TextIO
+    ) -> subprocess.CompletedProcess[bytes]:
+        networks_dir.mkdir(parents=True, exist_ok=True)
+        (networks_dir / "d.pch_wastral.result").write_text(
+            f"\nInferred Network #1:\n{NEWICK}\nTotal log probability: -22.27"
+        )
+        return subprocess.CompletedProcess(argv, returncode)
+
+    return fake_run
+
+
+def test_execute_skips_post_processing_on_phylonet_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    family = PhyloNetMPLRunner.get_group_estimate_path(tmp_path, "d.pch_wastral")
+    monkeypatch.setattr(subprocess, "run", _fake_phylonet(family.parent, 1))
+    with (tmp_path / "log").open("w") as log:
+        assert (
+            _runner().execute("r", tmp_path / "d.csv", "d.pch_wastral", tmp_path, log)
+            == 1
+        )
+    assert not family.exists()
+    assert not PhyloNetMPLRunner.get_point_estimate_path(
+        tmp_path, "d.pch_wastral"
+    ).exists()
+
+
 def test_infer_records_best_network_and_family(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     net = PhyloNetMPLRunner.get_point_estimate_path(tmp_path, "d.pch_wastral")
     family = PhyloNetMPLRunner.get_group_estimate_path(tmp_path, "d.pch_wastral")
-    newick = "((a,(b)#H1:1.0::0.7),(#H1:0.5::0.3,c));"
-
-    def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
-        net.parent.mkdir(parents=True, exist_ok=True)
-        net.write_text(newick + "\n")
-        family.write_text(f"edges_added,network_newick\n1,{newick}\n")
-        return subprocess.CompletedProcess(argv, 0)
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(subprocess, "run", _fake_phylonet(family.parent))
     result = api.infer(tmp_path / "d.csv", tmp_path, _runner())
     assert result.status is RunStatus.OK
-    assert result.point_estimate_newick == newick  # as written
+    assert net.read_text() == NEWICK + "\n"
+    assert result.point_estimate_newick == NEWICK  # as written
     assert result.group_estimate_path == str(family)
+    assert pl.read_csv(family)["is_best"].to_list() == [True]

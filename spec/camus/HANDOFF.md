@@ -18,7 +18,7 @@ output contract.
 ## Network output contract (#50, #51)
 
 Every network method writes `<cond>/<METHOD>/networks/N.family.csv`, converted from the tool's
-raw output (kept beside it) by its `Runner.execute` (e.g. `camus_to_family`, `snaq_to_family`):
+raw output (kept beside it) by its `Runner.execute` (e.g. `camus_to_family`, `snaq_to_family`, `phylonet_mpl_to_family`):
 
 | Column | Meaning |
 |---|---|

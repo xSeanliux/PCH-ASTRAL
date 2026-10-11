@@ -1,8 +1,8 @@
 #!/bin/bash
 # PhyloNet-MPL(FT): PCH-W quartets rooted on the outgroup plus the fixed --guide-tree
-# tree in, networks with k = the dataset's contact event count out. Writes
-# <output>/PHYLONET_MPL/networks/<name>.family.csv and <name>.net (best network)
-# beside PhyloNet's raw <name>.result.
+# tree in, networks with k = the dataset's contact event count out. Writes PhyloNet's
+# raw <output>/PHYLONET_MPL/networks/<name>.result; PhyloNetMPLRunner.execute then
+# writes <name>.family.csv and <name>.net (best network).
 RUNID=""
 INPUT=""
 TREEOUTPUT=""
@@ -68,11 +68,5 @@ RUNDIR="$PCH_SCRATCH/phylonet_mpl_$RUNID"
 mkdir -p "$RUNDIR" && ln -sf /dev/null "$RUNDIR/logfile.txt"
 (cd "$RUNDIR" && java -jar "$JAR" "$NEXUS" > /dev/null) || exit 1
 
-cat "$RESULT"
+cat "$RESULT" || exit 1
 echo "✅ PhyloNet-MPL(FT)"
-
-python3 -m scripts.py.phylonet_mpl_family --result "$RESULT" \
-    --output "$PREFIX.family.csv" || exit 1
-# Best network = the result's first newick, as written.
-grep -m1 ';$' "$RESULT" > "$PREFIX.net" || exit 1
-echo "✅ PhyloNet-MPL family CSV"
