@@ -2,7 +2,7 @@ from pathlib import Path
 
 import polars as pl
 
-from scripts.py.camus_family import camus_to_family
+from scripts.lib.inference.runners.camus import camus_to_family
 
 
 def test_camus_to_family_renames_losslessly(tmp_path: Path):

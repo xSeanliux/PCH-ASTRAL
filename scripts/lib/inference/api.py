@@ -1,7 +1,7 @@
-"""Object-returning inference API — the only subprocess site."""
+"""Object-returning inference API."""
 
-import subprocess
 import time
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,8 +19,9 @@ def infer(
 ) -> InferenceResult:
     """Run one unit of work on one dataset.
 
-    OK iff the command exits 0 and writes the point estimate, else the group
+    OK iff `runner.execute` returns 0 and writes the point estimate, else the group
     estimate (a method with only a family, like CAMUS, has no point estimate).
+    An exception from `execute` fails the run, its traceback in the log.
     """
     name = runner.get_run_name(input_csv.stem)
     runid = shortuuid.uuid()
@@ -28,20 +29,20 @@ def infer(
     log = runner.get_log_path(output_dir, name)
     log.parent.mkdir(parents=True, exist_ok=True)
 
-    argv = runner.build_argv(runid, input_csv, name, output_dir)
-
     start = time.monotonic()
     with log.open("w") as log_file:
-        proc = subprocess.run(
-            argv, check=False, stdout=log_file, stderr=subprocess.STDOUT
-        )
+        try:
+            returncode = runner.execute(runid, input_csv, name, output_dir, log_file)
+        except Exception:
+            traceback.print_exc(file=log_file)
+            returncode = 1
     elapsed = time.monotonic() - start
 
     point_estimate_path = runner.get_point_estimate_path(output_dir, name)
     group_estimate_path = runner.get_group_estimate_path(output_dir, name)
     required_path = point_estimate_path or group_estimate_path
     assert required_path is not None, f"{runner.method} declares no estimate"
-    is_ok = proc.returncode == 0 and required_path.exists()
+    is_ok = returncode == 0 and required_path.exists()
     newick = (
         point_estimate_path.read_text().strip() if is_ok and point_estimate_path else ""
     )

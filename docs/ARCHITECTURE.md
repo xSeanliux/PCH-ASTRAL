@@ -20,7 +20,7 @@ flowchart LR
 | model | `lib/model/` | `methods.py` (`TreeInferenceMethod`, `NetworkInferenceMethod`, `RunStatus`, `ConsensusMethod`), `strategies.py`, `guide_tree.py`. Nothing imports upward. |
 | config | `lib/experiment.py`, `lib/inference/method_config.py` | YAML models (`MethodConfig`, one `*Config` per method), `METHOD_TO_CONFIG_CLASS`, `resolve_config`, `hash_config` (sha256 of the config JSON). |
 | runners | `lib/inference/runners/` | One `Runner` subclass per method: argv, output paths, dependencies. |
-| orchestration | `py/cli/handle_inference.py`, `lib/inference/{scheduler,executor,api}.py` | Order, resume, gate, fan-out. `api.infer` is the **only subprocess site**. |
+| orchestration | `py/cli/handle_inference.py`, `lib/inference/{scheduler,executor,api}.py` | Order, resume, gate, fan-out. `api.infer` runs each runner via `execute`. |
 | registry | `lib/inference/registry.py` | Shard-per-job JSONL, `compact` to CSV, manifest. |
 | scoring | `py/cli/handle_score.py`, `lib/inference/scoring.py` | RF FN/FP vs the base tree (shells out to R). |
 
@@ -51,7 +51,8 @@ One abstract `Runner[ConfigT]` for tree and network methods (`runners/base.py`).
 | `method` | Its `InferenceMethod`; the scheduler keys on it. |
 | `suffix` | Tells apart runs of one method on one dataset (`None` = bare stem). |
 | `get_run_name(stem)` | `stem`, or `stem.suffix`. |
-| `build_argv(...)` | The command `api.infer` runs. |
+| `build_argv(...)` | The command `execute` runs. |
+| `execute(..., log_file)` | What `api.infer` calls; returns the exit code. Default runs `build_argv`; override to post-process (CAMUS writes its family CSV). An exception fails the run, traceback in the log. |
 | `get_dependencies()` | Methods whose output it consumes. Methods, not runners: the gate is on method names. |
 | `get_log_path` | Static. |
 | `get_point_estimate_path` | Static. One tree, or `None` if the method has no single estimate. |

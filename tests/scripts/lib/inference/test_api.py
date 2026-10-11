@@ -1,4 +1,8 @@
+import subprocess
 from pathlib import Path
+from typing import TextIO
+
+import pytest
 
 from scripts.lib.experiment import MP4Config
 from scripts.lib.inference import api
@@ -21,7 +25,7 @@ def test_infer_ok(tmp_path: Path, monkeypatch) -> None:
 
         return P()
 
-    monkeypatch.setattr(api.subprocess, "run", fake_run)
+    monkeypatch.setattr(subprocess, "run", fake_run)
 
     result = api.infer(csv, out, runner)
 
@@ -34,3 +38,38 @@ def test_infer_ok(tmp_path: Path, monkeypatch) -> None:
     row = result.to_registry_row()
     assert row["dataset_id"] == str(csv)
     assert "poly_level" not in row and "fn_rate" not in row
+
+
+def test_infer_logs_an_execute_exception_as_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (runner,) = MP4Config().get_runners()
+    csv = tmp_path / "d.csv"
+
+    def fake_run(
+        argv: list[str], **_: int | TextIO
+    ) -> subprocess.CompletedProcess[bytes]:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = api.infer(csv, tmp_path, runner)
+    assert result.status == "failed"
+    assert "RuntimeError: boom" in runner.get_log_path(tmp_path, "d").read_text()
+
+
+def test_default_execute_runs_build_argv_into_the_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (runner,) = MP4Config().get_runners()
+    calls: list[tuple[list[str], int | TextIO]] = []
+
+    def fake_run(
+        argv: list[str], stdout: TextIO, **_: int | TextIO
+    ) -> subprocess.CompletedProcess[bytes]:
+        calls.append((argv, stdout))
+        return subprocess.CompletedProcess(argv, 3)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with (tmp_path / "log").open("w") as log:
+        assert runner.execute("r", tmp_path / "d.csv", "d", tmp_path, log) == 3
+    assert calls == [(runner.build_argv("r", tmp_path / "d.csv", "d", tmp_path), log)]

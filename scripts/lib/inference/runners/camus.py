@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TextIO
+
+import polars as pl
 
 from scripts.lib.inference.runners.base import Runner
 from scripts.lib.model.guide_tree import GuideTree
@@ -12,6 +14,27 @@ from scripts.lib.model.methods import (
 
 if TYPE_CHECKING:
     from scripts.lib.experiment import CamusConfig  # noqa: F401  (used in the quoted base)
+
+# CAMUS's header -> family columns; the newick is kept as written.
+CAMUS_TO_COLUMN = {
+    "Number of Branches": "edges_added",
+    "Extended Newick": "network_newick",
+    "Quartet Satisfied Percent": "quartet_satisfied_percent",
+}
+
+
+def camus_to_family(path: Path) -> pl.DataFrame:
+    """The family of CAMUS's network CSV at `path`, one row per network.
+
+    Each row is CAMUS's optimum for its k, so every row is `is_best`.
+    """
+    df = pl.read_csv(path, columns=list(CAMUS_TO_COLUMN.keys())).rename(CAMUS_TO_COLUMN)
+    return df.select(
+        "edges_added",
+        "network_newick",
+        is_best=pl.lit(True),
+        quartet_satisfied_percent="quartet_satisfied_percent",
+    )
 
 
 @dataclass(frozen=True)
@@ -61,6 +84,19 @@ class CamusRunner(Runner["CamusConfig"]):
             self.config.outgroup_label,
         ]
 
+    def execute(
+        self, runid: str, input_csv: Path, name: str, output_dir: Path, log_file: TextIO
+    ) -> int:
+        """Run CAMUS, then convert its raw `<name>.csv` to the family CSV.
+
+        :returns: the exit code; the family is written only on 0.
+        """
+        returncode = super().execute(runid, input_csv, name, output_dir, log_file)
+        if returncode == 0:
+            family = self.get_group_estimate_path(output_dir, name)
+            camus_to_family(family.with_name(f"{name}.csv")).write_csv(family)
+        return returncode
+
     @staticmethod
     def get_point_estimate_path(output_dir: Path, name: str) -> None:
         # ponytail: no rule for picking a k yet; add one when analysis picks it
@@ -68,7 +104,7 @@ class CamusRunner(Runner["CamusConfig"]):
 
     @staticmethod
     def get_group_estimate_path(output_dir: Path, name: str) -> Path:
-        # runCAMUS.sh converts CAMUS's raw `<name>.csv` to this.
+        # `execute` converts CAMUS's raw `<name>.csv` to this.
         return output_dir / "CAMUS" / "networks" / f"{name}.family.csv"
 
     @staticmethod

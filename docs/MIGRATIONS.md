@@ -8,8 +8,11 @@ For agents fixing experiment folders made by older code. One entry per breaking 
 
 Convert each run with its method's converter and repoint its row (or drop the rows and rerun). CAMUS:
 
-```bash
-python -m scripts.py.camus_family --input N.csv --output N.family.csv
+```python
+from pathlib import Path
+from scripts.lib.inference.runners.camus import camus_to_family
+
+camus_to_family(Path("N.csv")).write_csv("N.family.csv")
 ```
 
 ```python
