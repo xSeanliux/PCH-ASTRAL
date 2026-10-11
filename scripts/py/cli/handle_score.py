@@ -52,7 +52,7 @@ def handle_score(config: ExperimentConfig) -> Path:
         pl.col("path").map_elements(registry.canonical_path, return_dtype=pl.String),
         "model_tree",
     )
-    # A network's point estimate is network-score's, not RF's.
+    # RF scoring is for trees only; network methods are scored by `network-score`.
     joined = inf.filter(
         pl.col("method").is_in([m.value for m in TreeInferenceMethod])
     ).join(sim, left_on="dataset_id", right_on="path")

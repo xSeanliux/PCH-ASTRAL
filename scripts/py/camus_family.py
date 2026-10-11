@@ -21,7 +21,7 @@ def camus_to_family(path: Path) -> pl.DataFrame:
 
     Each row is CAMUS's optimum for its k, so every row is `is_best`.
     """
-    df = pl.read_csv(path, columns=list(CAMUS_TO_COLUMN)).rename(CAMUS_TO_COLUMN)
+    df = pl.read_csv(path, columns=list(CAMUS_TO_COLUMN.keys())).rename(CAMUS_TO_COLUMN)
     return df.select(
         "edges_added",
         "network_newick",
