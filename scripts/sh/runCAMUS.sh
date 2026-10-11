@@ -27,7 +27,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -o, --output       Output dir"
             echo "  -n, --name         Run name; names the output files"
             echo "  -g, --guide-tree   Guide tree, e.g. pch_astral3 or true_tree"
-            echo "                     (all: SUPPORTED_GUIDE_TREES in scripts/lib/model/guide_tree.py)"
+            echo "                     (all: CAMUS_GUIDE_TREES in scripts/lib/model/guide_tree.py)"
             echo "  -O, --outgroup     Outgroup taxon; the guide tree is rooted on it"
             echo ""
             echo "Environment:"

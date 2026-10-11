@@ -1,8 +1,9 @@
 from abc import abstractmethod
+from typing import ClassVar
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from scripts.lib.types import Polymorphism
 from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
-from scripts.lib.model.guide_tree import GuideTree, SUPPORTED_GUIDE_TREES
+from scripts.lib.model.guide_tree import GuideTree, CAMUS_GUIDE_TREES
 from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
 from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.camus import CamusRunner
@@ -83,22 +84,11 @@ class GAConfig(RunnableConfig):
         return [GARunner(config=self)]
 
 
-class CamusConfig(RunnableConfig):
-    guide_trees: frozenset[GuideTree] = Field(min_length=1)
-    outgroup_label: str  # every guide is rooted on it
+class GuidedNetworkConfig(RunnableConfig):
+    """A network method searched from a guide (start) tree; one run per guide."""
 
-    @field_validator("guide_trees")
-    @classmethod
-    def _reject_unsupported(cls, v: frozenset[GuideTree]) -> frozenset[GuideTree]:
-        """:raises ValueError: if a guide is outside `SUPPORTED_GUIDE_TREES`."""
-        bad = sorted(v - SUPPORTED_GUIDE_TREES)
-        if bad:
-            raise ValueError(
-                f"unsupported CAMUS guide tree(s): {', '.join(bad)}. "
-                f"Supported: {', '.join(sorted(SUPPORTED_GUIDE_TREES))}. "
-                "CAMUS requires a rooted binary guide tree."
-            )
-        return v
+    guide_trees: frozenset[GuideTree] = Field(min_length=1)
+    runner_class: ClassVar[type[Runner[BaseModel]]]
 
     def get_runners(self) -> list[Runner[BaseModel]]:
         """One run per guide, in sorted order (a set has none).
@@ -107,13 +97,29 @@ class CamusConfig(RunnableConfig):
         match a single-guide YAML exactly.
         """
         return [
-            CamusRunner(
-                config=CamusConfig(
-                    guide_trees=frozenset({g}), outgroup_label=self.outgroup_label
-                )
+            self.runner_class(
+                config=self.model_copy(update={"guide_trees": frozenset({g})})
             )
             for g in sorted(self.guide_trees)
         ]
+
+
+class CamusConfig(GuidedNetworkConfig):
+    outgroup_label: str  # every guide is rooted on it
+    runner_class: ClassVar[type[Runner[BaseModel]]] = CamusRunner
+
+    @field_validator("guide_trees")
+    @classmethod
+    def _reject_unsupported(cls, v: frozenset[GuideTree]) -> frozenset[GuideTree]:
+        """:raises ValueError: if a guide is outside `CAMUS_GUIDE_TREES`."""
+        bad = sorted(v - CAMUS_GUIDE_TREES)
+        if bad:
+            raise ValueError(
+                f"unsupported CAMUS guide tree(s): {', '.join(bad)}. "
+                f"Supported: {', '.join(sorted(CAMUS_GUIDE_TREES))}. "
+                "CAMUS requires a rooted binary guide tree."
+            )
+        return v
 
 
 class MethodConfig(BaseModel):
