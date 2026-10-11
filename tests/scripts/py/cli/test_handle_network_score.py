@@ -185,44 +185,44 @@ def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
     handle_network_score(cfg)
 
 
-def test_reads_only_ok_best_networks(tmp_path: Path, monkeypatch):
+def test_reads_a_snaq_family(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path, monkeypatch)
     newick = "(OUT,((C:1.2,(B)#H7:::0.8):0.5,((A,#H7:::0.2),(D,E):10.0)));"
-    worse = "(OUT,((A,(B)#H7),((C,#H7),(D,E))));"  # same edges_added, not the pick
-    family = tmp_path / "inference_data" / "CAMUS" / "networks" / "sim.family.csv"
+    worse = "(OUT,((A,(B)#H7),((C,#H7),(D,E))));"  # same edges_added, not SNaQ's pick
+    family = tmp_path / "inference_data" / "SNAQ" / "networks" / "sim.family.csv"
+    family.parent.mkdir(parents=True)
     pl.DataFrame(
         {
             "edges_added": [1, 1],
             "network_newick": [newick, worse],
             "is_best": [True, False],
+            "neg_loglik": [1.5, 2.5],
         }
     ).write_csv(family)
     reg = tmp_path / "inference_data" / "inference_registry.csv"
     camus = pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA)
-    other = camus.with_columns(
-        config_hash=pl.lit("h2"),
-        method_config_json=pl.lit(
-            '{"guide_trees":["pch_astral3"],"outgroup_label":"OUT"}'
-        ),
+    snaq = camus.with_columns(
+        method=pl.lit("snaq"),
+        method_config_json=pl.lit('{"guide_trees":["mp"]}'),
         group_estimate_path=pl.lit(str(family)),
     )
-    failed = other.with_columns(  # a failed run wrote nothing
+    failed = snaq.with_columns(  # a failed run wrote nothing
         config_hash=pl.lit("failed"),
         status=pl.lit("failed"),
         group_estimate_path=pl.lit("missing.csv"),
     )
     tree = camus.with_columns(method=pl.lit("pch_wastral"))  # not a network
-    pl.concat([camus, other, failed, tree]).write_csv(reg)
+    pl.concat([camus, snaq, failed, tree]).write_csv(reg)
     seen: list[str] = []
     monkeypatch.setattr(
         hns, "score_network", lambda est, ref: seen.append(est) or ScoreResult(0, 0)
     )
     df = pl.read_csv(handle_network_score(cfg), schema=NETWORK_SCORES_SCHEMA)
 
-    (row,) = df.filter(pl.col("config_hash") == "h2").rows(named=True)
+    (row,) = df.filter(pl.col("method") == "snaq").rows(named=True)
     assert (row["edges_added"], row["guide_tree"], row["status"]) == (
         1,
-        "pch_astral3",
+        "mp",
         "ok",
     )
     assert worse not in seen

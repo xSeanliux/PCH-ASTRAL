@@ -112,7 +112,7 @@ def test_handle_score_dedups_duplicate_sim_rows(tmp_path: Path, monkeypatch):
 
 
 def test_handle_score_skips_networks(tmp_path: Path, monkeypatch):
-    # A network point estimate would fail RF scoring.
+    # SNaQ's point estimate is a network; RF scoring would fail on it.
     cfg = _setup(tmp_path)
 
     def fake_infer(input_csv, output_dir, runner):
@@ -131,10 +131,10 @@ def test_handle_score_skips_networks(tmp_path: Path, monkeypatch):
     handle_inference(cfg)
     reg = registry.registry_path(tmp_path)
     inf = pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA)
-    camus = inf.with_columns(
-        method=pl.lit("camus"), point_estimate_newick=pl.lit("((A,(B)#H1),#H1);")
+    snaq = inf.with_columns(
+        method=pl.lit("snaq"), point_estimate_newick=pl.lit("((A,(B)#H1),#H1);")
     )
-    pl.concat([inf, camus]).write_csv(reg)
+    pl.concat([inf, snaq]).write_csv(reg)
 
     seen: list[str] = []
     monkeypatch.setattr(

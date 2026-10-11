@@ -65,10 +65,11 @@ Path getters are static so other code can look a method up without a runner, e.g
 |---|---|---|
 | tree (`mp`, `ga`, `pch_*`) | tree file | tree set, if any |
 | network (`camus`) | `None` (picking k is analysis) | `CAMUS/networks/<name>.family.csv`, one row per k |
+| network (`snaq`) | best network, `SNAQ/networks/<name>.net` (Rich newick) | `SNAQ/networks/<name>.family.csv` |
 
 ### Fan-out
 
-One config may yield several runners. `GuidedNetworkConfig.get_runners()` (CAMUS) returns one runner per guide, each with a single-guide config, its own `hash_config`, and output name `<stem>.<guide>`. `experiment status` counts each as `<method>.<guide>`.
+One config may yield several runners. `GuidedNetworkConfig.get_runners()` (CAMUS, SNaQ) returns one runner per guide, each with a single-guide config, its own `hash_config`, and output name `<stem>.<guide>`. `experiment status` counts each as `<method>.<guide>`.
 
 ### Guide trees
 
@@ -79,7 +80,7 @@ A guide is a tree *method* or `true_tree`; there is no separate guide enum (`mod
 | a tree method | that method; the network method reads its point estimate |
 | `true_tree` | none; the simulation base tree |
 
-`GUIDE_TREES` holds every guide; CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). A guide names a method, not a config: `MethodConfig` holds one config per method.
+SNaQ takes any (`GUIDE_TREES`): `snaq!` resolves polytomies and unroots its start tree. CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). A guide names a method, not a config: `MethodConfig` holds one config per method.
 
 ## Scheduling (`scheduler.py`)
 

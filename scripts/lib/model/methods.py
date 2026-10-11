@@ -15,6 +15,7 @@ class TreeInferenceMethod(InferenceMethod):
 
 class NetworkInferenceMethod(InferenceMethod):
     CAMUS = "camus"
+    SNAQ = "snaq"
 
 
 class RunStatus(StrEnum):

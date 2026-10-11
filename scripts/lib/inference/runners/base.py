@@ -2,7 +2,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, TextIO, TypeVar
+from typing import ClassVar, Generic, TextIO, TypeVar
 
 from pydantic import BaseModel
 
@@ -17,10 +17,11 @@ class Runner(ABC, Generic[ConfigT]):
     """One run of one method: owns its config, so it owns its command and paths.
 
     A run is OK iff it exits 0 and writes its point estimate, else its group
-    estimate (see `api.infer`).
+    estimate (see `api.infer`); the group alone if `is_point_estimate_optional`.
     """
 
     config: ConfigT  # what `hash_config` hashes
+    is_point_estimate_optional: ClassVar[bool] = False
 
     @property
     @abstractmethod
