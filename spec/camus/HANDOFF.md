@@ -65,6 +65,10 @@ python3 -m scripts.py.cli.main experiment network-score $S
 
 - `experiments/snaq_smoke` (#50): 30 taxa + `OUT`, h = 1 and 2. SNaQ did not finish in 65 min
   at 31 leaves; `snaq.procs: 10` runs the 10 runs in parallel. Not yet run at this size.
+- `experiments/phylonet_mpl_smoke` (#51): 30 taxa + `OUT`, h = 1 and 2. A 26-taxon run (since
+  deleted, hand-pruned) was stopped after 10.5 h. PhyloNet defaults: 10 runs (`-x`), no examination
+  cap, a run stops after 100 failed proposals in a row. `-fs` uses the fixed-tree search only if
+  the start network parses; that run explored 2,107 backbone trees, so the tree was not fixed.
 - Only the base models in `data/` are valid inputs: there is no tree simulation, and
   `simulation.n_taxa` is not read (the base tree file sets the taxa). Don't hand-prune models.
 
