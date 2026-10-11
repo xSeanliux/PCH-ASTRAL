@@ -126,6 +126,9 @@ class CamusConfig(GuidedNetworkConfig):
 class SnaqConfig(GuidedNetworkConfig):
     # Any guide: snaq! resolves polytomies and unroots its start tree itself.
     runner_class: ClassVar[type[Runner[BaseModel]]] = SnaqRunner
+    # Julia workers, one SNaQ run each (10 runs). Excluded from the dump, so it changes
+    # neither config_hash nor the recorded config: a resource knob, not a result.
+    procs: int = Field(1, ge=1, exclude=True)
 
 
 class MethodConfig(BaseModel):

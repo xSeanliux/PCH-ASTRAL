@@ -52,7 +52,21 @@ def test_build_argv_passes_the_guide(tmp_path: Path):
     argv = _runner(MP).build_argv("r1", tmp_path / "d.csv", "d.mp", tmp_path)
     assert argv[:2] == ["bash", "scripts/sh/runSNAQ.sh"]
     assert argv[argv.index("--input") + 1] == str(tmp_path / "d.csv")
-    assert argv[-2:] == ["--guide-tree", "mp"]
+    assert argv[argv.index("--guide-tree") + 1] == "mp"
+
+
+def test_procs_reach_the_script_but_not_the_hash(tmp_path: Path):
+    block = {"guide_trees": ["pch_wastral"], "procs": 10}
+    (runner,) = SnaqConfig.model_validate(block).get_runners()
+    argv = runner.build_argv("r1", tmp_path / "d.csv", "d.pch_wastral", tmp_path)
+    assert argv[argv.index("--procs") + 1] == "10"
+    assert hash_config(runner.config) == hash_config(_runner().config)
+    assert "procs" not in runner.config.model_dump_json()
+
+
+def test_procs_must_be_positive():
+    with pytest.raises(ValidationError):
+        SnaqConfig.model_validate({"guide_trees": ["pch_wastral"], "procs": 0})
 
 
 NEWICK = "((A,(B)#H1),(C,(D,#H1)),OUT);"

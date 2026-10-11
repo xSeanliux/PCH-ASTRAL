@@ -103,6 +103,8 @@ class SnaqRunner(Runner["SnaqConfig"]):
             str(output_dir),
             "--guide-tree",
             str(self.guide),
+            "--procs",
+            str(self.config.procs),
         ]
 
     def execute(

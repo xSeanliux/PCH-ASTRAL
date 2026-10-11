@@ -9,6 +9,7 @@ INPUT=""
 TREEOUTPUT=""
 NAME=""
 GUIDE=""
+PROCS=1
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -H|--runid) RUNID="$2"; shift ;;
@@ -16,14 +17,13 @@ while [[ "$#" -gt 0 ]]; do
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
         -g|--guide-tree) GUIDE="$2"; shift ;;
+        -p|--procs) PROCS="$2"; shift ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide>"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide> [-p <procs>]"
             echo ""
             echo "  -g, --guide-tree   Start tree, e.g. pch_wastral or true_tree"
             echo "                     (all: GUIDE_TREES in scripts/lib/model/guide_tree.py)"
-            echo ""
-            echo "Environment:"
-            echo "  PCH_SNAQ_PROCS    Julia workers, one SNaQ run each (default 1)"
+            echo "  -p, --procs        Julia workers, one SNaQ run each (default 1)"
             exit 0
             ;;
         *)
@@ -67,5 +67,5 @@ JULIA_DEPOT_PATH="$REPO_ROOT/bin/julia-depot" JULIA_PROJECT="$REPO_ROOT/scripts/
     perl -e 'alarm shift; exec @ARGV' 43200 \
     "$REPO_ROOT/bin/julia" "$REPO_ROOT/scripts/jl/run_snaq.jl" \
     "$SCRATCH_QUARTET_PATH" "$SCRATCH_START_PATH" "$TREEOUTPUT/SNAQ/networks/$NAME" \
-    "$HMAX" "$OUTGROUP" 10 "${PCH_SNAQ_PROCS:-1}" || exit
+    "$HMAX" "$OUTGROUP" 10 "$PROCS" || exit
 echo "✅ SNaQ network inference"
