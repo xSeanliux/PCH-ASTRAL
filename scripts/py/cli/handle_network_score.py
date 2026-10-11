@@ -17,6 +17,7 @@ from rich import print
 
 from scripts.lib.experiment import ExperimentConfig, GuidedNetworkConfig
 from scripts.lib.inference import registry
+from scripts.lib.inference.method_config import METHOD_TO_CONFIG_CLASS
 from scripts.lib.inference.registry import Cell
 from scripts.lib.inference.scoring import (
     PHYLONET_JAR,
@@ -54,9 +55,12 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     )
     families = []
     for r in runs.iter_rows(named=True):
-        # Every network method is guided; extra fields (CAMUS's outgroup) are ignored.
-        config = GuidedNetworkConfig.model_validate_json(r["method_config_json"])
-        (guide,) = config.guide_trees
+        # Only guided methods have a guide tree; others score with guide_tree null.
+        config_class = METHOD_TO_CONFIG_CLASS[NetworkInferenceMethod(r["method"])]
+        guide = None
+        if issubclass(config_class, GuidedNetworkConfig):
+            config = config_class.model_validate_json(r["method_config_json"])
+            (guide,) = config.guide_trees
         family = pl.read_csv(
             r["group_estimate_path"],
             columns=list(NETWORK_FAMILY_SCHEMA),
@@ -71,7 +75,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
                 dataset_id=pl.lit(r["dataset_id"]),
                 method=pl.lit(r["method"]),
                 config_hash=pl.lit(r["config_hash"]),
-                guide_tree=pl.lit(str(guide)),
+                guide_tree=pl.lit(None if guide is None else str(guide), pl.String),
             )
         )
     return pl.concat(families)

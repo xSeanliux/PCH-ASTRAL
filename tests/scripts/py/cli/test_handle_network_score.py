@@ -5,8 +5,9 @@ import polars as pl
 import pytest
 
 import scripts.py.cli.handle_network_score as hns
-from scripts.lib.experiment import ExperimentConfig
+from scripts.lib.experiment import ExperimentConfig, MP4Config
 from scripts.lib.inference.scoring import ScoreResult
+from scripts.lib.model.methods import NetworkInferenceMethod
 from scripts.py.cli.handle_network_score import handle_network_score
 from scripts.py.cli.schemata import INFERENCE_REGISTRY_SCHEMA, NETWORK_SCORES_SCHEMA
 
@@ -111,6 +112,17 @@ def test_writes_scores(tmp_path: Path, monkeypatch):
         "inference_registry.csv",
         "network_scores.csv",
     }
+
+
+def test_unguided_network_method_has_no_guide(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, monkeypatch)
+    # A network method whose config has no guide_trees (none exists yet).
+    monkeypatch.setitem(
+        hns.METHOD_TO_CONFIG_CLASS, NetworkInferenceMethod.CAMUS, MP4Config
+    )
+    monkeypatch.setattr(hns, "score_network", lambda est, ref: ScoreResult(0, 0))
+    df = pl.read_csv(handle_network_score(cfg), schema=NETWORK_SCORES_SCHEMA)
+    assert df["guide_tree"].to_list() == [None, None]
 
 
 def test_missing_jar_stops_before_scoring(tmp_path: Path, monkeypatch):

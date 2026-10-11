@@ -117,7 +117,7 @@ PhyloNet `CmpNets -m cluster` of each `is_best` row of each network run's family
 |---|---|---|
 | `dataset_id` | String | As in `inference_registry`. |
 | `method` | String | As in `inference_registry`. |
-| `guide_tree` | String | From `method_config_json` (`guide_trees`, one per run). Not part of the key. |
+| `guide_tree` | String | From `method_config_json` (`guide_trees`, one per run) for guided methods; null otherwise. Not part of the key. |
 | `config_hash` | String | As in `inference_registry`. |
 | `edges_added` | Int64 | From the family CSV. |
 | `fn_rate` | Float64 | False-negative rate; null unless `ok`. |
