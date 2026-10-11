@@ -1,4 +1,4 @@
-# Smoke test for TOB-QMC: networks with 1 and 2 contact events. No dependencies.
+# Smoke test for TOB-QMC (tree of blobs): networks with 1 and 2 contact events. No dependencies.
 experiment_folder: experiments/tob_qmc_smoke
 simulation:
   n_taxa: 30

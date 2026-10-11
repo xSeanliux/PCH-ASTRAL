@@ -19,7 +19,7 @@ Run one inference method on one dataset CSV; returns the result.
 ```bash
 pch infer DATASET.csv OUTPUT_DIR --method mp [--method-config cfg.yaml] [--json]
 ```
-- `--method` — required; one of `mp`, `ga`, `pch_astral3`, `pch_wastral`, `pch_w_tree_qmc`.
+- `--method` — required; one of `mp`, `ga`, `pch_astral3`, `pch_wastral`, `pch_w_tree_qmc`, `tob_qmc`.
 - `--method-config` — YAML validated against the method's Pydantic model (required for methods with no all-default config, e.g. `pch_astral3`). No per-method flags.
 - output: the tree(s) under `OUTPUT_DIR`; the `InferenceResult` is printed (human) or `--json` (one plain JSON line — pipe it, e.g. `pch infer d.csv out --method mp --json | jq` or `| bat`).
 

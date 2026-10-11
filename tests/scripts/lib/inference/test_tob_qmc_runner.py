@@ -8,9 +8,9 @@ from scripts.lib.experiment import MethodConfig, TobQmcConfig
 from scripts.lib.inference import api
 from scripts.lib.inference.method_config import resolve_config
 from scripts.lib.inference.runners.tob_qmc import TobQmcRunner
-from scripts.lib.model.methods import NetworkInferenceMethod, RunStatus
+from scripts.lib.model.methods import TreeInferenceMethod, RunStatus
 
-TOB_QMC = NetworkInferenceMethod.TOB_QMC
+TOB_QMC = TreeInferenceMethod.TOB_QMC
 
 
 def test_empty_yaml_block_yields_one_runner():
