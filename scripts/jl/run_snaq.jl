@@ -6,10 +6,9 @@ const USAGE = """usage: run_snaq.jl <gene_trees> <start_tree> <out_prefix> <hmax
 using PhyloNetworks
 
 """
-SNaQ's network is semi-directed; a candidate is consistent with `outgroup` if
-`rootatnode!` accepts it. Write as `.net` the first consistent candidate, rerooted: the
-best, then `.networks` alternatives by -loglik, skipping failed (-1) ones. `.choice` holds
-its 0-based `.networks` row, or `none` (then no `.net`). No `.networks` (a tree): `.net`.
+Write as `.net` the first `.networks` row that `rootatnode!` can root on `outgroup`,
+rerooted; `.choice` = its 0-based row, or `none` (no `.net`). Row 0 is the best; the rest
+are sorted by -loglik, failed ones (-1) first, so skipped. No `.networks`: the tree `.net`.
 """
 function choose(prefix, outgroup)
     path = prefix * ".networks"

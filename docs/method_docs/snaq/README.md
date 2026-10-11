@@ -69,8 +69,8 @@ Fixed choices, not configurable:
 
 Every network method writes a family CSV (`docs/SCHEMAS.md`, `NETWORK_FAMILY_SCHEMA`) and a
 point estimate. SNaQ's raw output, `N.networks`, lists the best network, then networks with
-the same undirected topology but each hybrid placed elsewhere in its cycle. Rows are sorted
-by `-loglik`.
+the same undirected topology but other hybrid directions (`undirectedOtherNetworks`), sorted
+by `-loglik`. Alternatives whose optimisation failed get `-loglik` -1, so they sort first.
 
 **Point estimate: the best network that can be rooted on the outgroup.** Scoring (CmpNets
 `-m cluster`) compares rooted clusters, so the network needs a root, and the true root sits
