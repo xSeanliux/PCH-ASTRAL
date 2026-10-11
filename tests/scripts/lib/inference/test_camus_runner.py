@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+from typing import TextIO
 
 import pytest
 from pydantic import ValidationError
@@ -84,20 +85,41 @@ def test_build_argv_passes_one_guide_and_the_outgroup(tmp_path: Path):
     assert argv[-4:] == ["--guide-tree", "true_tree", "--outgroup", "OUT"]
 
 
+def _fake_camus(family: Path, returncode: int):
+    """A `subprocess.run` that writes CAMUS's raw CSV beside `family`."""
+
+    def fake_run(
+        argv: list[str], **_: int | TextIO
+    ) -> subprocess.CompletedProcess[bytes]:
+        family.parent.mkdir(parents=True, exist_ok=True)
+        family.with_name("d.true_tree.csv").write_text(
+            "Number of Branches,Quartet Satisfied Percent,Extended Newick\n"
+            '0,0,"((A,B),(C,D));"\n'
+        )
+        return subprocess.CompletedProcess(argv, returncode)
+
+    return fake_run
+
+
+def test_execute_skips_family_on_camus_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    family = CamusRunner.get_group_estimate_path(tmp_path, "d.true_tree")
+    monkeypatch.setattr(subprocess, "run", _fake_camus(family, 1))
+    (runner,) = _config(TRUE_TREE).get_runners()
+    with (tmp_path / "log").open("w") as log:
+        assert (
+            runner.execute("r", tmp_path / "d.csv", "d.true_tree", tmp_path, log) == 1
+        )
+    assert not family.exists()
+
+
 def test_infer_records_group_estimate_and_no_newick(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     family = CamusRunner.get_group_estimate_path(tmp_path, "d.true_tree")
+    monkeypatch.setattr(subprocess, "run", _fake_camus(family, 0))
 
-    def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
-        family.parent.mkdir(parents=True, exist_ok=True)
-        family.write_text(
-            "Number of Branches,Quartet Satisfied Percent,Extended Newick\n"
-            '0,0,"((A,B),(C,D));"\n'
-        )
-        return subprocess.CompletedProcess(argv, 0)
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
     (runner,) = _config(TRUE_TREE).get_runners()
     result = api.infer(tmp_path / "d.csv", tmp_path, runner)
     assert result.status is RunStatus.OK
@@ -109,7 +131,9 @@ def test_infer_records_group_estimate_and_no_newick(
 def test_infer_fails_when_no_family_written(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
+    def fake_run(
+        argv: list[str], **_: int | TextIO
+    ) -> subprocess.CompletedProcess[bytes]:
         return subprocess.CompletedProcess(argv, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)

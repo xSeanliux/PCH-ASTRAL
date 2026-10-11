@@ -2,6 +2,34 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## Network group estimates are family CSVs
+
+**Affects:** every network method's rows in `inference_data/inference_registry.csv` (today only CAMUS). `group_estimate_path` pointed at the tool's raw output (CAMUS: `<name>.csv`); `network-score` now reads `<name>.family.csv` (`SCHEMAS.md`). Hashes did not change.
+
+Convert each run with its method's converter and repoint its row (or drop the rows and rerun). CAMUS:
+
+```python
+from pathlib import Path
+from scripts.lib.inference.runners.camus import camus_to_family
+
+camus_to_family(Path("N.csv")).write_csv("N.family.csv")
+```
+
+```python
+import polars as pl
+
+p = "experiments/my_run/inference_data/inference_registry.csv"
+df = pl.read_csv(p, infer_schema=False)
+net = pl.col("method").is_in(["camus"]) & ~pl.col(  # every network method
+    "group_estimate_path"
+).str.ends_with(".family.csv")  # rerunnable
+df.with_columns(
+    group_estimate_path=pl.when(net)
+    .then(pl.col("group_estimate_path").str.replace(r"\.csv$", ".family.csv"))
+    .otherwise(pl.col("group_estimate_path"))
+).write_csv(p)
+```
+
 ## `bipartition_strategies: []` means no extra trees
 
 **Affects:** heuristic ASTRAL3 configs with an empty or missing `bipartition_strategies`. It used to mean `mp4_trees` + `ga_trees`; now ASTRAL runs on the quartets alone. The `config_hash` is unchanged, so old rows would wrongly count as done.

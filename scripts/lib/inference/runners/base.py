@@ -1,7 +1,8 @@
+import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import Generic, TextIO, TypeVar
 
 from pydantic import BaseModel
 
@@ -39,6 +40,22 @@ class Runner(ABC, Generic[ConfigT]):
         self, runid: str, input_csv: Path, name: str, output_dir: Path
     ) -> list[str]:
         """The command line that runs this method."""
+
+    def execute(
+        self, runid: str, input_csv: Path, name: str, output_dir: Path, log_file: TextIO
+    ) -> int:
+        """Run this method, logging to `log_file`; `api.infer` calls this.
+
+        Runs `build_argv`; override to add post-processing.
+
+        :returns: the exit code.
+        """
+        return subprocess.run(
+            self.build_argv(runid, input_csv, name, output_dir),
+            check=False,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+        ).returncode
 
     def get_dependencies(self) -> list[InferenceMethod]:
         """Methods whose output this run consumes; the scheduler orders and gates
