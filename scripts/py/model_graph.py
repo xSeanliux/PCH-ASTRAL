@@ -7,7 +7,7 @@ dataset was simulated from; `none` when the experiment has no outgroup.
 import argparse
 from pathlib import Path
 
-from scripts.lib.model.model_graph import find_dataset_model_graph
+from scripts.lib.model.model_graph import ModelGraph
 
 
 def main() -> None:
@@ -15,13 +15,13 @@ def main() -> None:
 
     Base-tree callers use `scoring.resolve_reference_newick`.
 
-    :raises ValueError: as `find_dataset_model_graph`.
+    :raises ValueError: as `ModelGraph.from_dataset`.
     """
     parser = argparse.ArgumentParser(
         description="Print a dataset's reticulation count and outgroup."
     )
     parser.add_argument("--input", type=Path, required=True)
-    graph = find_dataset_model_graph(parser.parse_args().input)
+    graph = ModelGraph.from_dataset(parser.parse_args().input)
     print(graph.horizontal_edges, graph.outgroup_label or "none")
 
 
