@@ -1,9 +1,9 @@
 """`pch experiment network-score` — CmpNets each network family row against its
 reference network.
 
-Reads each CAMUS run's family CSV (`group_estimate_path` in inference_registry), joins
-simulated_data_registry on dataset_id == path for (horizontal_edges, model_tree),
-writes inference_data/network_scores.csv. A key
+Reads each network run's family CSV (`group_estimate_path` in inference_registry),
+joins simulated_data_registry on dataset_id == path for (horizontal_edges,
+model_tree), writes inference_data/network_scores.csv. A key
 already in the file is kept, failed and timed-out rows included: a slow network
 stays visible and is not retried every run. Never touches inference rows.
 """
@@ -26,38 +26,44 @@ from scripts.lib.inference.scoring import (
 from scripts.lib.model.methods import NetworkInferenceMethod, RunStatus
 from scripts.py.cli.schemata import (
     INFERENCE_REGISTRY_SCHEMA,
+    NETWORK_FAMILY_SCHEMA,
     NETWORK_SCORES_SCHEMA,
     SIMULATED_DATA_REGISTRY_SCHEMA,
 )
 
 KEY_COLUMNS = ["dataset_id", "method", "config_hash", "edges_added"]
-# CAMUS's family CSV header -> our column names.
-CAMUS_TO_COLUMN = {
-    "Number of Branches": "edges_added",
-    "Extended Newick": "network_newick",
-}
 
 
 def read_families(experiment_folder: Path) -> pl.DataFrame:
-    """One row per CAMUS network: every registered run's family, tagged with its run.
+    """One row per scored network: each registered run's `is_best` rows, tagged.
 
-    :raises AssertionError: if no CAMUS run is registered.
+    :raises AssertionError: if no network run is registered.
+    :raises ValueError: if a family has more than one `is_best` per `edges_added`.
     """
     path = registry.registry_path(experiment_folder)
     runs = (
         pl.read_csv(path, schema=INFERENCE_REGISTRY_SCHEMA)
         if path.exists()
         else pl.DataFrame(schema=INFERENCE_REGISTRY_SCHEMA)
-    ).filter(pl.col("method") == NetworkInferenceMethod.CAMUS.value)
+    ).filter(
+        pl.col("method").is_in([m.value for m in NetworkInferenceMethod])
+        & (pl.col("status") == RunStatus.OK.value)  # failed runs wrote nothing
+    )
     assert runs.height, (
-        f"No CAMUS runs in {path}. Run `pch experiment inference` first."
+        f"No network runs in {path}. Run `pch experiment inference` first."
     )
     families = []
     for r in runs.iter_rows(named=True):
         (guide,) = CamusConfig.model_validate_json(r["method_config_json"]).guide_trees
         family = pl.read_csv(
-            r["group_estimate_path"], columns=list(CAMUS_TO_COLUMN)
-        ).rename(CAMUS_TO_COLUMN)
+            r["group_estimate_path"],
+            columns=list(NETWORK_FAMILY_SCHEMA),
+            schema_overrides=NETWORK_FAMILY_SCHEMA,
+        ).filter("is_best")
+        if not family["edges_added"].is_unique().all():
+            raise ValueError(
+                f"{r['group_estimate_path']}: more than one is_best per edges_added"
+            )
         families.append(
             family.with_columns(
                 dataset_id=pl.lit(r["dataset_id"]),

@@ -50,14 +50,19 @@ def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ExperimentConfig:
         }
     ).write_csv(tmp_path / "simulation_data" / "simulated_data_registry.csv")
     family = (
-        tmp_path / "inference_data" / "CAMUS" / "networks" / "sim_1_1_1.true_tree.csv"
+        tmp_path
+        / "inference_data"
+        / "CAMUS"
+        / "networks"
+        / "sim_1_1_1.true_tree.family.csv"
     )
     family.parent.mkdir(parents=True)
     pl.DataFrame(
         {
-            "Number of Branches": [0, 1],
-            "Quartet Satisfied Percent": [0.0, 50.0],
-            "Extended Newick": NEWICKS,
+            "edges_added": [0, 1],
+            "network_newick": NEWICKS,
+            "is_best": [True, True],
+            "quartet_satisfied_percent": [0.0, 50.0],
         }
     ).write_csv(family)
     run = dict.fromkeys(INFERENCE_REGISTRY_SCHEMA, None) | {
@@ -166,3 +171,57 @@ def test_timeout_and_failure_rows(tmp_path: Path, monkeypatch, capsys):
     # Not retried: the rows are visible, so the next run leaves them alone.
     monkeypatch.setattr(hns, "score_network", lambda est, ref: pytest.fail("retried"))
     handle_network_score(cfg)
+
+
+def test_reads_only_ok_best_networks(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, monkeypatch)
+    newick = "(OUT,((C:1.2,(B)#H7:::0.8):0.5,((A,#H7:::0.2),(D,E):10.0)));"
+    worse = "(OUT,((A,(B)#H7),((C,#H7),(D,E))));"  # same edges_added, not the pick
+    family = tmp_path / "inference_data" / "CAMUS" / "networks" / "sim.family.csv"
+    pl.DataFrame(
+        {
+            "edges_added": [1, 1],
+            "network_newick": [newick, worse],
+            "is_best": [True, False],
+        }
+    ).write_csv(family)
+    reg = tmp_path / "inference_data" / "inference_registry.csv"
+    camus = pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA)
+    other = camus.with_columns(
+        config_hash=pl.lit("h2"),
+        method_config_json=pl.lit(
+            '{"guide_trees":["pch_astral3"],"outgroup_label":"OUT"}'
+        ),
+        group_estimate_path=pl.lit(str(family)),
+    )
+    failed = other.with_columns(  # a failed run wrote nothing
+        config_hash=pl.lit("failed"),
+        status=pl.lit("failed"),
+        group_estimate_path=pl.lit("missing.csv"),
+    )
+    tree = camus.with_columns(method=pl.lit("pch_wastral"))  # not a network
+    pl.concat([camus, other, failed, tree]).write_csv(reg)
+    seen: list[str] = []
+    monkeypatch.setattr(
+        hns, "score_network", lambda est, ref: seen.append(est) or ScoreResult(0, 0)
+    )
+    df = pl.read_csv(handle_network_score(cfg), schema=NETWORK_SCORES_SCHEMA)
+
+    (row,) = df.filter(pl.col("config_hash") == "h2").rows(named=True)
+    assert (row["edges_added"], row["guide_tree"], row["status"]) == (
+        1,
+        "pch_astral3",
+        "ok",
+    )
+    assert worse not in seen
+    assert seen[-1] == newick  # as written; score_network strips it
+
+
+def test_two_best_per_edges_added_is_an_error(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, monkeypatch)
+    (family,) = (tmp_path / "inference_data" / "CAMUS" / "networks").glob("*.csv")
+    pl.DataFrame(
+        {"edges_added": [1, 1], "network_newick": NEWICKS, "is_best": [True, True]}
+    ).write_csv(family)
+    with pytest.raises(ValueError, match="more than one is_best"):
+        handle_network_score(cfg)

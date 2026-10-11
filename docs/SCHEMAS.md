@@ -69,7 +69,7 @@ One row per **successful** run; failures and blocks are never rows. Last-writer-
 | `method_config_json` | String | The config that was hashed. |
 | `runtime_seconds` | Float64 | Wall time. |
 | `point_estimate_newick` | String | Tree, inline. Empty when the method has no point estimate (CAMUS). |
-| `group_estimate_path` | String | The set or family file; null if none. CAMUS: the per-k CSV. |
+| `group_estimate_path` | String | The set file (trees) or family CSV (networks, see [network family](#network-family-csv)); null if none. |
 | `consensus_method` | String | How the set collapsed to the point estimate; null if none. |
 | `status` | String | Always `ok`. |
 | `ran_at` | String | ISO8601 UTC. |
@@ -81,7 +81,7 @@ Join to sim: `dataset_id == simulated_data_registry.path`.
 
 `inference_data/scores.csv` · writer `handle_score` · `SCORES_SCHEMA` · key `(dataset_id, method, config_hash)`
 
-RF error of each point estimate against the base tree. Rows with an empty `point_estimate_newick` are skipped.
+RF error of each point estimate against the base tree. Rows with an empty `point_estimate_newick`, and network methods, are skipped.
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -93,11 +93,25 @@ RF error of each point estimate against the base tree. Rows with an empty `point
 
 Join to the registry on the three key columns.
 
+## Network family CSV
+
+`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's shell script (`runCAMUS.sh` via `scripts.py.camus_family`) · `NETWORK_FAMILY_SCHEMA` · one row per network
+
+A network run's `group_estimate_path`. The tool's raw output stays beside it.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `edges_added` | Int64 | Reticulation edges in the network. |
+| `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring. |
+| `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: at most one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum). |
+
+Method-specific columns may follow: CAMUS `quartet_satisfied_percent`.
+
 ## `network_scores`
 
 `inference_data/network_scores.csv` · writer `handle_network_score` · `NETWORK_SCORES_SCHEMA` · key `(dataset_id, method, config_hash, edges_added)`
 
-PhyloNet `CmpNets -m cluster` of each network in a CAMUS run's family (its `group_estimate_path`) against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
+PhyloNet `CmpNets -m cluster` of each `is_best` row of each network run's family CSV, lengths and γ stripped, against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -105,7 +119,7 @@ PhyloNet `CmpNets -m cluster` of each network in a CAMUS run's family (its `grou
 | `method` | String | As in `inference_registry`. |
 | `guide_tree` | String | From `method_config_json`; not part of the key. |
 | `config_hash` | String | As in `inference_registry`. |
-| `edges_added` | Int64 | Reticulation edges CAMUS added to the guide (its `Number of Branches`). |
+| `edges_added` | Int64 | From the family CSV. |
 | `fn_rate` | Float64 | False-negative rate; null unless `ok`. |
 | `fp_rate` | Float64 | False-positive rate; null unless `ok`. |
 | `runtime_seconds` | Float64 | CmpNets wall time. |

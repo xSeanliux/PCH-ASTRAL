@@ -68,8 +68,8 @@ class CamusRunner(Runner["CamusConfig"]):
 
     @staticmethod
     def get_group_estimate_path(output_dir: Path, name: str) -> Path:
-        # CAMUS writes `<prefix>.csv`, one row per k; runCAMUS.sh sets -o to this stem.
-        return output_dir / "CAMUS" / "networks" / f"{name}.csv"
+        # runCAMUS.sh converts CAMUS's raw `<name>.csv` to this.
+        return output_dir / "CAMUS" / "networks" / f"{name}.family.csv"
 
     @staticmethod
     def get_log_path(output_dir: Path, name: str) -> Path:
