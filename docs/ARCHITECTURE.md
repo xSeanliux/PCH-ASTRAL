@@ -55,7 +55,7 @@ One abstract `Runner[ConfigT]` for tree and network methods (`runners/base.py`).
 | `execute(..., log_file)` | What `api.infer` calls; returns the exit code. Default runs `build_argv`; override to post-process (CAMUS writes its family CSV). An exception fails the run, traceback in the log. |
 | `get_dependencies()` | Methods whose output it consumes. Methods, not runners: the gate is on method names. |
 | `get_log_path` | Static. |
-| `get_point_estimate_path` | Static. One tree, or `None` if the method has no single estimate. |
+| `get_point_estimate_path` | Static. One tree or network, or `None` if the method has no single estimate. |
 | `get_group_estimate_path` | Static. The set the estimate summarises (trees) or the family (networks); default `None`. |
 | `get_consensus_method()` | How a set collapses to the point estimate; default `None`. |
 

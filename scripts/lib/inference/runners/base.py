@@ -16,8 +16,9 @@ ConfigT = TypeVar("ConfigT", bound=BaseModel, covariant=True)
 class Runner(ABC, Generic[ConfigT]):
     """One run of one method: owns its config, so it owns its command and paths.
 
-    A run is OK iff it exits 0 and writes its point estimate, else its group
-    estimate (see `api.infer`); the group alone if `is_point_estimate_optional`.
+    A run is OK iff `execute` returns 0 and the required estimate exists (see
+    `api.infer`): the point estimate if declared, else the group estimate; only the
+    group estimate if `is_point_estimate_optional`.
     """
 
     config: ConfigT  # what `hash_config` hashes
@@ -71,7 +72,7 @@ class Runner(ABC, Generic[ConfigT]):
     @staticmethod
     @abstractmethod
     def get_point_estimate_path(output_dir: Path, name: str) -> Path | None:
-        """The single estimate (a tree); None if the method has none."""
+        """The single estimate (a tree or a network); None if the method has none."""
 
     @staticmethod
     def get_group_estimate_path(output_dir: Path, name: str) -> Path | None:

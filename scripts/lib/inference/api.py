@@ -19,8 +19,9 @@ def infer(
 ) -> InferenceResult:
     """Run one unit of work on one dataset.
 
-    OK iff `runner.execute` returns 0 and writes the point estimate, else the group
-    estimate (a method with only a family, like CAMUS, has no point estimate).
+    OK iff `runner.execute` returns 0 and the required estimate exists: the point
+    estimate if declared (CAMUS declares none), else the group estimate; only the
+    group estimate if `is_point_estimate_optional` (SNaQ).
     An exception from `execute` fails the run, its traceback in the log.
     """
     name = runner.get_run_name(input_csv.stem)
