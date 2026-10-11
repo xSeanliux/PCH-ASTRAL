@@ -39,10 +39,10 @@ def _experiment(tmp_path: Path) -> tuple[Path, Path]:
     ).write_csv(sim / "simulated_data_registry.csv")
     pl.DataFrame(
         {
-            "horizontal_edges": [0],
-            "model_tree": [1],
-            "path": [str(base_tree)],
-            "outgroup_label": ["OUT"],
+            "horizontal_edges": [0, 1],
+            "model_tree": [1, 1],
+            "path": [str(base_tree), str(sim / "net1-1.txt")],
+            "outgroup_label": ["OUT", "OUT"],
         },
         schema_overrides={"outgroup_label": pl.String},
     ).write_csv(sim / "model_graph_registry.csv")

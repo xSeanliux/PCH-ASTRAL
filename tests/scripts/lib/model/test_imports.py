@@ -9,6 +9,7 @@ def test_model_has_no_inference_imports():
     script = (
         "import sys\n"
         "import scripts.lib.model.guide_tree\n"
+        "import scripts.lib.model.model_graph\n"
         "import scripts.lib.model.strategies\n"
         "loaded = {n for n in sys.modules if n.startswith('scripts.lib.')}\n"
         "assert not {n for n in loaded if n.startswith('scripts.lib.inference')}\n"

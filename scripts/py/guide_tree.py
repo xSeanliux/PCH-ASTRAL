@@ -11,15 +11,14 @@ import argparse
 from io import StringIO
 from pathlib import Path
 
-import polars as pl
 from Bio import Phylo
 
-from scripts.lib.inference import registry
 from scripts.lib.inference.runners import METHOD_TO_RUNNER_CLASS
+from scripts.lib.inference.scoring import resolve_reference_newick
 from scripts.lib.model.guide_tree import SUPPORTED_GUIDE_TREES, TRUE_TREE, GuideTree
 from scripts.lib.model.methods import TreeInferenceMethod
+from scripts.lib.model.model_graph import find_dataset_key
 from scripts.lib.utils import resolve_polytomies, tree_to_newick
-from scripts.py.cli.schemata import MODEL_GRAPH_REGISTRY, SIMULATED_DATA_REGISTRY_SCHEMA
 
 
 def root_topology(newick: str, outgroup_label: str) -> str:
@@ -38,33 +37,16 @@ def root_topology(newick: str, outgroup_label: str) -> str:
 
 
 def find_base_tree(input_csv: Path) -> str:
-    """Newick of the base tree a simulated dataset was simulated from.
+    """Newick of the base tree a simulated dataset was simulated from; e.g.
+    `sim_2_1_1.csv` → (0, 1) → `model_tree_1.txt`.
 
+    :param input_csv: dataset CSV under an experiment's `simulation_data/`.
+    :returns: the base tree's newick, stripped.
     :raises ValueError: if the dataset is outside an experiment, or it or its base
         tree is not registered.
     """
-    sim_dirs = [f / "simulation_data" for f in input_csv.resolve().parents]
-    sim_dir = next(
-        (d for d in sim_dirs if (d / "simulated_data_registry.csv").is_file()), None
-    )
-    if sim_dir is None:
-        raise ValueError(f"{input_csv} is not inside an experiment's simulation_data")
-    want = registry.canonical_path(input_csv.resolve())
-    datasets = pl.read_csv(
-        sim_dir / "simulated_data_registry.csv", schema=SIMULATED_DATA_REGISTRY_SCHEMA
-    ).filter(
-        pl.col("path").map_elements(
-            lambda p: registry.canonical_path(Path(p).resolve()) == want,
-            return_dtype=pl.Boolean,
-        )
-    )
-    base_trees = pl.read_csv(
-        sim_dir / "model_graph_registry.csv", schema=MODEL_GRAPH_REGISTRY
-    ).filter(pl.col("horizontal_edges") == 0)
-    rows = datasets.select("model_tree").join(base_trees, on="model_tree")
-    if rows.height == 0:
-        raise ValueError(f"No registered base tree for {input_csv}")
-    return Path(rows["path"][0]).read_text().strip()
+    folder, _, model_tree = find_dataset_key(input_csv)
+    return resolve_reference_newick(folder, model_tree)
 
 
 def build_guide_newick(
