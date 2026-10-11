@@ -1,7 +1,8 @@
 <!--
-Method doc template. Copy to docs/method_docs/<method>/README.md and fill every section;
+Method doc template for tree and network inference methods. Copy to
+docs/method_docs/<method>/README.md and fill every section;
 delete a section only if it truly does not apply (say why in one line instead).
-Example: docs/method_docs/snaq/README.md.
+Example (network): docs/method_docs/snaq/README.md.
 
 Rules:
 - Every statement must match the code or a source you checked. Cite files (`path`) and
@@ -13,8 +14,9 @@ Rules:
 
 # <Method name>
 
-<One paragraph: what the method is (full name, citation), what it infers (tree / network
-class), and why we run it here (baseline for X, part of Y). End with: Method key: `<key>`.>
+<One paragraph: what the method is (full name, citation), what it infers (a tree, or a
+network and its class), and why we run it here (baseline for X, part of Y). End with:
+Method key: `<key>`; kind: tree | network.>
 
 ## What it computes
 
@@ -24,7 +26,8 @@ class), and why we run it here (baseline for X, part of Y). End with: Method key
 - **Model:** <the model assumed, e.g. MSC, NMSC, parsimony, Mk>
 - **Objective:** <what is optimised; which direction is better; the name of the reported score>
 - **Search:** <exact / heuristic; moves; restarts or runs; what "best" means>
-- **Output:** <tree or network; rooted, unrooted or semi-directed; branch lengths, γ, support>
+- **Output:** <tree (rooted/unrooted, binary?) or network (class, rooted/semi-directed);
+  branch lengths, support, γ>
 
 ## How we run it
 
@@ -60,37 +63,58 @@ Fixed choices, not configurable:
 |---|---|---|
 | <parameter> | <value> | <reason: paper, tool default, reproducibility, oracle, ...> |
 
-## Normalising to the <tree | network> contract
+## Normalising to the pipeline contract
 
 <!--
-Tree methods: point estimate = one newick (`get_point_estimate_path`); group estimate = tree
-set, if any, and how the point estimate summarises it (`get_consensus_method`).
-Network methods: point estimate + family CSV (`NETWORK_FAMILY_SCHEMA`, docs/SCHEMAS.md).
-Say how the "best" is chosen and how the result is rooted, step by step, including the
-edge cases (no result, ties, failed optimisation) and what the run status is then.
+Every runner reports a point estimate and, optionally, a group estimate (`Runner` in
+scripts/lib/inference/runners/base.py). Keep the subsection for your method's kind and delete
+the other. Either way, say how the "best" result is chosen and rooted, step by step, with the
+edge cases (no result, ties, failed optimisation) and the run status then.
 -->
 
-**Point estimate: <rule in one phrase>.**
+### Tree method
 
-1. <step>
+**Point estimate: <one newick, e.g. the search's best tree or a consensus>.**
+`get_point_estimate_path` → `point_estimate_newick` in the registry.
+
+1. <how it is produced or chosen; rooting (rooted? on the outgroup?); polytomies>
 2. <edge case and outcome>
 
-**Group estimate: <file>, <one row / tree per ...>.**
+**Group estimate: <tree set, e.g. MP4's equally parsimonious trees, GA's posterior sample; or
+none>.** `get_group_estimate_path`, format <NEXUS / newick list>. The point estimate
+summarises it by `get_consensus_method()` = <`MAJORITY` | `MCC` | `MAP` | `PASSTHROUGH` |
+none> (<burn-in, thresholds>).
+
+### Network method
+
+**Point estimate: <rule in one phrase, e.g. the best network rootable on the outgroup>.**
+`get_point_estimate_path`; omit it (`None`) if the method has no single pick.
+
+1. <step>
+2. <edge case and outcome; `is_point_estimate_optional`?>
+
+**Group estimate: `N.family.csv`** (`NETWORK_FAMILY_SCHEMA`, docs/SCHEMAS.md), one row per
+<network the tool reports>.
 
 | Column | Value |
 |---|---|
 | `edges_added` | <how computed> |
-| `network_newick` | <as written? which row holds the point estimate?> |
-| `is_best` | <which row(s)> |
-| `<extra>` | <method-specific score, null cases> |
+| `network_newick` | <as written; which row holds the point estimate> |
+| `is_best` | <which row(s); at most one per `edges_added`> |
+| `<extra>` | <method-specific score; direction; null cases> |
 
-Rejected alternatives:
+### Rejected alternatives
+
 - <option>: <why not>
 
 ## Scoring
 
-<Which scorer reads which estimate (RF on the point estimate, or `network-score` on
-`is_best` rows), what is stripped first, the reference, and what `guide_tree` holds.>
+<!-- Keep the line for your method's kind. -->
+
+- Tree: `score` reads `point_estimate_newick` and compares it with the base tree via RF
+  (`RFScorer.R`). <rooting / polytomy notes>
+- Network: `network-score` reads the `is_best` rows, strips lengths and γ, and runs CmpNets
+  `-m cluster` against the true network. `guide_tree` holds <the guide, or null>.
 
 ## Outputs
 

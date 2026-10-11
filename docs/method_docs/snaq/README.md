@@ -2,7 +2,8 @@
 
 SNaQ (Species Networks applying Quartets) infers a **level-1 phylogenetic network** by
 maximum pseudolikelihood on quartet concordance factors (Solís-Lemus & Ané 2016). We run it
-as a baseline for CAMUS, following the CAMUS paper's wrapper. Method key: `snaq`.
+as a baseline for CAMUS, following the CAMUS paper's wrapper. Method key: `snaq`; kind:
+network.
 
 ## What it computes
 
@@ -65,7 +66,7 @@ Fixed choices, not configurable:
 | time cap | 12 h (`perl alarm`) | a stuck search fails instead of hanging |
 | outgroup | the experiment's `outgroup_label` (required) | rooting, below |
 
-## Normalising to the network contract
+## Normalising to the pipeline contract
 
 Every network method writes a family CSV (`docs/SCHEMAS.md`, `NETWORK_FAMILY_SCHEMA`) and a
 point estimate. SNaQ's raw output, `N.networks`, lists the best network, then networks with
@@ -96,7 +97,8 @@ If the best result is a tree, SNaQ writes no `N.networks`, and `N.net` is the tr
 | `is_best` | true only on the chosen row; none if `N.choice` is `none` |
 | `neg_loglik` | SNaQ's `-loglik`; null when it is -1 (failed) or there is no `N.networks` |
 
-Rejected alternatives:
+### Rejected alternatives
+
 - Scoring SNaQ's arbitrary root: it inflates the error (0.83/0.79 vs 0.44/0.33 FN/FP on one
   smoke dataset that has since been voided).
 - Moving hybrids ourselves (`hybridatnode!`).
