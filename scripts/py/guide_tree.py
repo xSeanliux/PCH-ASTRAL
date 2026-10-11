@@ -15,7 +15,7 @@ from Bio import Phylo
 
 from scripts.lib.inference.runners import METHOD_TO_RUNNER_CLASS
 from scripts.lib.inference.scoring import resolve_reference_newick
-from scripts.lib.model.guide_tree import SUPPORTED_GUIDE_TREES, TRUE_TREE, GuideTree
+from scripts.lib.model.guide_tree import GUIDE_TREES, TRUE_TREE, GuideTree
 from scripts.lib.model.methods import TreeInferenceMethod
 from scripts.lib.model.model_graph import find_dataset_key
 from scripts.lib.utils import resolve_polytomies, tree_to_newick
@@ -70,9 +70,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Print one dataset's guide tree, rooted on the outgroup."
     )
-    parser.add_argument(
-        "--guide", choices=sorted(map(str, SUPPORTED_GUIDE_TREES)), required=True
-    )
+    parser.add_argument("--guide", choices=sorted(map(str, GUIDE_TREES)), required=True)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--outgroup", required=True)

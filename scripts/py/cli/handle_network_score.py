@@ -15,7 +15,7 @@ from pathlib import Path
 import polars as pl
 from rich import print
 
-from scripts.lib.experiment import CamusConfig, ExperimentConfig
+from scripts.lib.experiment import ExperimentConfig, GuidedNetworkConfig
 from scripts.lib.inference import registry
 from scripts.lib.inference.registry import Cell
 from scripts.lib.inference.scoring import (
@@ -54,7 +54,9 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     )
     families = []
     for r in runs.iter_rows(named=True):
-        (guide,) = CamusConfig.model_validate_json(r["method_config_json"]).guide_trees
+        # Every network method is guided; extra fields (CAMUS's outgroup) are ignored.
+        config = GuidedNetworkConfig.model_validate_json(r["method_config_json"])
+        (guide,) = config.guide_trees
         family = pl.read_csv(
             r["group_estimate_path"],
             columns=list(NETWORK_FAMILY_SCHEMA),

@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from scripts.lib.experiment import CamusConfig
 from scripts.lib.inference import api
-from scripts.lib.model.guide_tree import SUPPORTED_GUIDE_TREES, TRUE_TREE, GuideTree
+from scripts.lib.model.guide_tree import CAMUS_GUIDE_TREES, TRUE_TREE, GuideTree
 from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.lib.inference.method_config import hash_config
 from scripts.lib.inference.runners.camus import CamusRunner
@@ -32,7 +32,7 @@ def test_unsupported_guides_are_rejected(guide: GuideTree):
     # CAMUS refuses a non-binary/unrooted guide tree: mp is a majority consensus
     # (polytomies), ga is unrooted, and TREE-QMC can emit polytomies. Fail at
     # config load, not mid-run.
-    assert guide not in SUPPORTED_GUIDE_TREES
+    assert guide not in CAMUS_GUIDE_TREES
     with pytest.raises(ValidationError, match="unsupported CAMUS guide tree"):
         _config(guide)
 
