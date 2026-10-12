@@ -76,10 +76,11 @@ def test_root_quartets_roots_every_quartet_by_the_guide():
             Quartet(("a", "d", "b", "c")): 1,  # disagrees with the guide; d still first
         }
     )
-    assert root_quartets(quartets, guide) == ["(((b,c),a),OUT);"] * 2 + [
-        "(((a,b),c),d);",
-        "(((b,c),a),d);",
-    ]
+    assert root_quartets(quartets, guide) == {
+        "(((b,c),a),OUT);": 2,
+        "(((a,b),c),d);": 1,
+        "(((b,c),a),d);": 1,
+    }
 
 
 def test_root_quartets_puts_a_2_2_root_on_the_central_edge():
@@ -87,7 +88,7 @@ def test_root_quartets_puts_a_2_2_root_on_the_central_edge():
     quartets = Counter(
         {Quartet(("a", "b", "c", "d")): 1, Quartet(("a", "c", "b", "d")): 1}
     )
-    assert root_quartets(quartets, guide) == ["((a,b),(c,d));", "((a,c),(b,d));"]
+    assert root_quartets(quartets, guide) == {"((a,b),(c,d));": 1, "((a,c),(b,d));": 1}
 
 
 NEWICK = "((a,(b)#H1:1.0::0.7),(#H1:0.5::0.3,c));"

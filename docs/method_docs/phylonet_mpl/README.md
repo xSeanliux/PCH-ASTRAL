@@ -27,13 +27,16 @@ PhyloNetMPLRunner.execute                           scripts/lib/inference/runner
     │   ├── ModelGraph.from_dataset → k, OUT        the dataset's model graph (true contact count)
     │   ├── build_guide_newick      → start tree    rooted on OUT, no branch lengths
     │   └── root_quartets           → gene trees    every PCH-W quartet, rooted by the guide,
-    │                                               once per unit of weight
+    │                                               one `[&W weight]` line per rooted quartet
     └── InferNetwork_MPL (all) k -s st -fs -pl P    PhyloNet 3.8.5 → N.result
 └── phylonet_mpl_to_family         → N.family.csv, N.net
 ```
 
-PCH-W weights are not gene-tree counts; CAMUS consumes the same weights, so the caveat applies
-to the comparison as a whole.
+Weights go in as Rich Newick tree probabilities (`Tree gt0 = [&W 7] ...`): PhyloNet adds a
+tree's weight to its topology's count, so this equals repeating the line 7 times (same tree,
+same score range on a 6-taxon test) in at most 3·C(n, 4) lines (94,395 at 31 leaves) instead
+of one per unit of weight (~1e6). PCH-W weights are not gene-tree counts; CAMUS consumes the
+same weights, so the caveat applies to the comparison as a whole.
 
 ### Rooting quartets
 

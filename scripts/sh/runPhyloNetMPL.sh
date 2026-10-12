@@ -59,7 +59,7 @@ rm -f "$RESULT"  # a stale one would pass for this run's
 
 python3 -m scripts.py.phylonet_mpl_nexus --input "$INPUT" --output "$TREEOUTPUT" \
     --guide "$GUIDE" --result "$RESULT" --procs "$PROCS" > "$NEXUS" || exit 1
-echo "✅ NEXUS: $(grep -c '^Tree gt' "$NEXUS") rooted quartets, $(grep -o 'InferNetwork_MPL (all) [0-9]*' "$NEXUS")"
+echo "✅ NEXUS: $(grep -c '^Tree gt' "$NEXUS") weighted rooted quartets, $(grep -o 'InferNetwork_MPL (all) [0-9]*' "$NEXUS")"
 
 # ponytail: no wall-clock cap here; the scheduler's job limit is the cap.
 # PhyloNet logs every proposal to logfile.txt in its cwd (~150 MB/h): run in

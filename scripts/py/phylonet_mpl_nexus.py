@@ -25,8 +25,8 @@ from scripts.lib.types import Dataset, Quartet
 from scripts.py.guide_tree import build_guide_newick
 
 
-def root_quartets(quartets: Counter[Quartet], guide_newick: str) -> list[str]:
-    """Each quartet rooted as `guide_newick` roots its four taxa, once per unit of weight.
+def root_quartets(quartets: Counter[Quartet], guide_newick: str) -> Counter[str]:
+    """Each quartet rooted as `guide_newick` roots its four taxa, with its weight.
 
     MPL reads rooted triples from each gene tree's root, so an unrooted quartet needs
     one. The guide's first split among the four taxa places it: 1|3 → on that taxon's
@@ -42,7 +42,7 @@ def root_quartets(quartets: Counter[Quartet], guide_newick: str) -> list[str]:
         """Edges from the root to the LCA of `x` and `y`."""
         return sum(1 for _ in takewhile(lambda p: p[0] == p[1], zip(path[x], path[y])))
 
-    rooted: list[str] = []
+    rooted: Counter[str] = Counter()
     for q, w in quartets.items():
         a, b, c, d = q._quartet  # ((a,b),(c,d))
         top = min(lca_depth(x, y) for x, y in combinations((a, b, c, d), 2))
@@ -59,7 +59,7 @@ def root_quartets(quartets: Counter[Quartet], guide_newick: str) -> list[str]:
                 a, b, c, d = c, d, a, b
             sister = b if x == a else a
             newick = f"((({c},{d}),{sister}),{x});"
-        rooted += [newick] * w
+        rooted[newick] += w
     return rooted
 
 
@@ -76,7 +76,10 @@ def build_nexus(
         raise ValueError("PhyloNet-MPL needs simulation.outgroup_label set")
     start = build_guide_newick(guide, input_csv, output_dir, outgroup)
     gts = root_quartets(PCH_W.get_quartets(Dataset.from_path(input_csv)), start)
-    trees = "\n".join(f"Tree gt{i} = {t}" for i, t in enumerate(gts))
+    # [&W w]: PhyloNet sums a tree's weights, as if it were repeated w times.
+    trees = "\n".join(
+        f"Tree gt{i} = [&W {w}] {t}" for i, (t, w) in enumerate(gts.items())
+    )
     # ponytail: PhyloNet defaults (-x 10 runs, no -o/-po), as the paper ran it.
     return (
         f"#NEXUS\nBEGIN NETWORKS;\nNetwork st = {start}\nEND;\n"
