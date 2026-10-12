@@ -1,6 +1,7 @@
 #!/bin/bash
-# TOB-QMC tree-of-blobs inference: PCH-W quartets in, one unrooted tree out whose
-# polytomies are blobs. Writes <output>/TOB_QMC/trees/<name>.tree.
+# TOB-QMC tree-of-blobs inference: PCH-W quartets in, one tree out whose polytomies
+# are blobs, rooted on the dataset's outgroup if it has one. Writes
+# <output>/TOB_QMC/trees/<name>.tree.
 RUNID=""
 INPUT=""
 TREEOUTPUT=""
@@ -50,9 +51,16 @@ SCRATCH_QUARTET_PATH="$PCH_SCRATCH/tmp_quartet_$RUNID.txt"
 python3 -m scripts.py.printQuartets -i "$INPUT" > "$SCRATCH_QUARTET_PATH" || exit 1
 echo "✅ PCH-W quartet generation, $(wc -l "$SCRATCH_QUARTET_PATH" | awk '{ print $1 }') quartets"
 
+# The lookup fails on non-simulated data (and on a broken registry): unrooted, reason logged.
+LOOKUP_ERR="$PCH_SCRATCH/tmp_outgroup_$RUNID.err"
+read -r _ OUTGROUP < <(python3 -m scripts.py.model_graph --input "$INPUT" 2>"$LOOKUP_ERR") \
+    || echo "Warning: no outgroup, unrooted: $(tail -n 1 "$LOOKUP_ERR")"
+[[ "$OUTGROUP" != none ]] || OUTGROUP=""
+[[ -z "$OUTGROUP" ]] || echo "✅ rooting on outgroup $OUTGROUP"
+
 # ponytail: TREE-QMC defaults (--alpha 1e-7 --beta 0.95, bipartition search capped
 # at 2n^2 subsets). Needs a TREE-QMC built with R (install_w_tree_qmc.sh does).
-bin/tree-qmc --blob \
+bin/tree-qmc --blob ${OUTGROUP:+--root "$OUTGROUP"} \
     -i "$SCRATCH_QUARTET_PATH" \
     -o "$TREEOUTPUT/TOB_QMC/trees/$NAME.tree" \
     --override
