@@ -4,13 +4,8 @@ from typing import TYPE_CHECKING, TextIO
 
 import polars as pl
 
-from scripts.lib.inference.runners.base import Runner
-from scripts.lib.model.guide_tree import GuideTree
-from scripts.lib.model.methods import (
-    InferenceMethod,
-    NetworkInferenceMethod,
-    TreeInferenceMethod,
-)
+from scripts.lib.inference.runners.base import GuidedNetworkRunner
+from scripts.lib.model.methods import NetworkInferenceMethod
 
 if TYPE_CHECKING:
     from scripts.lib.experiment import CamusConfig  # noqa: F401  (used in the quoted base)
@@ -38,7 +33,7 @@ def camus_to_family(path: Path) -> pl.DataFrame:
 
 
 @dataclass(frozen=True)
-class CamusRunner(Runner["CamusConfig"]):
+class CamusRunner(GuidedNetworkRunner["CamusConfig"]):
     """CAMUS level-1 network inference: one guide tree in, one network family out.
 
     `config` is the single-guide config.
@@ -47,22 +42,6 @@ class CamusRunner(Runner["CamusConfig"]):
     @property
     def method(self) -> NetworkInferenceMethod:
         return NetworkInferenceMethod.CAMUS
-
-    @property
-    def guide(self) -> GuideTree:
-        """The one guide tree this run uses; `get_runners` splits the set."""
-        (guide,) = self.config.guide_trees
-        return guide
-
-    @property
-    def suffix(self) -> str:
-        """The guide's name, so runs on one dataset don't collide."""
-        return str(self.guide)
-
-    def get_dependencies(self) -> list[InferenceMethod]:
-        """The method that produces the guide; none for `true_tree`."""
-        guide = self.guide
-        return [guide] if isinstance(guide, TreeInferenceMethod) else []
 
     def build_argv(
         self, runid: str, input_csv: Path, name: str, output_dir: Path
