@@ -4,7 +4,7 @@ For agents fixing experiment folders made by older code. One entry per breaking 
 
 ## Quartet order is deterministic
 
-**Affects:** order-sensitive methods: `pch_w_tree_qmc`, `tob_qmc`, and anything downstream. Quartet order no longer varies per process, so reruns may differ from old rows. Hashes did not change; drop those rows and rerun to compare.
+**Affects:** rows of quartet-based methods; TREE-QMC (`tob_qmc`) is order-sensitive. Old rows came from an arbitrary per-process quartet order; reruns are now reproducible but may not match them. Hashes did not change; drop those rows and rerun to compare.
 
 ## SNaQ start tree is configurable
 
