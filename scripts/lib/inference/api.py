@@ -21,7 +21,7 @@ def infer(
 
     OK iff `runner.execute` returns 0 and the required estimate exists: the point
     estimate if declared (CAMUS declares none), else the group estimate; only the
-    group estimate if `is_point_estimate_optional` (SNaQ).
+    group estimate if `is_point_estimate_optional` (SNaQ, NetCS).
     An exception from `execute` fails the run, its traceback in the log.
     """
     name = runner.get_run_name(input_csv.stem)

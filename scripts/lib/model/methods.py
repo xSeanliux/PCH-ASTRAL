@@ -18,6 +18,7 @@ class TreeInferenceMethod(InferenceMethod):
 class NetworkInferenceMethod(InferenceMethod):
     CAMUS = "camus"
     SNAQ = "snaq"
+    NETCS = "netcs"
 
 
 class RunStatus(StrEnum):

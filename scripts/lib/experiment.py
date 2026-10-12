@@ -9,6 +9,7 @@ from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.camus import CamusRunner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
+from scripts.lib.inference.runners.netcs import NetcsRunner
 from scripts.lib.inference.runners.snaq import SnaqRunner
 from scripts.lib.inference.runners.tob_qmc import TobQmcRunner
 from scripts.lib.inference.runners.w_tree_qmc import WTreeQmcRunner
@@ -94,6 +95,12 @@ class TobQmcConfig(RunnableConfig):
         return [TobQmcRunner(config=self)]
 
 
+class NetcsConfig(RunnableConfig):
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
+        return [NetcsRunner(config=self)]
+
+
 class GuidedNetworkConfig(RunnableConfig):
     """A network method searched from a guide (start) tree; one run per guide."""
 
@@ -161,6 +168,7 @@ class MethodConfig(BaseModel):
     mp4: MP4Config | None = Field(None)
     gray_atkinson: GAConfig | None = Field(None)
     tob_qmc: TobQmcConfig | None = Field(None)
+    netcs: NetcsConfig | None = Field(None)
     camus: CamusConfig | None = Field(None)
     snaq: SnaqConfig | None = Field(None)
 
@@ -173,6 +181,7 @@ class MethodConfig(BaseModel):
             self.mp4,
             self.gray_atkinson,
             self.tob_qmc,
+            self.netcs,
             self.camus,
             self.snaq,
         ]
