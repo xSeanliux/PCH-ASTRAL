@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from scripts.lib.experiment import (
     ASTRAL3Config,
+    BrooqsConfig,
     CamusConfig,
     GAConfig,
     MP4Config,
@@ -28,6 +29,7 @@ METHOD_TO_CONFIG_CLASS: dict[InferenceMethod, type[RunnableConfig]] = {
     TreeInferenceMethod.MP: MP4Config,
     TreeInferenceMethod.GA: GAConfig,
     TreeInferenceMethod.TOB_QMC: TobQmcConfig,
+    NetworkInferenceMethod.BROOQS: BrooqsConfig,
     NetworkInferenceMethod.CAMUS: CamusConfig,
     NetworkInferenceMethod.SNAQ: SnaqConfig,
 }
