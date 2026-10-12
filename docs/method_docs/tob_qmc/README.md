@@ -6,6 +6,10 @@ TOB-QMC estimates the **tree of blobs** of a species network: the network with e
 (#57) and NetCS (#58) expand into a level-1 network. Until those land, we run it alone and
 score it as a tree. Method key: `tob_qmc`.
 
+**Ignore its tree output as a species-tree estimate**: its RF scores, and any run that
+uses it as a guide tree (SNaQ accepts it, as it accepts every tree method). It is only
+meaningful as input to BROOQS/NetCS.
+
 ## What it computes
 
 - **Input:** gene trees; here, PCH-W quartets as 4-taxon gene trees.
