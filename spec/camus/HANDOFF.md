@@ -1,8 +1,7 @@
 # Handoff
 
-As of 2026-10-10. CAMUS runs end to end on `main`. Two more network methods (SNaQ #50,
-PhyloNet-MPL #51, both part of #43) are open, mergeable, CI green, and share one network
-output contract.
+As of 2026-10-11. CAMUS and SNaQ (#50) run end to end on `main`; PhyloNet-MPL(FT) (#51, part
+of #43) is open. All share one network output contract.
 
 ## State
 
@@ -11,17 +10,15 @@ output contract.
 - Closed: #35 `camus_registry`. Each network run's family CSV (`N.family.csv`) is its
   `group_estimate_path` in `inference_registry`; `handle_network_score.read_families` reads them
   from there.
-- Open: **#50** `snaq` (SNaQ, plus the shared network contract below). **#51** `phylonet-mpl`
-  (PhyloNet-MPL(FT); carries an identical copy of the shared files, so it merges cleanly on its
-  own). Whichever merges second re-conflicts in docs (`MIGRATIONS.md`, `SCHEMAS.md`,
-  `SCRIPT_CONTRACTS.md`), `test_handle_network_score.py` and method registration
-  (`experiment.py`, `runners/__init__.py`, `methods.py`): keep both sides.
-- Open: #47 TOB-QMC (separate). Issues #43–#46: other network methods; #40: outgroup length.
+- Merged: #52 model graph, #53 family CSV, #54 `GuidedNetworkConfig`, #50 SNaQ.
+- Merged: #47 TOB-QMC, a *tree* method: a tree of blobs is not a level-1 network, only the input
+  BROOQS (#57) and NetCS (#58) expand into one. Not a valid guide tree.
+- Open: #51 PhyloNet-MPL(FT). Issues #43–#46: other network methods; #40: outgroup length.
 
 ## Network output contract (#50, #51)
 
 Every network method writes `<cond>/<METHOD>/networks/N.family.csv`, converted from the tool's
-raw output (kept beside it) by its `Runner.execute` (e.g. `camus_to_family`, `snaq_to_family`):
+raw output (kept beside it) by its `Runner.execute` (e.g. `camus_to_family`, `snaq_to_family`, `phylonet_mpl_to_family`):
 
 | Column | Meaning |
 |---|---|
@@ -32,8 +29,7 @@ raw output (kept beside it) by its `Runner.execute` (e.g. `camus_to_family`, `sn
 
 CAMUS marks every k `is_best` (each is its own optimum). Network point estimates are
 `point_estimate_newick`; tree scoring skips network methods. `guide_tree` in `network_scores` is
-from `method_config_json` for CAMUS and SNaQ (`pch_wastral` in the smoke test, as in the CAMUS
-paper); `pch_wastral` for MPL (its fixed tree). Schema:
+from `method_config_json` (`pch_wastral` in the smoke tests, as in the CAMUS paper). Schema:
 `NETWORK_FAMILY_SCHEMA` in `scripts/py/cli/schemata.py`; details in `docs/SCHEMAS.md`.
 
 ## SNaQ rooting
@@ -69,6 +65,11 @@ python3 -m scripts.py.cli.main experiment network-score $S
 
 - `experiments/snaq_smoke` (#50): 30 taxa + `OUT`, h = 1 and 2. SNaQ did not finish in 65 min
   at 31 leaves; `snaq.procs: 10` runs the 10 runs in parallel. Not yet run at this size.
+- `experiments/phylonet_mpl_smoke` (#51): 30 taxa + `OUT`, h = 1 and 2. A 26-taxon run (since
+  deleted, hand-pruned) was stopped after 10.5 h. PhyloNet defaults: 10 runs (`-x`), no examination
+  cap, a run stops after 100 failed proposals in a row. `-fs` does not keep the start tree,
+  even on a 6-taxon test (`docs/method_docs/phylonet_mpl/README.md`, Fixed tree). Quartets are
+  rooted by the guide, so none are dropped.
 - Only the base models in `data/` are valid inputs: there is no tree simulation, and
   `simulation.n_taxa` is not read (the base tree file sets the taxa). Don't hand-prune models.
 
@@ -87,7 +88,7 @@ python3 -m scripts.py.cli.main experiment network-score $S
 
 ## Next
 
-1. Rerun `snaq_smoke` (and MPL's smoke) at 30 taxa; merge the stack.
+1. Rerun `snaq_smoke` and `phylonet_mpl_smoke` at 30 taxa; merge #51.
 2. Refresh #50's PR body (contract, rooting rule, hmax wording).
 3. Ask James how the paper rooted SNaQ; revisit step 2 if needed.
 4. Report the simulator bug; add a caveat to CLAUDE.md ("seeds are deterministic").

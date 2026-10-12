@@ -7,6 +7,7 @@ from scripts.lib.model.guide_tree import (
     GuideTree,
     GUIDE_TREES,
     CAMUS_GUIDE_TREES,
+    PHYLONET_MPL_GUIDE_TREES,
     SNAQ_GUIDE_TREES,
 )
 from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
@@ -14,6 +15,7 @@ from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.camus import CamusRunner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
+from scripts.lib.inference.runners.phylonet_mpl import PhyloNetMPLRunner
 from scripts.lib.inference.runners.snaq import SnaqRunner
 from scripts.lib.inference.runners.tob_qmc import TobQmcRunner
 from scripts.lib.inference.runners.w_tree_qmc import WTreeQmcRunner
@@ -151,6 +153,16 @@ class SnaqConfig(GuidedNetworkConfig):
     procs: int = Field(1, ge=1, exclude=True)
 
 
+class PhyloNetMPLConfig(GuidedNetworkConfig):
+    runner_class: ClassVar[type[Runner[BaseModel]]] = PhyloNetMPLRunner
+    supported_guides: ClassVar[frozenset[GuideTree]] = PHYLONET_MPL_GUIDE_TREES
+    guide_requirement: ClassVar[str] = (
+        "The guide roots every quartet, so it must be binary as estimated."
+    )
+    # PhyloNet -pl threads. Excluded from the dump, as `SnaqConfig.procs`.
+    procs: int = Field(1, ge=1, exclude=True)
+
+
 class MethodConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     astral_3: ASTRAL3Config | None = Field(None)
@@ -161,6 +173,7 @@ class MethodConfig(BaseModel):
     tob_qmc: TobQmcConfig | None = Field(None)
     camus: CamusConfig | None = Field(None)
     snaq: SnaqConfig | None = Field(None)
+    phylonet_mpl: PhyloNetMPLConfig | None = Field(None)
 
     def get_enabled_configs(self) -> list[RunnableConfig]:
         """The configured methods, in field-declaration order."""
@@ -173,6 +186,7 @@ class MethodConfig(BaseModel):
             self.tob_qmc,
             self.camus,
             self.snaq,
+            self.phylonet_mpl,
         ]
         return [f for f in fields if f is not None]
 
@@ -191,5 +205,14 @@ class ExperimentConfig(BaseModel):
             raise ValueError(
                 f"methods.camus.outgroup_label ({camus.outgroup_label!r}) must equal "
                 f"simulation.outgroup_label ({self.simulation.outgroup_label!r})."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _require_phylonet_mpl_outgroup(self) -> "ExperimentConfig":
+        """:raises ValueError: if PhyloNet-MPL runs without an outgroup to root on."""
+        if self.methods.phylonet_mpl is not None and not self.simulation.outgroup_label:
+            raise ValueError(
+                "methods.phylonet_mpl needs simulation.outgroup_label set."
             )
         return self

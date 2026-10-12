@@ -9,6 +9,7 @@ GuideTree = TreeInferenceMethod | Literal["true_tree"]
 # A guide names a method, not a config: MethodConfig holds one config per method.
 GUIDE_TREES: Final[frozenset[GuideTree]] = frozenset({*TreeInferenceMethod, TRUE_TREE})
 
+
 # Species trees only. A tree of blobs' polytomies are blobs, not uncertainty: resolving
 # them gives an arbitrary start tree.
 SNAQ_GUIDE_TREES: Final[frozenset[GuideTree]] = GUIDE_TREES - {
@@ -20,6 +21,11 @@ SNAQ_GUIDE_TREES: Final[frozenset[GuideTree]] = GUIDE_TREES - {
 CAMUS_GUIDE_TREES: Final[frozenset[GuideTree]] = frozenset(
     {TreeInferenceMethod.PCH_ASTRAL3, TreeInferenceMethod.PCH_WASTRAL, TRUE_TREE}
 )
+# Binary: the guide roots every quartet; a resolved polytomy would root them arbitrarily.
+# Rooting is free: every guide is rooted on the outgroup (ga's MCC tree is unrooted).
+PHYLONET_MPL_GUIDE_TREES: Final[frozenset[GuideTree]] = CAMUS_GUIDE_TREES | {
+    TreeInferenceMethod.GA
+}
 
 
 def parse_guide(name: str) -> GuideTree:
