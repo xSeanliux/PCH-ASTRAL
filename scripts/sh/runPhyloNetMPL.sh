@@ -63,13 +63,18 @@ echo "✅ NEXUS: $(grep -c '^Tree gt' "$NEXUS") weighted rooted quartets, $(grep
 
 # ponytail: no wall-clock cap here; the scheduler's job limit is the cap.
 # PhyloNet logs every proposal to logfile.txt in its cwd (~150 MB/h): run in
-# its own dir with that file sent to /dev/null. stdout echoes every gene tree
-# id; keep it out of the log too.
+# its own dir with that file sent to /dev/null. stdout only echoes gene tree ids;
+# errors go to stderr (the log), often with exit 0, so check the result exists.
+# Scratch is kept on failure, removed on success.
 JAR="$PWD/bin/PhyloNet.jar"
 RUNDIR="$PCH_SCRATCH/phylonet_mpl_$RUNID"
 mkdir -p "$RUNDIR" && ln -sf /dev/null "$RUNDIR/logfile.txt"
 (cd "$RUNDIR" && java -jar "$JAR" "$NEXUS" > /dev/null) || exit 1
+if [[ ! -s "$RESULT" ]]; then
+    echo "❌ PhyloNet wrote no result; its error is above. NEXUS kept: $NEXUS"
+    exit 1
+fi
 
-cat "$RESULT" || exit 1
+cat "$RESULT"
 rm -rf "$RUNDIR" "$NEXUS"
 echo "✅ PhyloNet-MPL(FT)"

@@ -119,9 +119,11 @@ PhyloNet `CmpNets -m cluster` against the true network to get FN and FP rates. T
 | `N.net` | `PhyloNetMPLRunner.execute` | point estimate (Rich newick) |
 | `N.family.csv` | `PhyloNetMPLRunner.execute` | group estimate |
 
-The NEXUS is at `$PCH_SCRATCH/tmp_phylonet_mpl_<runid>.nex`. PhyloNet's per-proposal
-`logfile.txt` (~150 MB/h) goes to `/dev/null`. The run log is at
-`<cond>/PHYLONET_MPL/logs/N.log`.
+The NEXUS is at `$PCH_SCRATCH/tmp_phylonet_mpl_<runid>.nex`; PhyloNet runs in
+`$PCH_SCRATCH/phylonet_mpl_<runid>/`. Both are removed on success, kept on failure.
+PhyloNet's per-proposal `logfile.txt` (~150 MB/h) and stdout (gene tree ids) go to
+`/dev/null`. Its errors go to stderr, in the run log `<cond>/PHYLONET_MPL/logs/N.log`,
+often with exit 0: a missing result fails the run.
 
 ## Fixed tree
 
