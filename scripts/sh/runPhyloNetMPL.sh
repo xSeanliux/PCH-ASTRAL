@@ -1,5 +1,5 @@
 #!/bin/bash
-# PhyloNet-MPL(FT): PCH-W quartets rooted on the outgroup plus the fixed --guide-tree
+# PhyloNet-MPL(FT): PCH-W quartets rooted by the --guide-tree, plus that guide as start
 # tree in, networks with k = the dataset's contact event count out. Writes PhyloNet's
 # raw <output>/PHYLONET_MPL/networks/<name>.result; PhyloNetMPLRunner.execute then
 # writes <name>.family.csv and <name>.net (best network).
@@ -25,7 +25,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -i, --input        Input characters CSV (a simulated dataset with an outgroup)"
             echo "  -o, --output       Output dir; holds the guide method's estimate"
             echo "  -n, --name         Run name; names the output files"
-            echo "  -g, --guide-tree   Fixed tree, e.g. pch_wastral or true_tree"
+            echo "  -g, --guide-tree   Start tree and quartet rooting, e.g. pch_wastral or true_tree"
             echo "                     (all: PHYLONET_MPL_GUIDE_TREES in scripts/lib/model/guide_tree.py)"
             echo ""
             echo "Optional:"

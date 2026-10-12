@@ -159,7 +159,7 @@ class PhyloNetMPLConfig(GuidedNetworkConfig):
             raise ValueError(
                 f"unsupported PhyloNet-MPL guide tree(s): {', '.join(bad)}. "
                 f"Supported: {', '.join(sorted(PHYLONET_MPL_GUIDE_TREES))}. "
-                "-fs fixes the tree, so it must be binary as estimated."
+                "The guide roots every quartet, so it must be binary as estimated."
             )
         return v
 

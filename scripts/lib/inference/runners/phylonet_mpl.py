@@ -65,7 +65,7 @@ class PhyloNetMPLRunner(Runner["PhyloNetMPLConfig"]):
 
     @property
     def guide(self) -> GuideTree:
-        """The one fixed tree this run uses; `get_runners` splits the set."""
+        """The one guide (start tree, quartet rooting) this run uses; `get_runners` splits the set."""
         (guide,) = self.config.guide_trees
         return guide
 
@@ -75,7 +75,7 @@ class PhyloNetMPLRunner(Runner["PhyloNetMPLConfig"]):
         return str(self.guide)
 
     def get_dependencies(self) -> list[InferenceMethod]:
-        """The method that produces the fixed tree; none for `true_tree`."""
+        """The method that produces the guide; none for `true_tree`."""
         guide = self.guide
         return [guide] if isinstance(guide, TreeInferenceMethod) else []
 

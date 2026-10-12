@@ -40,7 +40,7 @@ def test_get_runners_split_per_guide_with_their_dependencies():
 
 @pytest.mark.parametrize("guide", sorted(GUIDE_TREES - PHYLONET_MPL_GUIDE_TREES))
 def test_guides_with_polytomies_are_rejected(guide: GuideTree):
-    # -fs fixes the tree: a polytomy resolved by guide_tree.py would stay arbitrary.
+    # The guide roots every quartet: a polytomy resolved by guide_tree.py would root them arbitrarily.
     with pytest.raises(ValidationError, match="unsupported PhyloNet-MPL guide"):
         PhyloNetMPLConfig(guide_trees=frozenset({guide}))
 
@@ -67,14 +67,27 @@ def test_smoke_spec_loads_and_outgroup_is_required():
         ExperimentConfig.model_validate(spec)
 
 
-def test_root_quartets_keeps_outgroup_quartets_rooted_and_weighted():
+def test_root_quartets_roots_every_quartet_by_the_guide():
+    guide = "((((a,b),c),d),OUT);"
     quartets = Counter(
         {
-            Quartet(("OUT", "a", "b", "c")): 2,  # ((OUT,a),(b,c))
-            Quartet(("a", "b", "c", "d")): 5,  # no outgroup: unrootable, dropped
+            Quartet(("OUT", "a", "b", "c")): 2,  # OUT splits first
+            Quartet(("a", "b", "c", "d")): 1,  # d splits first: its pendant edge
+            Quartet(("a", "d", "b", "c")): 1,  # disagrees with the guide; d still first
         }
     )
-    assert root_quartets(quartets, "OUT") == ["(((b,c),a),OUT);"] * 2
+    assert root_quartets(quartets, guide) == ["(((b,c),a),OUT);"] * 2 + [
+        "(((a,b),c),d);",
+        "(((b,c),a),d);",
+    ]
+
+
+def test_root_quartets_puts_a_2_2_root_on_the_central_edge():
+    guide = "(((a,b),(c,d)),OUT);"
+    quartets = Counter(
+        {Quartet(("a", "b", "c", "d")): 1, Quartet(("a", "c", "b", "d")): 1}
+    )
+    assert root_quartets(quartets, guide) == ["((a,b),(c,d));", "((a,c),(b,d));"]
 
 
 NEWICK = "((a,(b)#H1:1.0::0.7),(#H1:0.5::0.3,c));"

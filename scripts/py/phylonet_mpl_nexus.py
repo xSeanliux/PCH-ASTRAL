@@ -5,12 +5,17 @@
 
 Mirrors the CAMUS paper's wrapper (`InferNetwork_MPL (all) k -s st -fs -pl N`):
 k = the dataset's contact event count, start tree = the guide rooted on the
-outgroup, fixed. The paper's guide was pch_wastral.
+outgroup. Gene trees: every PCH-W quartet, rooted by the guide (`root_quartets`).
+The paper's guide was pch_wastral.
 """
 
 import argparse
 from collections import Counter
+from io import StringIO
+from itertools import combinations, takewhile
 from pathlib import Path
+
+from Bio import Phylo
 
 from scripts.lib.model.guide_tree import TRUE_TREE, GuideTree, PHYLONET_MPL_GUIDE_TREES
 from scripts.lib.model.methods import TreeInferenceMethod
@@ -20,20 +25,41 @@ from scripts.lib.types import Dataset, Quartet
 from scripts.py.guide_tree import build_guide_newick
 
 
-def root_quartets(quartets: Counter[Quartet], outgroup: str) -> list[str]:
-    """Each quartet holding `outgroup`, rooted on it, once per unit of weight.
+def root_quartets(quartets: Counter[Quartet], guide_newick: str) -> list[str]:
+    """Each quartet rooted as `guide_newick` roots its four taxa, once per unit of weight.
 
-    MPL needs rooted gene trees; a quartet without the outgroup has no root.
+    MPL reads rooted triples from each gene tree's root, so an unrooted quartet needs
+    one. The guide's first split among the four taxa places it: 1|3 → on that taxon's
+    pendant edge; 2|2 → on the quartet's central edge, even if the quartet disagrees
+    with the guide there. A quartet with the outgroup is rooted on it.
     """
+    tree = Phylo.read(StringIO(guide_newick), "newick")
+    path = {
+        leaf.name: [id(c) for c in tree.get_path(leaf)] for leaf in tree.get_terminals()
+    }
+
+    def lca_depth(x: str, y: str) -> int:
+        """Edges from the root to the LCA of `x` and `y`."""
+        return sum(1 for _ in takewhile(lambda p: p[0] == p[1], zip(path[x], path[y])))
+
     rooted: list[str] = []
     for q, w in quartets.items():
         a, b, c, d = q._quartet  # ((a,b),(c,d))
-        if outgroup in (a, b):
-            a, b, c, d = c, d, a, b
-        if outgroup not in (c, d):
-            continue
-        sister = d if c == outgroup else c
-        rooted += [f"((({a},{b}),{sister}),{outgroup});"] * w
+        top = min(lca_depth(x, y) for x, y in combinations((a, b, c, d), 2))
+        first = [
+            x
+            for x in (a, b, c, d)
+            if all(lca_depth(x, y) == top for y in (a, b, c, d) if y != x)
+        ]
+        if not first:  # 2|2
+            newick = f"(({a},{b}),({c},{d}));"
+        else:  # 1|3: `first[0]` splits off first
+            (x,) = first
+            if x in (c, d):
+                a, b, c, d = c, d, a, b
+            sister = b if x == a else a
+            newick = f"((({c},{d}),{sister}),{x});"
+        rooted += [newick] * w
     return rooted
 
 
@@ -49,7 +75,7 @@ def build_nexus(
     if outgroup is None:
         raise ValueError("PhyloNet-MPL needs simulation.outgroup_label set")
     start = build_guide_newick(guide, input_csv, output_dir, outgroup)
-    gts = root_quartets(PCH_W.get_quartets(Dataset.from_path(input_csv)), outgroup)
+    gts = root_quartets(PCH_W.get_quartets(Dataset.from_path(input_csv)), start)
     trees = "\n".join(f"Tree gt{i} = {t}" for i, t in enumerate(gts))
     # ponytail: PhyloNet defaults (-x 10 runs, no -o/-po), as the paper ran it.
     return (
