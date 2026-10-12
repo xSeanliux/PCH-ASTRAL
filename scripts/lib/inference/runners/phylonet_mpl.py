@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, TextIO
 
 import polars as pl
 
+from scripts.lib.inference.network_format import HYBRID
 from scripts.lib.inference.runners.base import Runner
 from scripts.lib.model.guide_tree import GuideTree
 from scripts.lib.model.methods import (
@@ -21,8 +22,6 @@ if TYPE_CHECKING:
 NETWORK = re.compile(
     r"Inferred Network #\d+:\s*\n(.*;)\s*\nTotal log probability: (\S+)"
 )
-# Hybrid labels `#H<n>`; each appears twice, once per parent edge.
-HYBRID = re.compile(r"#H\d+")
 
 
 def phylonet_mpl_to_family(result_path: Path) -> pl.DataFrame:

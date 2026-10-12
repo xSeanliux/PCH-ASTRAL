@@ -9,6 +9,15 @@ GuideTree = TreeInferenceMethod | Literal["true_tree"]
 # A guide names a method, not a config: MethodConfig holds one config per method.
 GUIDE_TREES: Final[frozenset[GuideTree]] = frozenset({*TreeInferenceMethod, TRUE_TREE})
 
+
+def parse_guide(name: str) -> GuideTree:
+    """The guide named `name`, e.g. a CLI argument.
+
+    :raises ValueError: if `name` is no guide.
+    """
+    return TRUE_TREE if name == TRUE_TREE else TreeInferenceMethod(name)
+
+
 # Rooted binary only. mp is a majority consensus (polytomies), ga is unrooted,
 # TREE-QMC can emit polytomies; CAMUS rejects all three.
 CAMUS_GUIDE_TREES: Final[frozenset[GuideTree]] = frozenset(

@@ -34,27 +34,19 @@ def root_quartets(quartets: Counter[Quartet], guide_newick: str) -> Counter[str]
     with the guide there. A quartet with the outgroup is rooted on it.
     """
     tree = Phylo.read(StringIO(guide_newick), "newick")
-    path = {
-        leaf.name: [id(c) for c in tree.get_path(leaf)] for leaf in tree.get_terminals()
-    }
-
-    def lca_depth(x: str, y: str) -> int:
-        """Edges from the root to the LCA of `x` and `y`."""
-        return sum(1 for _ in takewhile(lambda p: p[0] == p[1], zip(path[x], path[y])))
+    leaves = {id(c): {t.name for t in c.get_terminals()} for c in tree.find_clades()}
 
     rooted: Counter[str] = Counter()
     for q, w in quartets.items():
-        a, b, c, d = q._quartet  # ((a,b),(c,d))
-        top = min(lca_depth(x, y) for x, y in combinations((a, b, c, d), 2))
-        first = [
-            x
-            for x in (a, b, c, d)
-            if all(lca_depth(x, y) == top for y in (a, b, c, d) if y != x)
-        ]
-        if not first:  # 2|2
+        (a, b), (c, d) = q.as_tuples()
+        taxa = {a, b, c, d}
+        # The guide is binary: its LCA of the four splits them 1|3 or 2|2.
+        lca = tree.common_ancestor(*taxa)
+        lone = [s for child in lca.clades if len(s := leaves[id(child)] & taxa) == 1]
+        if not lone:  # 2|2
             newick = f"(({a},{b}),({c},{d}));"
-        else:  # 1|3: `first[0]` splits off first
-            (x,) = first
+        else:  # 1|3: `x` splits off first
+            ((x,),) = lone
             if x in (c, d):
                 a, b, c, d = c, d, a, b
             sister = b if x == a else a

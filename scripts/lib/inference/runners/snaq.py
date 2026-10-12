@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, ClassVar, TextIO
 
 import polars as pl
 
+from scripts.lib.inference.network_format import HYBRID
 from scripts.lib.inference.runners.base import Runner
 from scripts.lib.model.guide_tree import GuideTree
 from scripts.lib.model.methods import (
@@ -19,8 +20,6 @@ if TYPE_CHECKING:
 
 # `<newick>;, with -loglik <x>`; SNaQ's bug/problem notes don't match and are skipped.
 NETWORK_LINE = re.compile(r"^(.*;), with -loglik (\S+)")
-# Hybrid labels `#H<n>`; each appears twice, once per parent edge.
-HYBRID = re.compile(r"#H\d+")
 
 
 def snaq_to_family(
