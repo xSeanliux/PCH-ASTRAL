@@ -4,14 +4,13 @@ NetCS resolves each blob of degree ≥ 5 in a **tree of blobs** into a cycle wit
 (NetCS preprint, References). It is TREE-QMC's `--network` mode; `tob_qmc` supplies the tree
 of blobs. We run it as a network method on PCH-W quartets (#58). Method key: `netcs`.
 
-Facts below were checked by running TREE-QMC `53b15e5` (`spec/netcs/PLAN.md`); only the
-paper's abstract was read.
+Facts below were checked by running TREE-QMC `53b15e5` (`spec/netcs/PLAN.md`).
 
 ## What it computes
 
 - **Input:** gene trees (here PCH-W quartets as 4-taxon gene trees) and a tree of blobs.
   NetCS does not build the tree of blobs.
-- **Model:** unverified (paper body unread).
+- **Model:** unverified (below).
 - **Objective:** none reported: the output carries no score.
 - **Search:** per blob of degree ≥ 5, one cycle with one hybrid. Smaller blobs stay
   polytomies. No seed flag; the hybrid chosen varies between runs on the same input.
@@ -90,7 +89,7 @@ so whether a dataset has a scored network can depend on that run.
 
 Rejected alternatives:
 - Rerooting ourselves: a root below a hybrid is invalid; NetCS did the rooting or nobody does.
-- Scoring the arbitrary root (alpha 0.25): FN 0.67 / FP 0.58, against 0.32 / 0.32 for a network rooted
+- Scoring the arbitrary root (alpha 0.25): FN 0.67 / FP 0.58, against 0.32 / 0.32 rooted
   on `OUT`.
 - Repeat-and-vote over runs: analysis, not inference.
 
@@ -115,12 +114,12 @@ The run log is at `<cond>/NETCS/logs/N.log`; it holds NetCS's rooting verdict.
 
 ## Runtime
 
-1–3 s per run at 30 taxa, macOS build; 1.2 s and 0.8 GB on 131,564 quartets
-(`spec/netcs/PLAN.md`). The `tob_qmc` dependency dominates (82 s on the same data).
+At 30 taxa, macOS build: 1–3 s per run on a binary tree of blobs, 3–27 s with blobs
+(alpha 0.25); 0.8 GB on 131,564 quartets (`spec/netcs/PLAN.md`). The `tob_qmc` dependency dominates (82 s on the same data).
 
 ## Versus the NetCS paper
 
-Unverified: everything but the abstract: the model, the paper's alpha and beta, how it
+No table: only the abstract was read. Unverified: the model, the paper's alpha and beta, how it
 treats blobs of degree < 5, and how it roots.
 
 ## References

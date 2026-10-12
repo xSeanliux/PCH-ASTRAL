@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 def is_rooted_on(newick: str, leaf_label: str) -> bool:
-    """Whether `leaf_label` is a leaf child of the root; a unary `(OUT)` is not."""
+    """Whether `leaf_label` is a leaf child of the root; inside a unary node it is not."""
     root = Phylo.read(StringIO(newick), "newick").root
     return any(c.is_terminal() and c.name == leaf_label for c in root.clades)
 
