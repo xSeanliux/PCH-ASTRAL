@@ -17,8 +17,8 @@ method accepts it as a guide tree. It is only meaningful as input to BROOQS/NetC
 - **Objective:** none optimised. Builds a TREE-QMC base tree, finds each edge's minimum
   p-value over 4-taxon sets around it, and contracts edges with network-like or star signal.
 - **Search:** heuristic: per edge, up to 2n² 4-taxon sets (bipartition search).
-- **Output:** one unrooted tree; each polytomy is a blob or an edge contracted by the star
-  test.
+- **Output:** one tree, rooted on the outgroup, if any; each polytomy is a blob or an edge
+  contracted by the star test.
 
 ## How we run it
 
@@ -26,11 +26,17 @@ method accepts it as a guide tree. It is only meaningful as input to BROOQS/NetC
 TobQmcRunner (default execute)                  scripts/lib/inference/runners/tob_qmc.py
 └── runTOBQMC.sh                                scripts/sh/runTOBQMC.sh
     ├── printQuartets               → quartets  PCH-W; each quartet once per unit of weight
-    └── tree-qmc --blob --override  → N.tree    TREE-QMC 53b15e5, R-embedded build
+    ├── model_graph                 → outgroup
+    └── tree-qmc --blob [--root <outgroup>] --override
+                                    → N.tree    TREE-QMC 53b15e5, R-embedded build
 ```
 
 PCH-W weights are not gene-tree counts, but the tests read repeats as counts. Sparse
 4-taxon sets fail the tests, so some polytomies come from missing signal, not reticulation.
+
+TREE-QMC roots before testing, and the per-edge search is root-dependent: same base tree,
+but edges near a threshold can contract differently (2 more of 28 at `--alpha 0.4`; none
+at the defaults).
 
 ## Configuration
 
@@ -46,6 +52,7 @@ Fixed choices, not configurable:
 | `--alpha` (QTT level) | 1e-7 | TREE-QMC default |
 | `--beta` (QST level) | 0.95 | TREE-QMC default |
 | `--iter_limit_blob` | 2n² | TREE-QMC default |
+| `--root` | the experiment's `outgroup_label`, if any | BROOQS and NetCS need a rooted tree |
 
 ## Normalising to the tree contract
 
