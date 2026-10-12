@@ -30,7 +30,7 @@ Paper body unread (abstract only).
 | Blobs resolved | Degree ≥ 5 only. Smaller blobs stay polytomies in the output ("unable to identify the hybridization"). |
 | Reticulation count | = blobs of degree ≥ 5. No flag. |
 | Other flags read | `--alpha` 1e-7, `--beta` 0.95, `--iter_limit_blob` 2n². Left at defaults. |
-| Cost, 30 taxa | 1.2 s, 0.8 GB on 131,564 quartets (TOB-QMC on the same data: 82 s). |
+| Cost, 30 taxa | 1–3 s on a binary tree of blobs, 3–27 s with blobs (12 `api.infer` runs); 0.8 GB on 131,564 quartets (TOB-QMC on the same data: 82 s). |
 
 ### Rooting
 
@@ -46,14 +46,21 @@ So NetCS keeps a valid input root. With PR B the tree of blobs arrives rooted on
 outgroup, and the output is rooted on it unless NetCS puts the outgroup below a hybrid.
 No Julia step. Upstream issue draft: `spec/netcs/upstream-root-issue.md`.
 
-On our data (4 simulated datasets with `OUT`, trees of blobs rooted on `OUT`):
+On our data (simulated datasets with `OUT`, trees of blobs rooted on `OUT`):
 
-- Default alpha: every tree of blobs is binary; NetCS echoes it, rooted on `OUT`, k = 0.
+- Default alpha, 4 fixture datasets: every tree of blobs is binary; NetCS echoes it, rooted
+  on `OUT`, k = 0.
+- Default alpha, 2 new datasets through the real pipeline: each tree of blobs has one
+  degree-4 polytomy; NetCS keeps it, k = 0, rooted on `OUT`, `is_best` true, scored
+  (FN 0.419 / FP 0.357; FN 0.422 / FP 0.071).
 - Alpha 0.25 (blobs of degree 4–10): 2 of 4 first runs put `OUT` below a hybrid and
   rerooted elsewhere, leaving a unary `(OUT)` node.
-- **The verdict is not stable.** Same input, 6 runs: one dataset rooted on `OUT` 4 times
-  and not 2 times; one never (5 distinct roots); one always (byte-identical). NetCS's
-  choice of hybrid varies per run, and with it whether the input root is valid.
+- **The verdict varies per run, but mostly per dataset.** NetCS's choice of hybrid varies,
+  and with it whether the input root is valid. Alpha 0.25, repeat `api.infer` runs:
+  `sim_1_1_1` rooted on `OUT` 35 times, rerooted once; `sim_2_1_1` rooted 0 of 32
+  (6 distinct outputs in 30). Two new datasets through the real pipeline (k = 1, k = 2, as
+  expected): rerooted in 10 of 10 runs, 9 distinct roots, so no network with a hybrid was
+  scored there.
 - Scored once renumbered: rooted on `OUT` FN 0.32 / FP 0.32; not rooted FN 0.67 / FP 0.58.
 
 ## Settled decisions
@@ -128,7 +135,7 @@ Breaks 1–11 in `spec/brooqs/PLAN.md` apply. NetCS adds:
     must count these rows or they vanish.
 14. **Run-to-run differences are invisible** (break 10, concrete here): NetCS's hybrid, its
     root, and so `is_best` vary per run on the same input; resume keeps the first success.
-    Whether a dataset has a scored NetCS network can be a coin flip.
+    Whether a dataset has a scored NetCS network is mostly per dataset, sometimes per run.
 15. **`tob_qmc`'s root now carries meaning for NetCS** (it decides rooted vs not), yet it is
     not part of any config or hash (break 5).
 

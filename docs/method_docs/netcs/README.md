@@ -30,9 +30,11 @@ NetcsRunner.execute                              scripts/lib/inference/runners/n
 └── netcs_to_family                → N.family.csv, N.net   below
 ```
 
-PCH-W weights are not gene-tree counts; each quartet is repeated per unit of weight. At TOB-QMC's
-default alpha our four `OUT` datasets gave binary trees of blobs, so NetCS echoed them:
-k = 0, a tree recorded as a network.
+PCH-W weights are not gene-tree counts; each quartet is repeated per unit of weight.
+
+At TOB-QMC's default alpha NetCS has returned only k = 0, a tree recorded as a network:
+4 of 4 fixture datasets gave binary trees of blobs, echoed; 2 of 2 freshly simulated ones
+gave one degree-4 polytomy, kept unresolved.
 
 ## Configuration
 
@@ -75,9 +77,16 @@ root-dependent, and NetCS decides the root:
    still `ok` (`Runner.is_point_estimate_optional`). No reroot code.
 
 **Not deterministic.** NetCS's hybrid varies per run, and with it whether the input root is
-valid. Same input (trees of blobs at TOB-QMC alpha 0.25), 6 runs, three datasets: one
-rooted on `OUT` 4 times and not 2; one never (5 distinct roots); one always (byte-identical). Resume keeps the first success,
-so whether a dataset has a scored network can depend on that run.
+valid. Repeat runs on one input (trees of blobs at TOB-QMC alpha 0.25, the only ones with
+blobs of degree ≥ 5):
+
+| Dataset | Runs | Rooted on `OUT` | Distinct outputs |
+|---|---|---|---|
+| `sim_1_1_1` (fixture) | 36 | 35 | 2 in 30 |
+| `sim_2_1_1` (fixture) | 32 | 0 | 6 in 30 |
+| two new datasets, real pipeline (k = 1, k = 2) | 10 | 0 | 9 roots |
+
+So the verdict is mostly per dataset, not a coin flip; resume keeps the first success.
 
 **Group estimate: `N.family.csv`, one row.**
 
@@ -99,6 +108,11 @@ Rejected alternatives:
 hybrids (`score_network`; CmpNets rejects `#H0`), then runs PhyloNet `CmpNets -m cluster`
 against the true network. Tree scoring (RF) skips NetCS. `guide_tree` in
 `network_scores.csv` is null. Unresolved blobs (degree < 5) are scored as written.
+
+**Limit: a NetCS network with hybrids often has no point estimate, so no score row.** On our
+data (table above) three of four such datasets were never rooted on `OUT`. Scored so far:
+k = 0 only, e.g. the two default-alpha datasets with a kept 4-polytomy (FN 0.419 / FP 0.357;
+FN 0.422 / FP 0.071). Analyses must count the unscored rows.
 
 ## Outputs
 
