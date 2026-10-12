@@ -41,7 +41,7 @@ def test_get_runners_split_per_guide_with_their_dependencies():
 @pytest.mark.parametrize("guide", sorted(GUIDE_TREES - PHYLONET_MPL_GUIDE_TREES))
 def test_guides_with_polytomies_are_rejected(guide: GuideTree):
     # The guide roots every quartet: a polytomy resolved by guide_tree.py would root them arbitrarily.
-    with pytest.raises(ValidationError, match="unsupported PhyloNet-MPL guide"):
+    with pytest.raises(ValidationError, match="unsupported guide tree"):
         PhyloNetMPLConfig(guide_trees=frozenset({guide}))
 
 

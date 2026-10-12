@@ -70,7 +70,7 @@ Path getters are static so other code can look a method up without a runner, e.g
 
 ### Fan-out
 
-One config may yield several runners. `GuidedNetworkConfig.get_runners()` (CAMUS, SNaQ, PhyloNet-MPL) returns one runner per guide, each with a single-guide config, its own `hash_config`, and output name `<stem>.<guide>`. `experiment status` counts each as `<method>.<guide>`.
+One config may yield several runners. `GuidedNetworkConfig.get_runners()` (CAMUS, SNaQ, PhyloNet-MPL) returns one `GuidedNetworkRunner` (guide, suffix, dependency) per guide, each with a single-guide config, its own `hash_config`, and output name `<stem>.<guide>`. `experiment status` counts each as `<method>.<guide>`.
 
 ### Guide trees
 
@@ -81,7 +81,7 @@ A guide is a tree *method* or `true_tree`; there is no separate guide enum (`mod
 | a tree method | that method; the network method reads its point estimate |
 | `true_tree` | none; the simulation base tree |
 
-SNaQ takes `SNAQ_GUIDE_TREES`, every guide but `tob_qmc`: `snaq!` resolves polytomies and unroots its start tree, but a tree of blobs' polytomies are blobs. CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). PhyloNet-MPL takes `PHYLONET_MPL_GUIDE_TREES` (CAMUS's plus `ga`): the guide roots every quartet, so it must be binary as estimated; rooting on the outgroup is free. A guide names a method, not a config: `MethodConfig` holds one config per method.
+SNaQ takes `SNAQ_GUIDE_TREES`, every guide but `tob_qmc`: `snaq!` resolves polytomies and unroots its start tree, but a tree of blobs' polytomies are blobs. CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). PhyloNet-MPL takes `PHYLONET_MPL_GUIDE_TREES` (CAMUS's plus `ga`): the guide roots every quartet, so it must be binary as estimated; rooting on the outgroup is free. Each config's `supported_guides` is checked at load. A guide names a method, not a config: `MethodConfig` holds one config per method.
 
 ## Scheduling (`scheduler.py`)
 
