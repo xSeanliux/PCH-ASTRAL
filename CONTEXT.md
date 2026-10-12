@@ -37,7 +37,7 @@ The number of contact edges a network method added to the guide tree.
 _Avoid_: Number of branches
 
 **Tree of blobs**:
-A network's tree with each blob (cycle-bearing region) contracted to one node; TOB-QMC's estimate. Unrooted, may have polytomies. Input to network methods (BROOQS, NetCS), not a network estimate.
+A network's tree with each blob (cycle-bearing region) contracted to one node; TOB-QMC's estimate. Rooted on the outgroup if there is one; may have polytomies. Input to network methods (BROOQS, NetCS), not a network estimate.
 _Avoid_: TOB (except as TOB-QMC)
 
 **Network family**:

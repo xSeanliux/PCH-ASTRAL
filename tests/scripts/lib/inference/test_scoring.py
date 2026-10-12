@@ -7,6 +7,7 @@ import pytest
 from scripts.lib.inference.scoring import (
     PHYLONET_JAR,
     score_network,
+    renumber_zero_indexed_hybrids,
     resolve_reference_network,
     score,
     get_taxa,
@@ -38,10 +39,24 @@ def test_discordant_estimate_has_fn() -> None:
 
 
 REF = "((((A,((B)#H2,#H1)),((C)#H1,#H2)),(D,E)),OUT);"
+REF_ZERO_INDEXED = "((((A,((B)#H1,#H0)),((C)#H0,#H1)),(D,E)),OUT);"
 
 
 def test_taxa_skips_hybrid_labels_and_lengths():
     assert get_taxa("((A:1,(B:1)#H1:1),(#H1,C:1));") == {"A", "B", "C"}
+
+
+def test_renumber_shifts_zero_indexed_hybrids():
+    assert renumber_zero_indexed_hybrids(REF_ZERO_INDEXED) == REF
+    assert renumber_zero_indexed_hybrids(REF) == REF
+
+
+def test_renumber_matches_whole_indices():
+    zero_indexed = "(((A)#H0,(B)#H10),(#H0,#H10),C);"
+    one_indexed = "(((A)#H1,(B)#H11),(#H1,#H11),C);"
+    assert renumber_zero_indexed_hybrids(zero_indexed) == one_indexed
+    for unchanged in ("(((A)#H1,(B)#H10),(#H1,#H10),C);", "((A)#H01,#H01,C);"):
+        assert renumber_zero_indexed_hybrids(unchanged) == unchanged
 
 
 def test_score_network_rejects_mismatched_taxa():
@@ -73,6 +88,15 @@ def test_resolve_reference_network_reads_the_registered_file(tmp_path: Path):
 def test_score_network_reference_against_itself_is_zero():
     s = score_network(REF, REF)
     assert (s.fn_rate, s.fp_rate) == (0.0, 0.0)
+
+
+@needs_phylonet
+def test_score_network_zero_indexed_estimate_scores_as_its_twin():
+    assert score_network(REF_ZERO_INDEXED, REF) == score_network(REF, REF)
+    # A discordant pair, so the equality is not just 0 == 0.
+    twin = score_network("((((A,((B)#H1,C)),#H1),(D,E)),OUT);", REF)
+    assert twin.fn_rate > 0
+    assert score_network("((((A,((B)#H0,C)),#H0),(D,E)),OUT);", REF) == twin
 
 
 @needs_phylonet
