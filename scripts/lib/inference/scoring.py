@@ -124,9 +124,12 @@ def score_network(estimate_newick: str, reference_newick: str) -> ScoreResult:
     :raises RuntimeError: if PhyloNet fails or prints no distance.
     :raises subprocess.TimeoutExpired: past 2 h.
     """
-    estimate_newick = renumber_zero_indexed_hybrids(
-        _ANNOTATION.sub("", estimate_newick)
-    )
+
+    # remove annotations & renumber zero indexed hybrids (i.e., #H0 -> #H1)
+    # because CmpNets hybrids are 1-indexed
+    estimate_newick = _ANNOTATION.sub("", estimate_newick)
+    estimate_newick = renumber_zero_indexed_hybrids(estimate_newick)
+    
     est_taxa, ref_taxa = get_taxa(estimate_newick), get_taxa(reference_newick)
     if est_taxa != ref_taxa:
         # CmpNets returns numbers for mismatched sets; fail loudly instead.
