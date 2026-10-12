@@ -95,15 +95,17 @@ Join to the registry on the three key columns.
 
 ## Network family CSV
 
-`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's `Runner.execute` (`CamusRunner` via `camus_to_family`, `SnaqRunner` via `snaq_to_family`, `BrooqsRunner` via `brooqs_to_family`) · `NETWORK_FAMILY_SCHEMA` · one row per network
+`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's `Runner.execute` (`CamusRunner` via `camus_to_family`, `SnaqRunner` via `snaq_to_family`) · `NETWORK_FAMILY_SCHEMA` · one row per network
 
 A network run's `group_estimate_path`. The tool's raw output stays beside it.
+
+A network method with no family (BROOQS) is scored on its point estimate: one `is_best` row, `edges_added` = its distinct `#H<n>` labels.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `edges_added` | Int64 | Reticulation edges in the network. |
 | `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring, which also renumbers 0-indexed hybrids. |
-| `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: at most one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik` consistent with the outgroup, or none (see below); BROOQS: its one row. |
+| `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: at most one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik` consistent with the outgroup, or none (see below). |
 
 Method-specific columns may follow: CAMUS `quartet_satisfied_percent`; SNaQ `neg_loglik`.
 

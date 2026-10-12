@@ -20,14 +20,13 @@ Deterministic and single-threaded at our flags: identical across runs.
 ## How we run it
 
 ```text
-BrooqsRunner.execute                            scripts/lib/inference/runners/brooqs.py
+BrooqsRunner                                    scripts/lib/inference/runners/brooqs.py
 └── runBROOQS.sh                                scripts/sh/runBROOQS.sh
     ├── model_graph --input         → outgroup  the dataset's model graph
     ├── <cond>/TOB_QMC/trees/N.tree             tree of blobs from `tob_qmc`; must be rooted on the outgroup
     ├── printQuartets               → quartets  PCH-W; each quartet once per unit of weight
     └── python3 bin/brooqs-src/count_quartets.py -i quartets -t tree -o N.net --rooted
                                                 BROOQS 17b25b2 (`make install-brooqs`)
-└── brooqs_to_family                → N.family.csv   group estimate (below)
 ```
 
 PCH-W weights are not gene-tree counts, but BROOQS reads repeats as counts, and
@@ -90,21 +89,16 @@ it keeps the outgroup's rooting (8 of 8 test runs). If the best hybrid is the gr
 containing the root, BROOQS takes the next-best. `is_point_estimate_optional` stays False:
 BROOQS always writes a network.
 
-**Group estimate: `N.family.csv`, one row** (`brooqs_to_family`).
-
-| Column | Value |
-|---|---|
-| `edges_added` | distinct `#H<n>` labels in the newick |
-| `network_newick` | the `N.net` line, hybrids 0-indexed as BROOQS wrote them |
-| `is_best` | true |
+**Group estimate: none.** One network, so no family CSV; `network-score` scores the point
+estimate, with `edges_added` = its distinct `#H<n>` labels.
 
 Rejected alternatives:
-- Renumbering hybrids in the family CSV: `network_newick` stays "as the tool wrote it".
+- Renumbering hybrids in the registry: the newick stays "as the tool wrote it".
 - A guide-tree config (`GuidedNetworkConfig`): a tree of blobs is not a guide tree.
 
 ## Scoring
 
-`network-score` reads the `is_best` row and runs PhyloNet `CmpNets -m cluster` against the
+`network-score` reads the point estimate and runs PhyloNet `CmpNets -m cluster` against the
 true network. CmpNets rejects `#H0`, so **scoring renumbers BROOQS's 0-indexed hybrids**
 (`renumber_zero_indexed_hybrids` in `score_network`). `guide_tree` in
 `network_scores.csv` is null.
@@ -116,7 +110,6 @@ true network. CmpNets rejects `#H0`, so **scoring renumbers BROOQS's 0-indexed h
 | File | Writer | Content |
 |---|---|---|
 | `N.net` | `count_quartets.py` | point estimate (eNewick) |
-| `N.family.csv` | `BrooqsRunner.execute` | group estimate |
 
 The run log is at `<cond>/BROOQS/logs/N.log`; it holds BROOQS's debug matrices.
 

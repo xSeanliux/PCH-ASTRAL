@@ -1,9 +1,10 @@
 """`pch experiment network-score` — CmpNets each network family row against its
 reference network.
 
-Reads each network run's family CSV (`group_estimate_path` in inference_registry),
-joins simulated_data_registry on dataset_id == path for (horizontal_edges,
-model_tree), writes inference_data/network_scores.csv. A key
+Reads each network run's family CSV (`group_estimate_path` in inference_registry), or
+its point estimate when it wrote none, joins simulated_data_registry on
+dataset_id == path for (horizontal_edges, model_tree), writes
+inference_data/network_scores.csv. A key
 already in the file is kept, failed and timed-out rows included: a slow network
 stays visible and is not retried every run. Never touches inference rows.
 """
@@ -19,6 +20,7 @@ from scripts.lib.experiment import ExperimentConfig, GuidedNetworkConfig
 from scripts.lib.inference import registry
 from scripts.lib.inference.method_config import METHOD_TO_CONFIG_CLASS
 from scripts.lib.inference.registry import Cell
+from scripts.lib.inference.runners.snaq import HYBRID
 from scripts.lib.inference.scoring import (
     PHYLONET_JAR,
     score_network,
@@ -37,6 +39,8 @@ KEY_COLUMNS = ["dataset_id", "method", "config_hash", "edges_added"]
 
 def read_families(experiment_folder: Path) -> pl.DataFrame:
     """One row per scored network: each registered run's `is_best` rows, tagged.
+
+    A run without a family is scored on its point estimate.
 
     :raises AssertionError: if no network run is registered.
     :raises ValueError: if a family has more than one `is_best` per `edges_added`.
@@ -61,11 +65,22 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
         if issubclass(config_class, GuidedNetworkConfig):
             config = config_class.model_validate_json(r["method_config_json"])
             (guide,) = config.guide_trees
-        family = pl.read_csv(
-            r["group_estimate_path"],
-            columns=list(NETWORK_FAMILY_SCHEMA),
-            schema_overrides=NETWORK_FAMILY_SCHEMA,
-        ).filter("is_best")
+        if r["group_estimate_path"] is None:
+            newick = r["point_estimate_newick"]
+            family = pl.DataFrame(
+                {
+                    "edges_added": [len(set(HYBRID.findall(newick)))],
+                    "network_newick": [newick],
+                    "is_best": [True],
+                },
+                schema=NETWORK_FAMILY_SCHEMA,
+            )
+        else:
+            family = pl.read_csv(
+                r["group_estimate_path"],
+                columns=list(NETWORK_FAMILY_SCHEMA),
+                schema_overrides=NETWORK_FAMILY_SCHEMA,
+            ).filter("is_best")
         if not family["edges_added"].is_unique().all():
             raise ValueError(
                 f"{r['group_estimate_path']}: more than one is_best per edges_added"

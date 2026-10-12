@@ -1,8 +1,7 @@
 #!/bin/bash
 # BROOQS network inference: PCH-W quartets as gene trees plus the TOB-QMC tree of blobs
 # (<output>/TOB_QMC/trees/<name>.tree, rooted on the outgroup); each polytomy becomes a
-# cycle. Writes <output>/BROOQS/networks/<name>.net (eNewick, rooted on the outgroup);
-# BrooqsRunner.execute then writes <name>.family.csv.
+# cycle. Writes <output>/BROOQS/networks/<name>.net (eNewick, rooted on the outgroup).
 RUNID=""
 INPUT=""
 TREEOUTPUT=""

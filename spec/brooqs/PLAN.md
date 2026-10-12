@@ -61,7 +61,7 @@ Rooting changes the score (investigator's subagent, alpha-0.25 tree, `t1` as out
 | Quartets: PCH-W, once per unit of weight, regenerated per run | Same data as the tree of blobs; every method gets weighted quartets. |
 | `BrooqsConfig` has no fields; BROOQS defaults plus `--rooted` | As `TobQmcConfig`. Add a field when a sweep needs one. |
 | k = 0 is an `ok` row, scored | It is the method's answer. Expected often: see break 8. |
-| `#H0` → `#H1` at scoring, not in the family CSV (PR A) | `network_newick` stays "as the tool wrote it". |
+| `#H0` → `#H1` at scoring, not in the registry (PR A) | The newick stays "as the tool wrote it". |
 | Install: `make install-brooqs` → `bin/brooqs-src/` at `17b25b2` | Same interface as other tools. Not `bin/brooqs`: avoid a `bin/tree-qmc`-style case collision. |
 | Smoke on the cluster only | `tob_qmc` cannot run on the Mac (break 11). |
 
@@ -74,12 +74,11 @@ dataset.csv
  ├─ <cond>/TOB_QMC/trees/<stem>.tree  (dependency; must be rooted on the outgroup, else exit 1)
  └─ python3 bin/brooqs-src/count_quartets.py -i <quartets> -t <tob> -o <net> --rooted
       → <cond>/BROOQS/networks/<name>.net          point estimate, as BROOQS wrote it
-      → <cond>/BROOQS/networks/<name>.family.csv   BrooqsRunner.execute; one row
       → <cond>/BROOQS/logs/<name>.log
 ```
 
-Family row: `edges_added` = distinct `#H<n>` labels, `network_newick` = the `.net` line,
-`is_best` = true. `is_point_estimate_optional` stays False: BROOQS always writes a network.
+No family CSV: `network-score` scores the point estimate, `edges_added` = distinct `#H<n>`
+labels. `is_point_estimate_optional` stays False: BROOQS always writes a network.
 
 ## PRs
 
@@ -117,10 +116,11 @@ Merged: #63.
 | `scripts/lib/model/methods.py` | `NetworkInferenceMethod.BROOQS = "brooqs"` |
 | `scripts/lib/experiment.py` | `BrooqsConfig(RunnableConfig)`, one runner; `MethodConfig.brooqs`; `get_enabled_configs` |
 | `scripts/lib/inference/method_config.py`, `runners/__init__.py` | Registry entries, after `TOB_QMC` |
-| `scripts/lib/inference/runners/brooqs.py` | `BrooqsRunner`: `get_dependencies() -> [TOB_QMC]`; `build_argv` as `TobQmcRunner`; `execute` writes the family via `brooqs_to_family` (pattern: `snaq_to_family`); paths under `BROOQS/{networks,logs}` |
+| `scripts/lib/inference/runners/brooqs.py` | `BrooqsRunner`: `get_dependencies() -> [TOB_QMC]`; `build_argv` as `TobQmcRunner`; no family; paths under `BROOQS/{networks,logs}` |
 | `scripts/sh/runBROOQS.sh` | Arguments as `runTOBQMC.sh`; steps as the diagram above |
 | `experiments/brooqs_smoke/` | `tob_qmc_smoke` plus `outgroup_label: OUT`, `tob_qmc: {}`, `brooqs: {}` |
-| `tests/scripts/lib/inference/test_brooqs_runner.py` | After `test_tob_qmc_runner.py`: one runner from `{}`, dependency, argv, `api.infer` with a stubbed command, family row from a 2-hybrid `.net` and from a tree |
+| `tests/scripts/lib/inference/test_brooqs_runner.py` | After `test_tob_qmc_runner.py`: one runner from `{}`, dependency, argv, `api.infer` with a stubbed command, no group estimate |
+| `scripts/py/cli/handle_network_score.py` | A run with no family is scored on its point estimate; `edges_added` counted from hybrids |
 | Docs | `docs/method_docs/brooqs/README.md` from `TEMPLATE.md`; rows in `SCRIPT_CONTRACTS.md`, `ARCHITECTURE.md`, `KEYS.md`, `SCHEMAS.md`, `CLI.md` |
 
 SLURM tier: light.
