@@ -17,6 +17,11 @@ from scripts.lib.types import (
 class PCH_W(QuartetGenerationScheme):
     @classmethod
     def get_quartets(cls, dataset: Dataset) -> Counter[Quartet]:
+        """Count PCH-W quartets, in an order fixed by the dataset.
+
+        :param dataset: Polymorphic character matrix.
+        :returns: Quartet counts.
+        """
         quartets: Counter[Quartet] = Counter()
         for chr in dataset.chrs:
             state_to_taxa: dict[State, set[Taxon]] = defaultdict(set)
@@ -26,9 +31,9 @@ class PCH_W(QuartetGenerationScheme):
             informative_states = [s for s, ts in state_to_taxa.items() if len(ts) > 1]
             for s1, s2 in combinations(informative_states, 2):
                 t1s, t2s = state_to_taxa[s1], state_to_taxa[s2]
-                # l: the set of taxa with state s1/s2 but not s2/s1
-                l1 = t1s - t2s
-                l2 = t2s - t1s
+                # l: the taxa with state s1/s2 but not s2/s1; sorted, as set order varies per process
+                l1 = sorted(t1s - t2s)
+                l2 = sorted(t2s - t1s)
                 quartets.update(
                     [
                         Quartet((a, b, c, d))

@@ -2,6 +2,10 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## Quartet order is deterministic
+
+**Affects:** order-sensitive methods: `pch_w_tree_qmc`, `tob_qmc`, and anything downstream. Quartet order no longer varies per process, so reruns may differ from old rows. Hashes did not change; drop those rows and rerun to compare.
+
 ## SNaQ start tree is configurable
 
 **Affects:** SNaQ rows. `method_config_json` `{}` became `{"guide_trees":["pch_wastral"]}`, so `config_hash` changed, and output names gain the guide suffix (`N` → `N.pch_wastral`). Old rows no longer match: rerun, or rename the outputs and rewrite the rows (and `network_scores.csv` hashes). From the repo root (registry paths are relative to it):
