@@ -52,7 +52,7 @@ One abstract `Runner[ConfigT]` for tree and network methods (`runners/base.py`).
 | `suffix` | Tells apart runs of one method on one dataset (`None` = bare stem). |
 | `get_run_name(stem)` | `stem`, or `stem.suffix`. |
 | `build_argv(...)` | The command `execute` runs. |
-| `execute(..., log_file)` | What `api.infer` calls; returns the exit code. Default runs `build_argv`; override to post-process (CAMUS and SNaQ write their family CSVs). An exception fails the run, traceback in the log. |
+| `execute(..., log_file)` | What `api.infer` calls; returns the exit code. Default runs `build_argv`; override to post-process (CAMUS, SNaQ and BROOQS write their family CSVs). An exception fails the run, traceback in the log. |
 | `get_dependencies()` | Methods whose output it consumes. Methods, not runners: the gate is on method names. |
 | `get_log_path` | Static. |
 | `get_point_estimate_path` | Static. One tree or network, or `None` if the method has no single estimate. |
@@ -66,6 +66,7 @@ Path getters are static so other code can look a method up without a runner, e.g
 | tree (`mp`, `ga`, `pch_*`, `tob_qmc`) | tree file (`tob_qmc`: a tree of blobs) | tree set, if any |
 | network (`camus`) | `None` (picking k is analysis) | `CAMUS/networks/<name>.family.csv`, one row per k |
 | network (`snaq`) | best network, `SNAQ/networks/<name>.net` (Rich newick) | `SNAQ/networks/<name>.family.csv` |
+| network (`brooqs`) | its one network, `BROOQS/networks/<name>.net` (eNewick) | `BROOQS/networks/<name>.family.csv`, one row |
 
 ### Fan-out
 
@@ -81,6 +82,8 @@ A guide is a tree *method* or `true_tree`; there is no separate guide enum (`mod
 | `true_tree` | none; the simulation base tree |
 
 SNaQ takes `SNAQ_GUIDE_TREES`, every guide but `tob_qmc`: `snaq!` resolves polytomies and unroots its start tree, but a tree of blobs' polytomies are blobs. CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). A guide names a method, not a config: `MethodConfig` holds one config per method.
+
+Not a guide: BROOQS's tree of blobs is a fixed dependency on `tob_qmc` (`BrooqsRunner.get_dependencies`), no config field.
 
 ## Scheduling (`scheduler.py`)
 

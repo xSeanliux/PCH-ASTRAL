@@ -68,7 +68,7 @@ One row per **successful** run; failures and blocks are never rows. Last-writer-
 | `config_hash` | String | sha256 of the method config JSON (`hash_config`). |
 | `method_config_json` | String | The config that was hashed. |
 | `runtime_seconds` | Float64 | Wall time. |
-| `point_estimate_newick` | String | Tree, or network (SNaQ), inline. Empty when the method has no point estimate (CAMUS). |
+| `point_estimate_newick` | String | Tree, or network (SNaQ, BROOQS), inline. Empty when the method has no point estimate (CAMUS). |
 | `group_estimate_path` | String | The set file (trees) or family CSV (networks, see [network family](#network-family-csv)); null if none. |
 | `consensus_method` | String | How the set collapsed to the point estimate; null if none. |
 | `status` | String | Always `ok`. |
@@ -95,7 +95,7 @@ Join to the registry on the three key columns.
 
 ## Network family CSV
 
-`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's `Runner.execute` (`CamusRunner` via `camus_to_family`, `SnaqRunner` via `snaq_to_family`) · `NETWORK_FAMILY_SCHEMA` · one row per network
+`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's `Runner.execute` (`CamusRunner` via `camus_to_family`, `SnaqRunner` via `snaq_to_family`, `BrooqsRunner` via `brooqs_to_family`) · `NETWORK_FAMILY_SCHEMA` · one row per network
 
 A network run's `group_estimate_path`. The tool's raw output stays beside it.
 
@@ -103,7 +103,7 @@ A network run's `group_estimate_path`. The tool's raw output stays beside it.
 |---|---|---|
 | `edges_added` | Int64 | Reticulation edges in the network. |
 | `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring. |
-| `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: at most one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik` consistent with the outgroup, or none (see below). |
+| `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: at most one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik` consistent with the outgroup, or none (see below); BROOQS: its one row. |
 
 Method-specific columns may follow: CAMUS `quartet_satisfied_percent`; SNaQ `neg_loglik`.
 
@@ -114,7 +114,7 @@ SNaQ only: it fits unrooted quartet CFs, so its networks are semi-directed (root
 3. Its newick is `.net`: that network rerooted on the outgroup. None: no `.net`, empty `point_estimate_newick`, run still `ok`.
 4. CmpNets scores `.net` against the true network.
 
-Trees root on any edge; CAMUS and PhyloNet output rooted networks.
+Trees root on any edge; CAMUS, BROOQS and PhyloNet output rooted networks.
 
 ## `network_scores`
 

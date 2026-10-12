@@ -33,7 +33,7 @@ The rooted binary tree a network method starts from and must contain.
 _Avoid_: Constraint tree (CAMUS's own term; use only when quoting it)
 
 **k**:
-The number of contact edges a network method added to the guide tree.
+The number of contact edges in an estimated network.
 _Avoid_: Number of branches
 
 **Tree of blobs**:
