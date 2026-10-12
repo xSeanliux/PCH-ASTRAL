@@ -8,6 +8,8 @@ line per contact event. Each event becomes two contact edges, one per direction
 import re
 
 _LENGTH = re.compile(r":[-+0-9.eE]+")
+# Hybrid labels `#H<n>`; each appears twice, once per parent edge.
+HYBRID = re.compile(r"#H\d+")
 
 
 def _wrap_clade(tree: str, clade: str, wrapped: str) -> str:

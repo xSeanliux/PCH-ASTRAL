@@ -2,11 +2,19 @@ import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Generic, TextIO, TypeVar
+from typing import TYPE_CHECKING, ClassVar, Generic, TextIO, TypeVar
 
 from pydantic import BaseModel
 
-from scripts.lib.model.methods import ConsensusMethod, InferenceMethod
+from scripts.lib.model.guide_tree import GuideTree
+from scripts.lib.model.methods import (
+    ConsensusMethod,
+    InferenceMethod,
+    TreeInferenceMethod,
+)
+
+if TYPE_CHECKING:
+    from scripts.lib.experiment import GuidedNetworkConfig
 
 # Covariant: `Runner[ASTRAL3Config]` is a `Runner[BaseModel]`; `config` is read-only.
 ConfigT = TypeVar("ConfigT", bound=BaseModel, covariant=True)
@@ -83,3 +91,27 @@ class Runner(ABC, Generic[ConfigT]):
     def get_consensus_method() -> ConsensusMethod | None:
         """How the point estimate summarises the group; None if it doesn't."""
         return None
+
+
+GuidedConfigT = TypeVar("GuidedConfigT", bound="GuidedNetworkConfig", covariant=True)
+
+
+@dataclass(frozen=True)
+class GuidedNetworkRunner(Runner[GuidedConfigT]):
+    """A network run from one guide tree; `config` is the single-guide config."""
+
+    @property
+    def guide(self) -> GuideTree:
+        """The one guide this run uses; `get_runners` splits the set."""
+        (guide,) = self.config.guide_trees
+        return guide
+
+    @property
+    def suffix(self) -> str:
+        """The guide's name, so runs on one dataset don't collide."""
+        return str(self.guide)
+
+    def get_dependencies(self) -> list[InferenceMethod]:
+        """The method that produces the guide; none for `true_tree`."""
+        guide = self.guide
+        return [guide] if isinstance(guide, TreeInferenceMethod) else []
