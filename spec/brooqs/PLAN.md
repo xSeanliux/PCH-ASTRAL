@@ -99,7 +99,11 @@ Independent, each off `main`. C scores correctly only after A and runs only afte
 - `docs/method_docs/tob_qmc/README.md`, `docs/SCRIPT_CONTRACTS.md`: output is rooted on the
   outgroup. `docs/MIGRATIONS.md`: `tob_qmc` rows from before this PR hold unrooted trees and
   the same `config_hash`; delete them to rerun.
-- Cluster check: output starts `(<outgroup>,(` and keeps its polytomies (`--root t1` did).
+- Rooting while building is deliberate, and not neutral: TREE-QMC's per-edge search depends
+  on the root. Same quartets, alpha 0.25: 23 splits rooted, 24 unrooted (each repeatable);
+  identical at the default alpha. `--rootonly` afterwards is no alternative: it resolves
+  polytomies.
+- Cluster check: output starts `(<outgroup>,(`.
 
 ### PR C — BROOQS
 
