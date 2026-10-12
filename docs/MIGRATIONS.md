@@ -4,7 +4,7 @@ For agents fixing experiment folders made by older code. One entry per breaking 
 
 ## Quartet order is deterministic
 
-**Affects:** rows of quartet-based methods; TREE-QMC (`tob_qmc`) is order-sensitive. Old rows came from an arbitrary per-process quartet order; reruns are now reproducible but may not match them. Hashes did not change; drop those rows and rerun to compare.
+**Affects:** rows of quartet-based methods; TREE-QMC (`tob_qmc`) is order-sensitive. Old rows came from an arbitrary per-process quartet order; quartets are now printed sorted, so reruns may not match them. Hashes did not change; drop those rows and rerun to compare.
 
 ## TOB-QMC roots on the outgroup
 

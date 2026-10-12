@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 from scripts.lib.pch import (
     Quartet,
@@ -11,6 +16,12 @@ from scripts.lib.types import Character
 from collections import Counter
 import polars as pl
 from io import StringIO
+
+ROOT = Path(__file__).resolve().parents[3]
+# Two characters sharing quartets, so counts differ (1 and 2).
+SEED_CSV = (
+    "id,feature,weight,a,b,c,d,e,f,g,h\nx,y,1,1,1,1,1,2,2,2,2\nz,y,1,1,1,1,2,2,2,2,2\n"
+)
 
 
 def test_quartet_normalise_both_sides():
@@ -176,3 +187,41 @@ def test_pch_astral_w_overlap_multiple_counts():
     )
     quartets = PCH_W.get_quartets(dataset)
     assert quartets == {Quartet(("a", "b", "c", "d")): 4}
+
+
+def run_pch(csv: Path, fmt: str, seed: str) -> tuple[str, str]:
+    """Run the ``pch`` entry point under a hash seed.
+
+    :param csv: Input dataset.
+    :param fmt: Quartet output format.
+    :param seed: ``PYTHONHASHSEED`` value.
+    :returns: stdout and stderr.
+    """
+    out = subprocess.run(
+        [sys.executable, "-m", "scripts.lib.pch", "--input", str(csv), "--format", fmt],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "PYTHONHASHSEED": seed},
+    )
+    return out.stdout, out.stderr
+
+
+@pytest.mark.parametrize("fmt", ["astral3", "wastral", "qfm"])
+def test_pch_output_ignores_hash_seed(tmp_path: Path, fmt: str):
+    """Both streams must not depend on ``PYTHONHASHSEED``."""
+    csv = tmp_path / "d.csv"
+    csv.write_text(SEED_CSV)
+    assert run_pch(csv, fmt, "0") == run_pch(csv, fmt, "1")
+
+
+def test_pch_wastral_pairs_quartets_with_counts(tmp_path: Path):
+    """Line *i* of stderr must be the count of line *i* of stdout."""
+    csv = tmp_path / "d.csv"
+    csv.write_text(SEED_CSV)
+    quartets, weights = (s.splitlines() for s in run_pch(csv, "wastral", "0"))
+    counts = PCH_W.get_quartets(Dataset.from_path(csv))
+    assert len(set(counts.values())) > 1
+    assert len(quartets) == len(weights) == len(counts)
+    assert dict(zip(quartets, weights)) == {f"{q};": str(n) for q, n in counts.items()}
