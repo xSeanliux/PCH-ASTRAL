@@ -2,6 +2,10 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## Quartet order is deterministic
+
+**Affects:** rows of quartet-based methods; TREE-QMC (`tob_qmc`) is order-sensitive. Old rows came from an arbitrary per-process quartet order; quartets are now printed sorted, so reruns may not match them. Hashes did not change; drop those rows and rerun to compare.
+
 ## TOB-QMC roots on the outgroup
 
 **Affects:** `tob_qmc` rows of experiments with an `outgroup_label`. Old trees are unrooted. `TobQmcConfig` has no fields, so `config_hash` is unchanged and resume skips the old rows. Drop them and their scores, then rerun; the rerun overwrites the trees:

@@ -59,7 +59,12 @@ class PCH_O(QuartetGenerationScheme):
 
 
 def print_quartets_for_astral3(quartets: Counter[Quartet], file: TextIO = sys.stdout):
-    for q, w in quartets.items():
+    """Write each quartet once per count, in sorted order.
+
+    :param quartets: Quartet counts.
+    :param file: Output stream.
+    """
+    for q, w in sorted(quartets.items()):
         file.write(f"{str(q)};\n" * w)
 
 
@@ -68,13 +73,24 @@ def print_quartets_for_wastral(
     quartet_file: TextIO = sys.stdout,
     weight_file: TextIO = sys.stderr,
 ):
-    for q, w in quartets.items():
+    """Write sorted quartets and their counts to line-paired streams.
+
+    :param quartets: Quartet counts.
+    :param quartet_file: Stream for quartets.
+    :param weight_file: Stream for counts.
+    """
+    for q, w in sorted(quartets.items()):
         quartet_file.write(f"{str(q)};\n")
         weight_file.write(f"{w}\n")
 
 
 def print_quartets_for_qfm(quartets: Counter[Quartet], file: TextIO = sys.stdout):
-    for q, w in quartets.items():
+    """Write ``quartet;count`` lines, in sorted order.
+
+    :param quartets: Quartet counts.
+    :param file: Output stream.
+    """
+    for q, w in sorted(quartets.items()):
         file.write(f"{str(q)};{w:.6f}\n")
 
 

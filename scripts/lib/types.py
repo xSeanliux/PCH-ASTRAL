@@ -10,7 +10,7 @@ Taxon = str
 State = str
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(unsafe_hash=True, order=True)
 class Quartet:
     _quartet: Quple
 
