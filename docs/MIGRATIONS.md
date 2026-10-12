@@ -2,10 +2,6 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
-## PhyloNet-MPL fixed tree is configurable
-
-**Affects:** PhyloNet-MPL rows. `method_config_json` `{}` became `{"guide_trees":["pch_wastral"]}`, so `config_hash` changed, and output names gain the guide suffix (`N` → `N.pch_wastral`). Rerun, or run the script in the next entry with `snaq` → `phylonet_mpl` and `SnaqConfig` → `PhyloNetMPLConfig`.
-
 ## SNaQ start tree is configurable
 
 **Affects:** SNaQ rows. `method_config_json` `{}` became `{"guide_trees":["pch_wastral"]}`, so `config_hash` changed, and output names gain the guide suffix (`N` → `N.pch_wastral`). Old rows no longer match: rerun, or rename the outputs and rewrite the rows (and `network_scores.csv` hashes). From the repo root (registry paths are relative to it):
