@@ -2,6 +2,19 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## TOB-QMC roots on the outgroup
+
+**Affects:** `tob_qmc` rows of experiments with an `outgroup_label`. Old trees are unrooted. `TobQmcConfig` has no fields, so `config_hash` is unchanged and resume skips the old rows. Drop them and their scores, then rerun; the rerun overwrites the trees:
+
+```python
+import polars as pl
+
+for name in ("inference_registry", "scores"):
+    p = f"experiments/my_run/inference_data/{name}.csv"
+    df = pl.read_csv(p, infer_schema=False)
+    df.filter(pl.col("method") != "tob_qmc").write_csv(p)
+```
+
 ## SNaQ start tree is configurable
 
 **Affects:** SNaQ rows. `method_config_json` `{}` became `{"guide_trees":["pch_wastral"]}`, so `config_hash` changed, and output names gain the guide suffix (`N` → `N.pch_wastral`). Old rows no longer match: rerun, or rename the outputs and rewrite the rows (and `network_scores.csv` hashes). From the repo root (registry paths are relative to it):

@@ -102,7 +102,7 @@ A network run's `group_estimate_path`. The tool's raw output stays beside it.
 | Column | Type | Meaning |
 |---|---|---|
 | `edges_added` | Int64 | Reticulation edges in the network. |
-| `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring. |
+| `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring, which also renumbers 0-indexed hybrids. |
 | `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: at most one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik` consistent with the outgroup, or none (see below); BROOQS: its one row. |
 
 Method-specific columns may follow: CAMUS `quartet_satisfied_percent`; SNaQ `neg_loglik`.
@@ -120,7 +120,7 @@ Trees root on any edge; CAMUS, BROOQS and PhyloNet output rooted networks.
 
 `inference_data/network_scores.csv` · writer `handle_network_score` · `NETWORK_SCORES_SCHEMA` · key `(dataset_id, method, config_hash, edges_added)`
 
-PhyloNet `CmpNets -m cluster` of each `is_best` row of each network run's family CSV, lengths and γ stripped, against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
+PhyloNet `CmpNets -m cluster` of each `is_best` row of each network run's family CSV, lengths and γ stripped and 0-indexed hybrids renumbered, against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
 
 | Column | Type | Meaning |
 |---|---|---|

@@ -94,6 +94,8 @@ PHYLONET_JAR = Path("bin/PhyloNet.jar")
 _TAXON = re.compile(r"(?<=[(,])[^(),:;#]+")
 # `:length` and `:::gamma`; CmpNets rejects inheritance probabilities.
 _ANNOTATION = re.compile(r":[^,();]*")
+# Whole index, so `#H1` is never matched inside `#H10`.
+_HYBRID = re.compile(r"#H(\d+)")
 _DISTANCE = re.compile(r"distance between two networks:\s*(\S+)\s+(\S+)\s+(\S+)")
 
 
@@ -102,16 +104,32 @@ def get_taxa(newick: str) -> set[str]:
     return set(_TAXON.findall(newick))
 
 
+def renumber_zero_indexed_hybrids(newick: str) -> str:
+    """Shift every `#H<n>` up by one if `#H0` occurs; CmpNets rejects index 0.
+
+    :returns: the newick, unchanged when it has no `#H0`.
+    """
+    if "0" not in _HYBRID.findall(newick):
+        return newick
+    return _HYBRID.sub(lambda m: f"#H{int(m[1]) + 1}", newick)
+
+
 def score_network(estimate_newick: str, reference_newick: str) -> ScoreResult:
     """Score an estimate with `CmpNets -m cluster`, reference as net1.
 
-    The estimate's lengths and inheritance probabilities are stripped first.
+    The estimate's lengths and inheritance probabilities are stripped first,
+    and its 0-indexed hybrids renumbered from 1; the reference is used as is.
 
     :raises ValueError: if the taxon sets differ.
     :raises RuntimeError: if PhyloNet fails or prints no distance.
     :raises subprocess.TimeoutExpired: past 2 h.
     """
+
+    # remove annotations & renumber zero indexed hybrids (i.e., #H0 -> #H1)
+    # because CmpNets hybrids are 1-indexed
     estimate_newick = _ANNOTATION.sub("", estimate_newick)
+    estimate_newick = renumber_zero_indexed_hybrids(estimate_newick)
+    
     est_taxa, ref_taxa = get_taxa(estimate_newick), get_taxa(reference_newick)
     if est_taxa != ref_taxa:
         # CmpNets returns numbers for mismatched sets; fail loudly instead.
