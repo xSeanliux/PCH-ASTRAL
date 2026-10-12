@@ -71,4 +71,5 @@ mkdir -p "$RUNDIR" && ln -sf /dev/null "$RUNDIR/logfile.txt"
 (cd "$RUNDIR" && java -jar "$JAR" "$NEXUS" > /dev/null) || exit 1
 
 cat "$RESULT" || exit 1
+rm -rf "$RUNDIR" "$NEXUS"
 echo "✅ PhyloNet-MPL(FT)"
