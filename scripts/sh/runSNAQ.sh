@@ -22,7 +22,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide> [-p <procs>]"
             echo ""
             echo "  -g, --guide-tree   Start tree, e.g. pch_wastral or true_tree"
-            echo "                     (all: GUIDE_TREES in scripts/lib/model/guide_tree.py)"
+            echo "                     (all: SNAQ_GUIDE_TREES in scripts/lib/model/guide_tree.py)"
             echo "  -p, --procs        Julia workers, one SNaQ run each (default 1)"
             exit 0
             ;;

@@ -3,7 +3,7 @@ from typing import ClassVar
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from scripts.lib.types import Polymorphism
 from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
-from scripts.lib.model.guide_tree import GuideTree, CAMUS_GUIDE_TREES
+from scripts.lib.model.guide_tree import GuideTree, CAMUS_GUIDE_TREES, SNAQ_GUIDE_TREES
 from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
 from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.camus import CamusRunner
@@ -133,11 +133,24 @@ class CamusConfig(GuidedNetworkConfig):
 
 
 class SnaqConfig(GuidedNetworkConfig):
-    # Any guide: snaq! resolves polytomies and unroots its start tree itself.
+    # Any species tree: snaq! resolves polytomies and unroots its start tree itself.
     runner_class: ClassVar[type[Runner[BaseModel]]] = SnaqRunner
     # Julia workers, one SNaQ run each (10 runs). Excluded from the dump, so it changes
     # neither config_hash nor the recorded config: a resource knob, not a result.
     procs: int = Field(1, ge=1, exclude=True)
+
+    @field_validator("guide_trees")
+    @classmethod
+    def _reject_unsupported(cls, v: frozenset[GuideTree]) -> frozenset[GuideTree]:
+        """:raises ValueError: if a guide is outside `SNAQ_GUIDE_TREES`."""
+        bad = sorted(v - SNAQ_GUIDE_TREES)
+        if bad:
+            raise ValueError(
+                f"unsupported SNaQ guide tree(s): {', '.join(bad)}. "
+                f"Supported: {', '.join(sorted(SNAQ_GUIDE_TREES))}. "
+                "A tree of blobs is not a species tree."
+            )
+        return v
 
 
 class MethodConfig(BaseModel):
