@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build weighted TREE-QMC into bin/tree-qmc.
+# Build weighted TREE-QMC into bin/tree-qmc. The R-embedded build also enables
+# TOB-QMC (`--blob`, runTOBQMC.sh).
 #
 # Pinned: upstream main moved to a CMake build (4.x) that embeds R, and the flags
 # runWTREEQMC.sh passes (--quartets, --override) exist ONLY in 4.x -- v3 has
@@ -7,7 +8,7 @@
 # is fixed here. Bump deliberately, and re-run the smoke test afterwards.
 set -euo pipefail
 
-QMC_COMMIT="${QMC_COMMIT:-e577f8c}"   # 4.1.5
+QMC_COMMIT="${QMC_COMMIT:-53b15e5}"   # 4.1.5 + TOB-QMC search fixes
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../../.." && pwd)"
 SRC="$REPO_ROOT/bin/TREE-QMC"
 
