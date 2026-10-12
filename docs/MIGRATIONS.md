@@ -4,14 +4,15 @@ For agents fixing experiment folders made by older code. One entry per breaking 
 
 ## TOB-QMC roots on the outgroup
 
-**Affects:** `tob_qmc` rows of experiments with an `outgroup_label`. Their trees are unrooted; new runs root on the outgroup. `TobQmcConfig` has no fields, so `config_hash` is unchanged and resume skips the old rows. Drop them and rerun; the rerun overwrites the trees:
+**Affects:** `tob_qmc` rows of experiments with an `outgroup_label`. Old trees are unrooted. `TobQmcConfig` has no fields, so `config_hash` is unchanged and resume skips the old rows. Drop them and their scores, then rerun; the rerun overwrites the trees:
 
 ```python
 import polars as pl
 
-p = "experiments/my_run/inference_data/inference_registry.csv"
-df = pl.read_csv(p, infer_schema=False)
-df.filter(pl.col("method") != "tob_qmc").write_csv(p)
+for name in ("inference_registry", "scores"):
+    p = f"experiments/my_run/inference_data/{name}.csv"
+    df = pl.read_csv(p, infer_schema=False)
+    df.filter(pl.col("method") != "tob_qmc").write_csv(p)
 ```
 
 ## SNaQ start tree is configurable
