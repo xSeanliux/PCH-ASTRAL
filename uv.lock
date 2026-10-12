@@ -42,6 +42,15 @@ wheels = [
 ]
 
 [[package]]
+name = "brooqs"
+version = "0.1.0"
+source = { git = "https://github.com/shayesteh99/BROOQS?rev=17b25b2e06e5c8ef5d3e884360c0a6b69cd0a400#17b25b2e06e5c8ef5d3e884360c0a6b69cd0a400" }
+dependencies = [
+    { name = "numpy" },
+    { name = "treeswift" },
+]
+
+[[package]]
 name = "cloudpickle"
 version = "3.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -285,6 +294,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "biopython" },
+    { name = "brooqs" },
     { name = "dataclasses" },
     { name = "jinja2" },
     { name = "matplotlib" },
@@ -308,6 +318,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "biopython", specifier = ">=1.87" },
+    { name = "brooqs", git = "https://github.com/shayesteh99/BROOQS?rev=17b25b2e06e5c8ef5d3e884360c0a6b69cd0a400" },
     { name = "dataclasses", specifier = ">=0.8" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "matplotlib", specifier = ">=3.10.9" },

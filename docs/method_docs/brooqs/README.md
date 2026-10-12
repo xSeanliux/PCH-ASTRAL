@@ -25,8 +25,8 @@ BrooqsRunner                                    scripts/lib/inference/runners/br
     ├── model_graph --input         → outgroup  the dataset's model graph
     ├── <cond>/TOB_QMC/trees/N.tree             tree of blobs from `tob_qmc`; must be rooted on the outgroup
     ├── printQuartets               → quartets  PCH-W; each quartet once per unit of weight
-    └── python3 bin/brooqs-src/count_quartets.py -i quartets -t tree -o N.net --rooted
-                                                BROOQS 17b25b2 (`make install-brooqs`)
+    └── python3 -m count_quartets -i quartets -t tree -o N.net --rooted
+                                                BROOQS 17b25b2, pinned in `pyproject.toml`/`uv.lock`; `make setup` installs it
 ```
 
 PCH-W weights are not gene-tree counts, but BROOQS reads repeats as counts, and

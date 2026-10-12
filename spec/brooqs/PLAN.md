@@ -62,7 +62,7 @@ Rooting changes the score (investigator's subagent, alpha-0.25 tree, `t1` as out
 | `BrooqsConfig` has no fields; BROOQS defaults plus `--rooted` | As `TobQmcConfig`. Add a field when a sweep needs one. |
 | k = 0 is an `ok` row, scored | It is the method's answer. Expected often: see break 8. |
 | `#H0` → `#H1` at scoring, not in the registry (PR A) | The newick stays "as the tool wrote it". |
-| Install: `make install-brooqs` → `bin/brooqs-src/` at `17b25b2` | Same interface as other tools. Not `bin/brooqs`: avoid a `bin/tree-qmc`-style case collision. |
+| Install: a uv git dependency at `17b25b2` (`pyproject.toml`, `uv.lock`); `make setup` installs it | Upstream ships a `pyproject.toml`; one venv, no clone in `bin/`. |
 | Smoke on the cluster only | `tob_qmc` cannot run on the Mac (break 11). |
 
 ## I/O in our pipeline
@@ -72,7 +72,7 @@ dataset.csv
  ├─ scripts.py.model_graph            → outgroup label (none → exit 1)
  ├─ scripts.py.printQuartets          → $PCH_SCRATCH/tmp_quartet_<runid>.txt
  ├─ <cond>/TOB_QMC/trees/<stem>.tree  (dependency; must be rooted on the outgroup, else exit 1)
- └─ python3 bin/brooqs-src/count_quartets.py -i <quartets> -t <tob> -o <net> --rooted
+ └─ python3 -m count_quartets -i <quartets> -t <tob> -o <net> --rooted
       → <cond>/BROOQS/networks/<name>.net          point estimate, as BROOQS wrote it
       → <cond>/BROOQS/logs/<name>.log
 ```
@@ -112,7 +112,7 @@ Merged: #63.
 
 | File | Change |
 |---|---|
-| `scripts/sh/installs/install_brooqs.sh`, `Makefile` | Clone at `17b25b2` into `bin/brooqs-src`; `install-brooqs` target, added to `install-bins`. numpy and treeswift are already in `pyproject.toml`. |
+| `pyproject.toml`, `uv.lock` | `brooqs` git dependency pinned at `17b25b2`; `uv sync` installs module `count_quartets`. |
 | `scripts/lib/model/methods.py` | `NetworkInferenceMethod.BROOQS = "brooqs"` |
 | `scripts/lib/experiment.py` | `BrooqsConfig(RunnableConfig)`, one runner; `MethodConfig.brooqs`; `get_enabled_configs` |
 | `scripts/lib/inference/method_config.py`, `runners/__init__.py` | Registry entries, after `TOB_QMC` |
