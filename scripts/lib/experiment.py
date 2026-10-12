@@ -96,7 +96,7 @@ class TobQmcConfig(RunnableConfig):
 
 
 class BrooqsConfig(RunnableConfig):
-    # ponytail: no knobs; BROOQS's defaults plus `--rooted`.
+    # No knobs: BROOQS's defaults plus `--rooted`.
     def get_runners(self) -> list[Runner[BaseModel]]:
         """One run."""
         return [BrooqsRunner(config=self)]
