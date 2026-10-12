@@ -8,6 +8,7 @@ INPUT=""
 TREEOUTPUT=""
 NAME=""
 GUIDE=""
+PROCS=1
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -H|--runid) RUNID="$2"; shift ;;
@@ -15,8 +16,9 @@ while [[ "$#" -gt 0 ]]; do
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
         -g|--guide-tree) GUIDE="$2"; shift ;;
+        -p|--procs) PROCS="$2"; shift ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide>"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide> [-p <procs>]"
             echo ""
             echo "Required:"
             echo "  -H, --runid        Run ID"
@@ -26,8 +28,8 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -g, --guide-tree   Fixed tree, e.g. pch_wastral or true_tree"
             echo "                     (all: PHYLONET_MPL_GUIDE_TREES in scripts/lib/model/guide_tree.py)"
             echo ""
-            echo "Environment:"
-            echo "  PCH_PHYLONET_PROCS PhyloNet -pl processes (default 1)"
+            echo "Optional:"
+            echo "  -p, --procs        PhyloNet -pl threads (default 1)"
             exit 0
             ;;
         *)
@@ -56,7 +58,7 @@ RESULT="$PREFIX.result"
 rm -f "$RESULT"  # a stale one would pass for this run's
 
 python3 -m scripts.py.phylonet_mpl_nexus --input "$INPUT" --output "$TREEOUTPUT" \
-    --guide "$GUIDE" --result "$RESULT" --procs "${PCH_PHYLONET_PROCS:-1}" > "$NEXUS" || exit 1
+    --guide "$GUIDE" --result "$RESULT" --procs "$PROCS" > "$NEXUS" || exit 1
 echo "✅ NEXUS: $(grep -c '^Tree gt' "$NEXUS") rooted quartets, $(grep -o 'InferNetwork_MPL (all) [0-9]*' "$NEXUS")"
 
 # ponytail: no wall-clock cap here; the scheduler's job limit is the cap.

@@ -147,6 +147,8 @@ class SnaqConfig(GuidedNetworkConfig):
 
 class PhyloNetMPLConfig(GuidedNetworkConfig):
     runner_class: ClassVar[type[Runner[BaseModel]]] = PhyloNetMPLRunner
+    # PhyloNet -pl threads. Excluded from the dump, as `SnaqConfig.procs`.
+    procs: int = Field(1, ge=1, exclude=True)
 
     @field_validator("guide_trees")
     @classmethod

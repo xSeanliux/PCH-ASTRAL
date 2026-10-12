@@ -24,3 +24,4 @@ methods:
   wastral: {} # the fixed tree
   phylonet_mpl:
     guide_trees: [pch_wastral] # fixed tree, as in the CAMUS paper
+    procs: 10 # PhyloNet -pl threads

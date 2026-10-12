@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from scripts.lib.experiment import ExperimentConfig, PhyloNetMPLConfig
 from scripts.lib.inference import api
+from scripts.lib.inference.method_config import hash_config
 from scripts.lib.inference.runners.phylonet_mpl import PhyloNetMPLRunner
 from scripts.lib.model.guide_tree import (
     GUIDE_TREES,
@@ -47,7 +48,15 @@ def test_guides_with_polytomies_are_rejected(guide: GuideTree):
 def test_build_argv_passes_the_guide(tmp_path: Path):
     argv = _runner().build_argv("r1", tmp_path / "d.csv", "d.pch_wastral", tmp_path)
     assert argv[:2] == ["bash", "scripts/sh/runPhyloNetMPL.sh"]
-    assert argv[-2:] == ["--guide-tree", "pch_wastral"]
+    assert argv[argv.index("--guide-tree") + 1] == "pch_wastral"
+
+
+def test_procs_reach_the_script_but_not_the_hash(tmp_path: Path):
+    block = {"guide_trees": ["pch_wastral"], "procs": 10}
+    (runner,) = PhyloNetMPLConfig.model_validate(block).get_runners()
+    argv = runner.build_argv("r1", tmp_path / "d.csv", "d.pch_wastral", tmp_path)
+    assert argv[argv.index("--procs") + 1] == "10"
+    assert hash_config(runner.config) == hash_config(_runner().config)
 
 
 def test_smoke_spec_loads_and_outgroup_is_required():
