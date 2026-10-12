@@ -36,6 +36,11 @@ class Quartet:
     def taxon_set(self) -> set[Taxon]:
         return set(self._quartet)
 
+    def as_tuples(self) -> tuple[tuple[Taxon, Taxon], tuple[Taxon, Taxon]]:
+        """The quartet's two sides, `((a, b), (c, d))` for ab|cd."""
+        a, b, c, d = self._quartet
+        return (a, b), (c, d)
+
 
 @dataclass
 class Character:

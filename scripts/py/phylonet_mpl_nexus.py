@@ -12,13 +12,15 @@ The paper's guide was pch_wastral.
 import argparse
 from collections import Counter
 from io import StringIO
-from itertools import combinations, takewhile
 from pathlib import Path
 
 from Bio import Phylo
 
-from scripts.lib.model.guide_tree import TRUE_TREE, GuideTree, PHYLONET_MPL_GUIDE_TREES
-from scripts.lib.model.methods import TreeInferenceMethod
+from scripts.lib.model.guide_tree import (
+    PHYLONET_MPL_GUIDE_TREES,
+    GuideTree,
+    parse_guide,
+)
 from scripts.lib.model.model_graph import ModelGraph
 from scripts.lib.pch import PCH_W
 from scripts.lib.types import Dataset, Quartet
@@ -91,7 +93,7 @@ def main() -> None:
     parser.add_argument("--result", type=Path, required=True)
     parser.add_argument("--procs", type=int, default=1)
     args = parser.parse_args()
-    guide = TRUE_TREE if args.guide == TRUE_TREE else TreeInferenceMethod(args.guide)
+    guide = parse_guide(args.guide)
     print(build_nexus(args.input, args.output, guide, args.result, args.procs), end="")
 
 
