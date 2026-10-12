@@ -48,7 +48,10 @@ install-snaq:
 install-phylonet:
 	@bash scripts/sh/installs/install_phylonet.sh
 
-install-bins: install-astral3 install-aster install-mrbayes install-paup install-w-tree-qmc install-lingphylosimulator install-camus install-phylonet install-snaq
+install-brooqs:
+	@bash scripts/sh/installs/install_brooqs.sh
+
+install-bins: install-astral3 install-aster install-mrbayes install-paup install-w-tree-qmc install-lingphylosimulator install-camus install-phylonet install-snaq install-brooqs
 
 setup: install-uv
 	uv sync
