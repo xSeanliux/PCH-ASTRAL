@@ -11,7 +11,7 @@ from scripts.lib.experiment import MethodConfig, SnaqConfig
 from scripts.lib.inference import api
 from scripts.lib.inference.method_config import hash_config
 from scripts.lib.inference.runners.snaq import SnaqRunner
-from scripts.lib.model.guide_tree import GUIDE_TREES, TRUE_TREE, GuideTree
+from scripts.lib.model.guide_tree import SNAQ_GUIDE_TREES, TRUE_TREE, GuideTree
 from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 
 MP = TreeInferenceMethod.MP
@@ -35,9 +35,14 @@ def test_missing_or_unknown_guides_are_rejected(block: dict[str, list[str]]):
         SnaqConfig.model_validate(block)
 
 
-def test_every_guide_is_supported():
+def test_every_species_tree_guide_is_supported():
     # snaq! resolves polytomies and unroots its start tree (SNaQ readTopologyUpdate).
-    assert SnaqConfig(guide_trees=GUIDE_TREES).guide_trees == GUIDE_TREES
+    assert SnaqConfig(guide_trees=SNAQ_GUIDE_TREES).guide_trees == SNAQ_GUIDE_TREES
+
+
+def test_tree_of_blobs_is_rejected():
+    with pytest.raises(ValidationError, match="not a species tree"):
+        SnaqConfig(guide_trees=frozenset({TreeInferenceMethod.TOB_QMC}))
 
 
 def test_get_runners_split_per_guide_in_fixed_order():

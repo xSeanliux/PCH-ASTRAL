@@ -80,7 +80,7 @@ A guide is a tree *method* or `true_tree`; there is no separate guide enum (`mod
 | a tree method | that method; the network method reads its point estimate |
 | `true_tree` | none; the simulation base tree |
 
-SNaQ takes any (`GUIDE_TREES`): `snaq!` resolves polytomies and unroots its start tree. CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). A guide names a method, not a config: `MethodConfig` holds one config per method.
+SNaQ takes `SNAQ_GUIDE_TREES`, every guide but `tob_qmc`: `snaq!` resolves polytomies and unroots its start tree, but a tree of blobs' polytomies are blobs. CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). A guide names a method, not a config: `MethodConfig` holds one config per method.
 
 ## Scheduling (`scheduler.py`)
 
