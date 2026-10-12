@@ -87,12 +87,16 @@ Independent, each off `main`. C scores correctly only after A and runs only afte
 
 ### PR A — `score_network` accepts 0-indexed hybrids
 
+Merged: #61.
+
 - `scripts/lib/inference/scoring.py`: if the estimate has `#H0`, shift every `#H<n>` up by
   one before CmpNets. Beside the existing annotation strip.
 - Test: a `#H0, #H1` network scores as its `#H1, #H2` twin.
 - `docs/SCHEMAS.md` (network family, `network_newick` row): scoring also renumbers hybrids.
 
 ### PR B — `tob_qmc` roots the tree of blobs on the outgroup
+
+Merged: #63.
 
 - `scripts/sh/runTOBQMC.sh`: read the outgroup with `scripts.py.model_graph`; pass
   `--root <outgroup>` to `tree-qmc --blob` when there is one; unrooted as today when `none`.
@@ -152,8 +156,10 @@ Smoke checks, in order:
 8. **PCH-W weights are read as gene-tree counts**, and at TOB-QMC's defaults (alpha 1e-7,
    the paper's value) our data showed no blobs: two 30-taxon network datasets gave binary
    trees (min tree-test p 0.08 at 80 characters, 0.002 at 640), as did all four `OUT`
-   datasets. At alpha 0.25 those four each gave two blobs, degrees 4–10. Expect k = 0 rows
-   at defaults; a tree scored as a network.
+   datasets. At alpha 0.25 those four each gave two blobs, degrees 4–10. Later, through
+   the pipeline at defaults, 2 of 2 freshly simulated datasets each gave one degree-4
+   polytomy and k = 1. So at defaults k = 0 rows (a tree scored as a network) occur, as do
+   small blobs.
 9. **`is_best` means "the method's own pick by its objective"**; these tools have no
    objective value and one candidate.
 10. **Resume keeps the first success**, which hides run-to-run differences in tools without

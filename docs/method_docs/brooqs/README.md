@@ -5,10 +5,6 @@ one hybrid per blob (bioRxiv 2026.08.31.748319 v2). We run it on TOB-QMC's tree 
 (`docs/method_docs/tob_qmc/README.md`) as a network method beside CAMUS and SNaQ.
 Method key: `brooqs`.
 
-Needs PRs A and B of `spec/brooqs/PLAN.md`: until B, `tob_qmc` writes an unrooted tree
-and every run fails the rooting check; until A, CmpNets rejects `#H0`, so k ≥ 1 fails
-scoring.
-
 ## What it computes
 
 Checked by running the pinned commit, not from the paper; model, objective and search are
@@ -43,7 +39,7 @@ The run fails (exit 1, message in the log) when:
 |---|---|
 | `BROOQS needs an outgroup (simulation.outgroup_label)` | the dataset's model graph has no outgroup |
 | `no tree of blobs at … (run tob_qmc first)` | `tob_qmc` has not run in this output dir |
-| `tree of blobs … is not rooted on <outgroup>` | `tob_qmc` output from before it rooted on the outgroup (PR B); delete its registry rows and rerun `tob_qmc` |
+| `tree of blobs … is not rooted on <outgroup>` | `tob_qmc` output from before it rooted on the outgroup (`docs/MIGRATIONS.md`); delete its registry rows and rerun `tob_qmc` |
 
 The rooting check is a prefix test: the tree must start `(<outgroup>,`.
 
@@ -75,8 +71,17 @@ Rooting mode on one dataset (tree of blobs at alpha 0.25, `t1` as outgroup):
 | `--rooted`, tree as TOB-QMC wrote it | 0.343 | 0.281 |
 | `--rooted`, tree rooted on the outgroup | 0.257 | 0.188 |
 
-A binary tree of blobs gives k = 0: an `ok` row, scored. Expect them: at TOB-QMC's default
-alpha (1e-7) all four test datasets gave binary trees of blobs.
+A binary tree of blobs gives k = 0: an `ok` row, scored. Observed at 30 taxa +
+outgroup (FN / FP from `network-score`):
+
+| TOB-QMC alpha | Datasets | Tree of blobs | k | FN / FP |
+|---|---|---|---|---|
+| 1e-7 (default) | 4 of 4, fixture set | binary | 0 | not scored |
+| 1e-7 (default) | 2 of 2, fresh simulation | one degree-4 polytomy each | 1, 1 | 0.387 / 0.367, 0.400 / 0.100 |
+| 0.25 | 1 | 5 polytomies (degrees 4, 4, 4, 4, 5) | 5 | 0.194 / 0.286 |
+| 0.25 | 1 | 2 polytomies (degrees 6, 5) | 2 | 0.356 / 0.147 |
+
+At the defaults: k = 0 on 4 of 6 datasets, k = 1 on 2.
 
 ## Normalising to the network contract
 
@@ -101,7 +106,7 @@ Rejected alternatives:
 
 `network-score` reads the `is_best` row and runs PhyloNet `CmpNets -m cluster` against the
 true network. CmpNets rejects `#H0`, so **scoring renumbers BROOQS's 0-indexed hybrids**
-(`score_network`, PR A). `guide_tree` in
+(`renumber_zero_indexed_hybrids` in `score_network`). `guide_tree` in
 `network_scores.csv` is null.
 
 ## Outputs
