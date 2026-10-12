@@ -52,7 +52,7 @@ methods:
 
 | Field | Meaning |
 |---|---|
-| `guide_trees` | Start trees, one run each. Any tree method or `true_tree` (`GUIDE_TREES`). `snaq!` resolves polytomies and unroots the start tree itself. |
+| `guide_trees` | Start trees, one run each. Any tree method but `tob_qmc`, or `true_tree` (`SNAQ_GUIDE_TREES`). `snaq!` resolves polytomies and unroots the start tree itself; a tree of blobs' polytomies are blobs, so resolving them is arbitrary. |
 | `procs` | Julia workers; each runs one of the 10 searches. Not part of `config_hash`: it changes speed, not the result. |
 
 Fixed choices, not configurable:
