@@ -28,6 +28,7 @@ def _stub_brooqs(
     def fake_run(
         argv: list[str], check: bool, stdout: IO[str], stderr: int
     ) -> subprocess.CompletedProcess[bytes]:
+        """Write the network BROOQS would."""
         net.parent.mkdir(parents=True, exist_ok=True)
         net.write_text(NETWORK + "\n")
         return subprocess.CompletedProcess(argv, returncode)
@@ -36,6 +37,7 @@ def _stub_brooqs(
 
 
 def _infer(tmp_path: Path) -> api.InferenceResult:
+    """Run the real runner on a dataset named `d`."""
     return api.infer(tmp_path / "d.csv", tmp_path, BrooqsRunner(config=BrooqsConfig()))
 
 

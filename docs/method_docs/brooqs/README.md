@@ -5,6 +5,10 @@ one hybrid per blob (bioRxiv 2026.08.31.748319 v2). We run it on TOB-QMC's tree 
 (`docs/method_docs/tob_qmc/README.md`) as a network method beside CAMUS and SNaQ.
 Method key: `brooqs`.
 
+Needs PRs A and B of `spec/brooqs/PLAN.md`: until B, `tob_qmc` writes an unrooted tree
+and every run fails the rooting check; until A, CmpNets rejects `#H0`, so k ≥ 1 fails
+scoring.
+
 ## What it computes
 
 Checked by running the pinned commit, not from the paper; model, objective and search are
@@ -39,7 +43,7 @@ The run fails (exit 1, message in the log) when:
 |---|---|
 | `BROOQS needs an outgroup (simulation.outgroup_label)` | the dataset's model graph has no outgroup |
 | `no tree of blobs at … (run tob_qmc first)` | `tob_qmc` has not run in this output dir |
-| `tree of blobs … is not rooted on <outgroup>` | stale `tob_qmc` output, from before `tob_qmc` rooted on the outgroup; delete its registry rows and rerun `tob_qmc` |
+| `tree of blobs … is not rooted on <outgroup>` | `tob_qmc` output from before it rooted on the outgroup (PR B); delete its registry rows and rerun `tob_qmc` |
 
 The rooting check is a prefix test: the tree must start `(<outgroup>,`.
 
@@ -60,7 +64,7 @@ Fixed choices, not configurable:
 | tree of blobs | `tob_qmc`'s (`BrooqsRunner.get_dependencies`) | the only source; a fixed dependency, not a guide tree |
 | outgroup | from the model graph | one source of truth, as SNaQ |
 | quartets | PCH-W, once per unit of weight | same data as the tree of blobs |
-| rooting | `--rooted`, tree of blobs rooted on the outgroup | the paper roots it on the outgroup (§2.3.3, unverified); best of three modes, below |
+| rooting | `--rooted`, tree of blobs rooted on the outgroup | the paper roots it on the outgroup (§2.3.3); best of three modes, below |
 | k | number of blobs | BROOQS has no flag for it |
 
 Rooting mode on one dataset (tree of blobs at alpha 0.25, `t1` as outgroup):
@@ -71,10 +75,8 @@ Rooting mode on one dataset (tree of blobs at alpha 0.25, `t1` as outgroup):
 | `--rooted`, tree as TOB-QMC wrote it | 0.343 | 0.281 |
 | `--rooted`, tree rooted on the outgroup | 0.257 | 0.188 |
 
-**k is not configurable.** One hybrid per blob, so k = the number of polytomies in the tree
-of blobs. A binary tree of blobs is echoed unchanged: k = 0, an `ok` row, scored. At
-TOB-QMC's default alpha (1e-7) all four test datasets gave binary trees of blobs, so expect
-k = 0 rows.
+A binary tree of blobs gives k = 0: an `ok` row, scored. Expect them: at TOB-QMC's default
+alpha (1e-7) all four test datasets gave binary trees of blobs.
 
 ## Normalising to the network contract
 
@@ -99,7 +101,7 @@ Rejected alternatives:
 
 `network-score` reads the `is_best` row and runs PhyloNet `CmpNets -m cluster` against the
 true network. CmpNets rejects `#H0`, so **scoring renumbers BROOQS's 0-indexed hybrids**
-(`score_network`; PR A of `spec/brooqs/PLAN.md`). `guide_tree` in
+(`score_network`, PR A). `guide_tree` in
 `network_scores.csv` is null.
 
 ## Outputs
@@ -115,8 +117,8 @@ The run log is at `<cond>/BROOQS/logs/N.log`; it holds BROOQS's debug matrices.
 
 ## Runtime
 
-At 30 taxa + outgroup, macOS arm64: 2 s without blobs, 33–78 s with blobs (four datasets,
-tree of blobs at alpha 0.25). One run: 43 s, 259 MB on 131,564 weight-repeated quartets.
+macOS arm64, 30 taxa + outgroup: 2 s without blobs, 33–78 s with (four datasets, tree of
+blobs at alpha 0.25). One 30-taxon run: 43 s, 259 MB on 131,564 weight-repeated quartets.
 
 ## Limits
 
@@ -125,7 +127,6 @@ tree of blobs at alpha 0.25). One run: 43 s, 259 MB on 131,564 weight-repeated q
 - **FN > 0 whenever h ≥ 1:** reference networks are not level-1, and each contact event is
   two contact edges (`docs/adr/0001-bidirectional-reference-networks.md`); BROOQS gives one
   hybrid per blob.
-- **Weights as counts:** PCH-W weights are read as gene-tree counts.
 - **Unusable flags:** `--filter` crashes on quartets (`LinAlgError`); `--dist-var` needs
   branch lengths we lack.
 - A quartet leaf absent from the tree of blobs raises `KeyError`, exit 1.
