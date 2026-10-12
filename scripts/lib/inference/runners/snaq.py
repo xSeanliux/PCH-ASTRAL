@@ -5,13 +5,9 @@ from typing import TYPE_CHECKING, ClassVar, TextIO
 
 import polars as pl
 
-from scripts.lib.inference.runners.base import Runner
-from scripts.lib.model.guide_tree import GuideTree
-from scripts.lib.model.methods import (
-    InferenceMethod,
-    NetworkInferenceMethod,
-    TreeInferenceMethod,
-)
+from scripts.lib.inference.network_format import HYBRID
+from scripts.lib.inference.runners.base import GuidedNetworkRunner
+from scripts.lib.model.methods import NetworkInferenceMethod
 
 if TYPE_CHECKING:
     from scripts.lib.experiment import SnaqConfig  # noqa: F401  (used in the quoted base)
@@ -19,8 +15,6 @@ if TYPE_CHECKING:
 
 # `<newick>;, with -loglik <x>`; SNaQ's bug/problem notes don't match and are skipped.
 NETWORK_LINE = re.compile(r"^(.*;), with -loglik (\S+)")
-# Hybrid labels `#H<n>`; each appears twice, once per parent edge.
-HYBRID = re.compile(r"#H\d+")
 
 
 def snaq_to_family(
@@ -58,7 +52,7 @@ def snaq_to_family(
 
 
 @dataclass(frozen=True)
-class SnaqRunner(Runner["SnaqConfig"]):
+class SnaqRunner(GuidedNetworkRunner["SnaqConfig"]):
     """SNaQ level-1 network inference from PCH-W quartet CFs; one network out.
 
     `config` is the single-guide config; the guide is SNaQ's start tree.
@@ -70,22 +64,6 @@ class SnaqRunner(Runner["SnaqConfig"]):
     @property
     def method(self) -> NetworkInferenceMethod:
         return NetworkInferenceMethod.SNAQ
-
-    @property
-    def guide(self) -> GuideTree:
-        """The one start tree this run uses; `get_runners` splits the set."""
-        (guide,) = self.config.guide_trees
-        return guide
-
-    @property
-    def suffix(self) -> str:
-        """The guide's name, so runs on one dataset don't collide."""
-        return str(self.guide)
-
-    def get_dependencies(self) -> list[InferenceMethod]:
-        """The method that produces the start tree; none for `true_tree`."""
-        guide = self.guide
-        return [guide] if isinstance(guide, TreeInferenceMethod) else []
 
     def build_argv(
         self, runid: str, input_csv: Path, name: str, output_dir: Path

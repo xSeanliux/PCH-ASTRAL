@@ -3,7 +3,12 @@ from typing import ClassVar
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from scripts.lib.types import Polymorphism
 from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
-from scripts.lib.model.guide_tree import GuideTree, CAMUS_GUIDE_TREES, SNAQ_GUIDE_TREES
+from scripts.lib.model.guide_tree import (
+    GuideTree,
+    GUIDE_TREES,
+    CAMUS_GUIDE_TREES,
+    SNAQ_GUIDE_TREES,
+)
 from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
 from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.camus import CamusRunner
@@ -99,6 +104,21 @@ class GuidedNetworkConfig(RunnableConfig):
 
     guide_trees: frozenset[GuideTree] = Field(min_length=1)
     runner_class: ClassVar[type[Runner[BaseModel]]]
+    supported_guides: ClassVar[frozenset[GuideTree]] = GUIDE_TREES
+    guide_requirement: ClassVar[str] = ""  # why the others are rejected
+
+    @field_validator("guide_trees")
+    @classmethod
+    def _reject_unsupported(cls, v: frozenset[GuideTree]) -> frozenset[GuideTree]:
+        """:raises ValueError: if a guide is outside `supported_guides`."""
+        bad = sorted(v - cls.supported_guides)
+        if bad:
+            raise ValueError(
+                f"unsupported guide tree(s): {', '.join(bad)}. "
+                f"Supported: {', '.join(sorted(cls.supported_guides))}. "
+                f"{cls.guide_requirement}"
+            )
+        return v
 
     def get_runners(self) -> list[Runner[BaseModel]]:
         """One run per guide, in sorted order (a set has none).
@@ -117,40 +137,18 @@ class GuidedNetworkConfig(RunnableConfig):
 class CamusConfig(GuidedNetworkConfig):
     outgroup_label: str  # every guide is rooted on it
     runner_class: ClassVar[type[Runner[BaseModel]]] = CamusRunner
-
-    @field_validator("guide_trees")
-    @classmethod
-    def _reject_unsupported(cls, v: frozenset[GuideTree]) -> frozenset[GuideTree]:
-        """:raises ValueError: if a guide is outside `CAMUS_GUIDE_TREES`."""
-        bad = sorted(v - CAMUS_GUIDE_TREES)
-        if bad:
-            raise ValueError(
-                f"unsupported CAMUS guide tree(s): {', '.join(bad)}. "
-                f"Supported: {', '.join(sorted(CAMUS_GUIDE_TREES))}. "
-                "CAMUS requires a rooted binary guide tree."
-            )
-        return v
+    supported_guides: ClassVar[frozenset[GuideTree]] = CAMUS_GUIDE_TREES
+    guide_requirement: ClassVar[str] = "CAMUS requires a rooted binary guide tree."
 
 
 class SnaqConfig(GuidedNetworkConfig):
     # Any species tree: snaq! resolves polytomies and unroots its start tree itself.
     runner_class: ClassVar[type[Runner[BaseModel]]] = SnaqRunner
+    supported_guides: ClassVar[frozenset[GuideTree]] = SNAQ_GUIDE_TREES
+    guide_requirement: ClassVar[str] = "A tree of blobs is not a species tree."
     # Julia workers, one SNaQ run each (10 runs). Excluded from the dump, so it changes
     # neither config_hash nor the recorded config: a resource knob, not a result.
     procs: int = Field(1, ge=1, exclude=True)
-
-    @field_validator("guide_trees")
-    @classmethod
-    def _reject_unsupported(cls, v: frozenset[GuideTree]) -> frozenset[GuideTree]:
-        """:raises ValueError: if a guide is outside `SNAQ_GUIDE_TREES`."""
-        bad = sorted(v - SNAQ_GUIDE_TREES)
-        if bad:
-            raise ValueError(
-                f"unsupported SNaQ guide tree(s): {', '.join(bad)}. "
-                f"Supported: {', '.join(sorted(SNAQ_GUIDE_TREES))}. "
-                "A tree of blobs is not a species tree."
-            )
-        return v
 
 
 class MethodConfig(BaseModel):
