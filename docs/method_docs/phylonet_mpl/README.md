@@ -144,7 +144,7 @@ k = 2 in 32 s (`spec/camus/benchmarks.md`).
 |---|---|---|
 | command | `InferNetwork_MPL -s start -fs` (`spec/camus/benchmarks.md`) | same, `(all)` gene trees |
 | gene trees | gene trees, as given (wrapper gist) | PCH-W quartets, rooted by the guide |
-| start tree | wASTRAL | `guide_trees`, default `pch_wastral` |
+| start tree | wASTRAL | `guide_trees` (smoke spec: `pch_wastral`) |
 
 Unverified: the paper's k, run count and time limit; that MPL(FT) completed up to 51 species
 (`spec/camus/benchmarks.md` cites the paper; not rechecked).

@@ -81,7 +81,7 @@ A guide is a tree *method* or `true_tree`; there is no separate guide enum (`mod
 | a tree method | that method; the network method reads its point estimate |
 | `true_tree` | none; the simulation base tree |
 
-SNaQ takes any (`GUIDE_TREES`): `snaq!` resolves polytomies and unroots its start tree. CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). PhyloNet-MPL takes `PHYLONET_MPL_GUIDE_TREES` (CAMUS's plus `ga`): `-fs` keeps the tree fixed, so it must be binary as estimated; rooting on the outgroup is free. A guide names a method, not a config: `MethodConfig` holds one config per method.
+SNaQ takes any (`GUIDE_TREES`): `snaq!` resolves polytomies and unroots its start tree. CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). PhyloNet-MPL takes `PHYLONET_MPL_GUIDE_TREES` (CAMUS's plus `ga`): the guide roots every quartet, so it must be binary as estimated; rooting on the outgroup is free. A guide names a method, not a config: `MethodConfig` holds one config per method.
 
 ## Scheduling (`scheduler.py`)
 
@@ -157,7 +157,7 @@ inference_data/
 | Network method | Same, member in `NetworkInferenceMethod`; `get_group_estimate_path` returns a family CSV (`NETWORK_FAMILY_SCHEMA`). |
 | Fan-out | Have the config's `get_runners()` return several runners; give each a distinct config and `suffix`. |
 | Dependency | Override `get_dependencies()`; nothing else to order. |
-| Guide tree | Any `TreeInferenceMethod` is in `GUIDE_TREES`; for CAMUS and PhyloNet-MPL also add it to `CAMUS_GUIDE_TREES` / `PHYLONET_MPL_GUIDE_TREES` (`model/guide_tree.py`) if it emits a rooted binary tree. |
+| Guide tree | Any `TreeInferenceMethod` is in `GUIDE_TREES`; for CAMUS and PhyloNet-MPL also add it to `CAMUS_GUIDE_TREES` if it emits a rooted binary tree, `PHYLONET_MPL_GUIDE_TREES` if binary (`model/guide_tree.py`). |
 | Registry table | Schema in `py/cli/schemata.py`; writer reusing the `registry.py` shard/compact pattern; section in `SCHEMAS.md`. |
 
 Also document the shell contract in `SCRIPT_CONTRACTS.md` and add tests mirroring `tests/scripts/lib/inference/`. Field-name tables and hand-ordering do not exist; order comes from `get_dependencies()`.

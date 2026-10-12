@@ -88,7 +88,7 @@ python3 -m scripts.py.cli.main experiment network-score $S
 
 ## Next
 
-1. Rerun `snaq_smoke` and `phylonet_mpl_smoke` at 30 taxa; find why `-fs` did not fix MPL's tree; merge #51.
+1. Rerun `snaq_smoke` and `phylonet_mpl_smoke` at 30 taxa; merge #51.
 2. Refresh #50's PR body (contract, rooting rule, hmax wording).
 3. Ask James how the paper rooted SNaQ; revisit step 2 if needed.
 4. Report the simulator bug; add a caveat to CLAUDE.md ("seeds are deterministic").

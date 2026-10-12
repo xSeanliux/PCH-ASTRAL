@@ -52,8 +52,8 @@ def phylonet_mpl_to_family(result_path: Path) -> pl.DataFrame:
 
 @dataclass(frozen=True)
 class PhyloNetMPLRunner(Runner["PhyloNetMPLConfig"]):
-    """PhyloNet-MPL(FT): rooted PCH-W quartets plus the fixed guide tree in,
-    networks out.
+    """PhyloNet-MPL(FT): PCH-W quartets rooted by the guide tree, which is
+    also the start tree, in; networks out.
 
     `config` is the single-guide config.
     """
