@@ -28,7 +28,7 @@ Paper body unread (abstract only).
 | `--at` | First line, plain Newick with polytomies. `TOB_QMC/trees/<stem>.tree` works unchanged. NetCS does not build the tree of blobs itself. |
 | `-o` | One eNewick line: topology only, no γ, no score. Hybrids `#H0, #H1, …`. Without `-o`, or without `--override` on an existing file, the network goes to stdout with the log. |
 | Blobs resolved | Degree ≥ 5 only. Smaller blobs stay polytomies in the output ("unable to identify the hybridization"). |
-| Reticulation count | = blobs of degree ≥ 5. No flag. |
+| Reticulation count | ≤ blobs of degree ≥ 5: a blob with "no hybridization detected" stays a polytomy (seen: 2 blobs of degree 5, 1 hybrid). No flag. |
 | Other flags read | `--alpha` 1e-7, `--beta` 0.95, `--iter_limit_blob` 2n². Left at defaults. |
 | Cost, 30 taxa | 1–3 s on a binary tree of blobs, 3–27 s with blobs (12 `api.infer` runs); 0.8 GB on 131,564 quartets (TOB-QMC on the same data: 82 s). |
 
@@ -113,7 +113,7 @@ SLURM tier: light.
 
 Smoke checks, in order:
 1. Count runs where the outgroup is not a child of the root; log line says "not valid".
-2. `edges_added` equals the count of degree-≥ 5 blobs in the matching tree of blobs.
+2. `edges_added` is at most the count of degree-≥ 5 blobs in the matching tree of blobs.
 3. `network_scores.csv` has an `ok` row for every NetCS run, `guide_tree` null; rates are
    null exactly for the runs counted in check 1.
 4. Record how many datasets gave k = 0, and how many had only blobs of degree < 5.
