@@ -12,8 +12,9 @@ Facts below were checked by running TREE-QMC `53b15e5` (`spec/netcs/PLAN.md`).
   NetCS does not build the tree of blobs.
 - **Model:** unverified (below).
 - **Objective:** none reported: the output carries no score.
-- **Search:** per blob of degree ≥ 5, one cycle with one hybrid. Smaller blobs stay
-  polytomies. No seed flag; the hybrid chosen varies between runs on the same input.
+- **Search:** per blob of degree ≥ 5, one cycle with one hybrid, unless NetCS detects no
+  hybridization there (log: "has no hybridization detected"); the blob then stays a
+  polytomy, as do smaller blobs. No seed flag; the hybrid chosen varies between runs on the same input.
 - **Output:** one eNewick line: topology only, no lengths, no γ. Hybrids are 0-indexed
   (`#H0`, `#H1`, …), one per resolved blob. Not binary where a blob is unresolved.
 
@@ -50,7 +51,7 @@ Fixed choices, not configurable:
 | Choice | Value | Why |
 |---|---|---|
 | tree of blobs | `tob_qmc`'s output (`get_dependencies`) | the only source |
-| reticulation count | blobs of degree ≥ 5 | NetCS has no flag |
+| reticulation count | at most the blobs of degree ≥ 5 | NetCS has no flag; a blob where it detects no hybridization stays a polytomy |
 | `--alpha`, `--beta`, `--iter_limit_blob` | 1e-7, 0.95, 2n² | TREE-QMC defaults |
 | `--root` | never passed | segfaults in network mode (`spec/netcs/upstream-root-issue.md`) |
 | `--quartets` | never passed | wants a qCF CSV; aborts on quartet lines |
