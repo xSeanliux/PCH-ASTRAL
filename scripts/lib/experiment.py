@@ -11,6 +11,7 @@ from scripts.lib.model.guide_tree import (
 )
 from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
 from scripts.lib.inference.runners.base import Runner
+from scripts.lib.inference.runners.brooqs import BrooqsRunner
 from scripts.lib.inference.runners.camus import CamusRunner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
@@ -100,6 +101,13 @@ class TobQmcConfig(RunnableConfig):
         return [TobQmcRunner(config=self)]
 
 
+class BrooqsConfig(RunnableConfig):
+    # No knobs: BROOQS's defaults plus `--rooted`.
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run."""
+        return [BrooqsRunner(config=self)]
+
+
 class NetcsConfig(RunnableConfig):
     def get_runners(self) -> list[Runner[BaseModel]]:
         """One run."""
@@ -166,6 +174,7 @@ class MethodConfig(BaseModel):
     mp4: MP4Config | None = Field(None)
     gray_atkinson: GAConfig | None = Field(None)
     tob_qmc: TobQmcConfig | None = Field(None)
+    brooqs: BrooqsConfig | None = Field(None)
     netcs: NetcsConfig | None = Field(None)
     camus: CamusConfig | None = Field(None)
     snaq: SnaqConfig | None = Field(None)
@@ -179,6 +188,7 @@ class MethodConfig(BaseModel):
             self.mp4,
             self.gray_atkinson,
             self.tob_qmc,
+            self.brooqs,
             self.netcs,
             self.camus,
             self.snaq,

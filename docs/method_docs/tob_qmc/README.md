@@ -3,8 +3,7 @@
 TOB-QMC estimates the **tree of blobs** of a species network: the network with each blob
 (cycle-bearing region) contracted to one node (Dai, Han & Molloy 2025). It is TREE-QMC's
 `--blob` mode. A tree of blobs is not our target network; it is the input that BROOQS
-(#57) and NetCS (#58) expand into a level-1 network. Until those land, we run it alone and
-score it as a tree. Method key: `tob_qmc`.
+(#57) and NetCS (#58) expand into a level-1 network. Method key: `tob_qmc`.
 
 **Ignore its tree output as a species-tree estimate**, including its RF scores. No network
 method accepts it as a guide tree. It is only meaningful as input to BROOQS/NetCS.
@@ -57,8 +56,8 @@ Fixed choices, not configurable:
 ## Normalising to the tree contract
 
 **Point estimate: TREE-QMC's tree of blobs, as written** (`TOB_QMC/trees/N.tree`). No
-group estimate. `tob_qmc` is a `TreeInferenceMethod`: its output is a tree, and network
-methods will consume it the way they consume guide trees.
+group estimate. `tob_qmc` is a `TreeInferenceMethod`: its output is a tree. BROOQS and
+NetCS read it as a fixed dependency, not as a guide tree.
 
 ## Scoring
 

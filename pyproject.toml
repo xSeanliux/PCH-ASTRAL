@@ -24,6 +24,7 @@ dependencies = [
     "typer>=0.26.7",
     "submitit>=1.5.4",
     "scienceplots>=2.2.2",
+    "brooqs",
 ]
 
 [project.scripts]
@@ -38,6 +39,10 @@ packages = ["scripts"]
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+# Pinned: the version changes results.
+brooqs = { git = "https://github.com/shayesteh99/BROOQS", rev = "17b25b2e06e5c8ef5d3e884360c0a6b69cd0a400" }
 
 [tool.ty.rules]
 possibly-missing-submodule = "ignore"

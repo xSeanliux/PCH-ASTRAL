@@ -68,7 +68,7 @@ One row per **successful** run; failures and blocks are never rows. Last-writer-
 | `config_hash` | String | sha256 of the method config JSON (`hash_config`). |
 | `method_config_json` | String | The config that was hashed. |
 | `runtime_seconds` | Float64 | Wall time. |
-| `point_estimate_newick` | String | Tree, or network (SNaQ, NetCS), inline. Empty when the method has no point estimate (CAMUS). |
+| `point_estimate_newick` | String | Tree, or network (SNaQ, BROOQS, NetCS), inline. Empty when the method has no point estimate (CAMUS). |
 | `group_estimate_path` | String | The set file (trees) or family CSV (networks, see [network family](#network-family-csv)); null if none. |
 | `consensus_method` | String | How the set collapsed to the point estimate; null if none. |
 | `status` | String | Always `ok`. |
@@ -99,7 +99,7 @@ Join to the registry on the three key columns.
 
 A network run's `group_estimate_path`. The tool's raw output stays beside it.
 
-A network method with no family (NetCS) is scored on its point estimate: one `is_best` row, `edges_added` = its distinct `#H<n>` labels.
+A network method with no family (BROOQS, NetCS) is scored on its point estimate: one `is_best` row, `edges_added` = its distinct `#H<n>` labels.
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -118,7 +118,7 @@ SNaQ only: it fits unrooted quartet CFs, so its networks are semi-directed (root
 
 NetCS only: no family. Its `.net` is rerooted on the outgroup; if a hybrid is above the outgroup it cannot be, and is kept as NetCS wrote it (then not scored, see `network_scores`). It may keep polytomies (blobs of degree < 5).
 
-Trees root on any edge; CAMUS and PhyloNet output rooted networks.
+Trees root on any edge; CAMUS, BROOQS and PhyloNet output rooted networks.
 
 ## `network_scores`
 
