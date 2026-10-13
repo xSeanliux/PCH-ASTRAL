@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build weighted TREE-QMC into bin/tree-qmc. The R-embedded build also enables
-# TOB-QMC (`--blob`, runTOBQMC.sh).
+# TOB-QMC (`--blob`, runTOBQMC.sh) and NetCS (`--network`, runNETCS.sh).
 #
 # Pinned: upstream main moved to a CMake build (4.x) that embeds R, and the flags
 # runWTREEQMC.sh passes (--quartets, --override) exist ONLY in 4.x -- v3 has

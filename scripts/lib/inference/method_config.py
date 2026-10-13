@@ -9,6 +9,7 @@ from scripts.lib.experiment import (
     CamusConfig,
     GAConfig,
     MP4Config,
+    NetcsConfig,
     RunnableConfig,
     SnaqConfig,
     TobQmcConfig,
@@ -28,6 +29,7 @@ METHOD_TO_CONFIG_CLASS: dict[InferenceMethod, type[RunnableConfig]] = {
     TreeInferenceMethod.MP: MP4Config,
     TreeInferenceMethod.GA: GAConfig,
     TreeInferenceMethod.TOB_QMC: TobQmcConfig,
+    NetworkInferenceMethod.NETCS: NetcsConfig,
     NetworkInferenceMethod.CAMUS: CamusConfig,
     NetworkInferenceMethod.SNAQ: SnaqConfig,
 }
