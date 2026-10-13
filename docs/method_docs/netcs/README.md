@@ -76,6 +76,50 @@ NetCS decides the root first:
 On our data the reroot never rescues a network: all 11 distinct outputs NetCS rerooted have
 the outgroup below a hybrid, and the 9 it kept were rooted on `OUT` already.
 
+### Why rerooting with a tree library is valid
+
+`Bio.Phylo` knows no networks; `reroot_on` works because of how eNewick writes one.
+
+**A hybrid node is written twice**, since Newick gives a node one parent:
+
+```text
+(a,(b)#H0)   inner #H0: carries the hybrid's clade.   P1 → H, and H → b
+(d,#H0)      leaf #H0: a pointer, no children.        P2 → H
+```
+
+Nesting is parent → child, so both occurrences say "my parent points into H": those are
+the two hybrid edges. No edge joins the two occurrences; they are one node. Which one
+carries the clade is the writer's choice.
+
+**Which roots are valid.** NetCS's network is semi-directed: hybrid edges are directed,
+tree edges are not. A root is valid iff it is not downstream of a hybrid node. The file
+has some root, which we assume valid; then the clade under an inner `#H<n>` is exactly
+what is downstream of that hybrid, wherever the root is. So:
+
+```text
+the outgroup is downstream of a hybrid
+  ⇔ it is written inside the clade of an inner #H<n>
+  ⇔ one of its ancestors in the parsed tree is named #H<n>     (reroot_on's check)
+```
+
+**Why the flip is safe.** To Bio the file is a tree with two unrelated nodes named
+`#H0`. Rerooting on a leaf reverses only the edges on the old-root-to-leaf path. `P2 → H`
+is on that path only if the outgroup is the pointer leaf (never); `P1 → H` only if the
+outgroup is under the inner `#H0` (rejected above). No hybrid edge flips, the labels are
+written back unchanged, and the result is the same network with a new root.
+
+**Forcing it anyway** flips a hybrid edge and makes a directed cycle (the pointer ends up
+inside its own clade); CmpNets then dies with `StackOverflowError`. Seen on `sim_2_1_1`.
+
+Limits:
+- Leaf outgroups only; rerooting on an internal node is not covered by this argument.
+- Topology only: branch lengths and γ are dropped. NetCS writes neither.
+- The file's own rooting is assumed valid (each `#H<n>` once inner, once leaf, the leaf
+  not inside its own clade); `reroot_on` does not test it. All 14 real outputs with
+  hybrids pass.
+- Checked by reading outputs and by CmpNets (an already-rooted network scores the same
+  after `reroot_on`), not against PhyloNetworks `rootatnode!`.
+
 **Not deterministic.** NetCS's hybrid varies per run, and with it whether the input root is
 valid. Repeat runs on one input (trees of blobs at TOB-QMC alpha 0.25, the only ones with
 blobs of degree ≥ 5):

@@ -21,6 +21,8 @@ def reroot_on(newick: str, leaf_label: str) -> str | None:
     """`newick` (eNewick) rerooted on `leaf_label`, topology only.
 
     :returns: None if the leaf is below a hybrid: no valid root there.
+
+    Why a tree library suffices: `docs/method_docs/netcs/README.md`.
     """
     tree = Phylo.read(StringIO(newick), "newick")
     if any((c.name or "").startswith("#H") for c in tree.get_path(leaf_label)[:-1]):
