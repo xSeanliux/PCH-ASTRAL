@@ -57,7 +57,7 @@ python3 -m scripts.py.printQuartets -i "$INPUT" > "$SCRATCH_QUARTET_PATH" || exi
 echo "✅ PCH-W quartet generation, $(wc -l < "$SCRATCH_QUARTET_PATH" | tr -d ' ') quartets"
 
 # --rooted: never reroot (the default may reroot at an arbitrary leaf).
-python3 -m count_quartets \
+brooqs \
     -i "$SCRATCH_QUARTET_PATH" \
     -t "$TOB" \
     -o "$NET" \

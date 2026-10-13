@@ -72,7 +72,7 @@ dataset.csv
  ├─ scripts.py.model_graph            → outgroup label (none → exit 1)
  ├─ scripts.py.printQuartets          → $PCH_SCRATCH/tmp_quartet_<runid>.txt
  ├─ <cond>/TOB_QMC/trees/<stem>.tree  (dependency, rooted on the outgroup; missing → exit 1)
- └─ python3 -m count_quartets -i <quartets> -t <tob> -o <net> --rooted
+ └─ brooqs -i <quartets> -t <tob> -o <net> --rooted
       → <cond>/BROOQS/networks/<name>.net          point estimate, as BROOQS wrote it
       → <cond>/BROOQS/logs/<name>.log
 ```
@@ -112,7 +112,7 @@ Merged: #63.
 
 | File | Change |
 |---|---|
-| `pyproject.toml`, `uv.lock` | `brooqs` git dependency pinned at `17b25b2`; `uv sync` installs module `count_quartets`. |
+| `pyproject.toml`, `uv.lock` | `brooqs` git dependency pinned at `17b25b2`; `uv sync` installs the `brooqs` command. |
 | `scripts/lib/model/methods.py` | `NetworkInferenceMethod.BROOQS = "brooqs"` |
 | `scripts/lib/experiment.py` | `BrooqsConfig(RunnableConfig)`, one runner; `MethodConfig.brooqs`; `get_enabled_configs` |
 | `scripts/lib/inference/method_config.py`, `runners/__init__.py` | Registry entries, after `TOB_QMC` |

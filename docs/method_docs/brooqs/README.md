@@ -25,7 +25,7 @@ BrooqsRunner                                    scripts/lib/inference/runners/br
     ├── model_graph --input         → outgroup  the dataset's model graph
     ├── <cond>/TOB_QMC/trees/N.tree             tree of blobs from `tob_qmc`, rooted on the outgroup
     ├── printQuartets               → quartets  PCH-W; each quartet once per unit of weight
-    └── python3 -m count_quartets -i quartets -t tree -o N.net --rooted
+    └── brooqs -i quartets -t tree -o N.net --rooted
                                                 BROOQS 17b25b2, pinned in `pyproject.toml`/`uv.lock`; `make setup` installs it
 ```
 
@@ -109,7 +109,7 @@ true network. CmpNets rejects `#H0`, so **scoring renumbers BROOQS's 0-indexed h
 
 | File | Writer | Content |
 |---|---|---|
-| `N.net` | `count_quartets.py` | point estimate (eNewick) |
+| `N.net` | `brooqs` | point estimate (eNewick) |
 
 The run log is at `<cond>/BROOQS/logs/N.log`; it holds BROOQS's debug matrices.
 
