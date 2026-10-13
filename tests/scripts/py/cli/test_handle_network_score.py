@@ -19,6 +19,31 @@ from tests.scripts.py.cli.test_handle_inference import _config
 
 REF_TEXT = "((((A:1,B:1):1,C:1):1,(D:1,E:1):1):1,OUT:1)\nB;C;0.5;0.3\n"
 NEWICKS = ["((((A,B),C),(D,E)),OUT);", "((((A,((B)#H1)),(#H1,C)),(D,E)),OUT);"]
+# Real NetCS output: rerooted off the outgroup, leaving a unary `(OUT)`.
+REROOTED = (
+    "(t24,(t26,(((t27,(((((OUT),((((t14,t15),t11),t10),(t1,t2),(t4,t3))),"
+    "(((t13,t12),t8),((t5,t6),t7))),((t30,t29),t16)))#H0),(t17,(t19,(t9,"
+    "((((t28,t21),t23),((t20,t25),t18)),#H0))))),t22)));"
+)
+
+
+@pytest.mark.parametrize(
+    ("newick", "label", "expected"),
+    [
+        ("(OUT,((a,(b)#H0),(c,(d,#H0))));", "OUT", True),
+        ("(OUT,((a,b),(c,d)));", "OUT", True),
+        ("((a,b),OUT);", "OUT", True),  # not the first root child
+        (REROOTED, "OUT", False),
+        ("((OUT),(a,b));", "OUT", False),  # unary root child is not the leaf
+        ("(a,(OUT,b));", "OUT", False),
+        ("(OUT2,(OUT,b));", "OUT", False),  # label is a prefix of another's
+        ("(t10,(t1,b));", "t1", False),
+        ("(t10,(t1,b));", "t10", True),
+        ("(#H0,((a,(OUT)#H0),c));", "OUT", False),  # hybrid leaf at the root
+    ],
+)
+def test_is_rooted_on(newick: str, label: str, expected: bool):
+    assert hns.is_rooted_on(newick, label) is expected
 
 
 def _setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ExperimentConfig:
@@ -141,7 +166,7 @@ def test_run_without_family_reads_point_estimate(
 ):
     run = dict.fromkeys(INFERENCE_REGISTRY_SCHEMA, None) | {
         "dataset_id": "d",
-        "method": "brooqs",
+        "method": "netcs",
         "config_hash": "h",
         "method_config_json": "{}",
         "point_estimate_newick": newick,
@@ -156,6 +181,41 @@ def test_run_without_family_reads_point_estimate(
         (edges_added, newick, True)
     ]
     assert family["guide_tree"].to_list() == [None]
+
+
+def _register_point_estimate(tmp_path: Path, newick: str) -> None:
+    """Make the registered run a NetCS one: no family, `newick` its point estimate."""
+    reg = tmp_path / "inference_data" / "inference_registry.csv"
+    pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA).with_columns(
+        method=pl.lit("netcs"),
+        method_config_json=pl.lit("{}"),
+        group_estimate_path=pl.lit(None, pl.String),
+        point_estimate_newick=pl.lit(newick),
+    ).write_csv(reg)
+
+
+def test_network_off_the_outgroup_gets_null_rates(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, monkeypatch)
+    _register_point_estimate(tmp_path, REROOTED)
+    monkeypatch.setattr(hns, "score_network", lambda est, ref: pytest.fail("scored"))
+    (row,) = pl.read_csv(handle_network_score(cfg), schema=NETWORK_SCORES_SCHEMA).rows(
+        named=True
+    )
+    assert (row["fn_rate"], row["fp_rate"], row["status"]) == (None, None, "ok")
+
+
+def test_network_is_scored_without_an_outgroup(tmp_path: Path, monkeypatch):
+    cfg = _setup(tmp_path, monkeypatch)
+    _register_point_estimate(tmp_path, REROOTED)
+    graphs = tmp_path / "simulation_data" / "model_graph_registry.csv"
+    pl.read_csv(graphs).with_columns(outgroup_label=pl.lit(None, pl.String)).write_csv(
+        graphs
+    )
+    monkeypatch.setattr(hns, "score_network", lambda est, ref: ScoreResult(0.5, 0.25))
+    (row,) = pl.read_csv(handle_network_score(cfg), schema=NETWORK_SCORES_SCHEMA).rows(
+        named=True
+    )
+    assert (row["fn_rate"], row["fp_rate"], row["status"]) == (0.5, 0.25, "ok")
 
 
 def test_missing_jar_stops_before_scoring(tmp_path: Path, monkeypatch):

@@ -33,13 +33,13 @@ def test_unsupported_guides_are_rejected(guide: GuideTree):
     # (polytomies), ga is unrooted, and TREE-QMC can emit polytomies. Fail at
     # config load, not mid-run.
     assert guide not in CAMUS_GUIDE_TREES
-    with pytest.raises(ValidationError, match="unsupported CAMUS guide tree"):
+    with pytest.raises(ValidationError, match="unsupported guide tree"):
         _config(guide)
 
 
 @pytest.mark.parametrize("guide", ["mp", "ga", "pch_w_tree_qmc"])
 def test_unsupported_guides_are_rejected_from_yaml(guide: str):
-    with pytest.raises(ValidationError, match="unsupported CAMUS guide tree"):
+    with pytest.raises(ValidationError, match="unsupported guide tree"):
         CamusConfig.model_validate({"guide_trees": [guide], "outgroup_label": "OUT"})
 
 

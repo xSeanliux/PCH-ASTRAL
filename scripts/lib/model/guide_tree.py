@@ -20,3 +20,11 @@ SNAQ_GUIDE_TREES: Final[frozenset[GuideTree]] = GUIDE_TREES - {
 CAMUS_GUIDE_TREES: Final[frozenset[GuideTree]] = frozenset(
     {TreeInferenceMethod.PCH_ASTRAL3, TreeInferenceMethod.PCH_WASTRAL, TRUE_TREE}
 )
+
+
+def parse_guide(name: str) -> GuideTree:
+    """The guide named `name`, e.g. a CLI argument.
+
+    :raises ValueError: if `name` is no guide.
+    """
+    return TRUE_TREE if name == TRUE_TREE else TreeInferenceMethod(name)

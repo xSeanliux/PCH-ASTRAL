@@ -15,8 +15,7 @@ from Bio import Phylo
 
 from scripts.lib.inference.runners import METHOD_TO_RUNNER_CLASS
 from scripts.lib.inference.scoring import resolve_reference_newick
-from scripts.lib.model.guide_tree import GUIDE_TREES, TRUE_TREE, GuideTree
-from scripts.lib.model.methods import TreeInferenceMethod
+from scripts.lib.model.guide_tree import GUIDE_TREES, TRUE_TREE, GuideTree, parse_guide
 from scripts.lib.model.model_graph import find_dataset_key
 from scripts.lib.utils import resolve_polytomies, tree_to_newick
 
@@ -75,8 +74,11 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--outgroup", required=True)
     args = parser.parse_args()
-    guide = TRUE_TREE if args.guide == TRUE_TREE else TreeInferenceMethod(args.guide)
-    print(build_guide_newick(guide, args.input, args.output, args.outgroup))
+    print(
+        build_guide_newick(
+            parse_guide(args.guide), args.input, args.output, args.outgroup
+        )
+    )
 
 
 if __name__ == "__main__":

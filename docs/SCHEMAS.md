@@ -68,7 +68,7 @@ One row per **successful** run; failures and blocks are never rows. Last-writer-
 | `config_hash` | String | sha256 of the method config JSON (`hash_config`). |
 | `method_config_json` | String | The config that was hashed. |
 | `runtime_seconds` | Float64 | Wall time. |
-| `point_estimate_newick` | String | Tree, or network (SNaQ, BROOQS), inline. Empty when the method has no point estimate (CAMUS). |
+| `point_estimate_newick` | String | Tree, or network (SNaQ, BROOQS, NetCS), inline. Empty when the method has no point estimate (CAMUS). |
 | `group_estimate_path` | String | The set file (trees) or family CSV (networks, see [network family](#network-family-csv)); null if none. |
 | `consensus_method` | String | How the set collapsed to the point estimate; null if none. |
 | `status` | String | Always `ok`. |
@@ -99,7 +99,7 @@ Join to the registry on the three key columns.
 
 A network run's `group_estimate_path`. The tool's raw output stays beside it.
 
-A network method with no family (BROOQS) is scored on its point estimate: one `is_best` row, `edges_added` = its distinct `#H<n>` labels.
+A network method with no family (BROOQS, NetCS) is scored on its point estimate: one `is_best` row, `edges_added` = its distinct `#H<n>` labels.
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -116,6 +116,8 @@ SNaQ only: it fits unrooted quartet CFs, so its networks are semi-directed (root
 3. Its newick is `.net`: that network rerooted on the outgroup. None: no `.net`, empty `point_estimate_newick`, run still `ok`.
 4. CmpNets scores `.net` against the true network.
 
+NetCS only: no family. Its `.net` is rerooted on the outgroup; if a hybrid is above the outgroup it cannot be, and is kept as NetCS wrote it (then not scored, see `network_scores`). It may keep polytomies (blobs of degree < 5).
+
 Trees root on any edge; CAMUS, BROOQS and PhyloNet output rooted networks.
 
 ## `network_scores`
@@ -124,6 +126,8 @@ Trees root on any edge; CAMUS, BROOQS and PhyloNet output rooted networks.
 
 PhyloNet `CmpNets -m cluster` of each `is_best` row of each network run's family CSV, lengths and γ stripped and 0-indexed hybrids renumbered, against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
 
+A network not rooted on its dataset's outgroup (the outgroup is not a leaf child of the root) is not scored: null rates, status `ok`. Cluster scoring is root-dependent. No outgroup: every network is scored.
+
 | Column | Type | Meaning |
 |---|---|---|
 | `dataset_id` | String | As in `inference_registry`. |
@@ -131,7 +135,7 @@ PhyloNet `CmpNets -m cluster` of each `is_best` row of each network run's family
 | `guide_tree` | String | From `method_config_json` (`guide_trees`, one per run) for guided methods (SNaQ: its start tree); null otherwise. Not part of the key. |
 | `config_hash` | String | As in `inference_registry`. |
 | `edges_added` | Int64 | From the family CSV. |
-| `fn_rate` | Float64 | False-negative rate; null unless `ok`. |
-| `fp_rate` | Float64 | False-positive rate; null unless `ok`. |
+| `fn_rate` | Float64 | False-negative rate; null unless `ok`, or if not rooted on the outgroup. |
+| `fp_rate` | Float64 | False-positive rate; null unless `ok`, or if not rooted on the outgroup. |
 | `runtime_seconds` | Float64 | CmpNets wall time. |
 | `status` | String | `ok`, `failed` or `timeout`. |

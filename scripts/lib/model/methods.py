@@ -19,6 +19,7 @@ class NetworkInferenceMethod(InferenceMethod):
     CAMUS = "camus"
     SNAQ = "snaq"
     BROOQS = "brooqs"
+    NETCS = "netcs"
 
 
 class RunStatus(StrEnum):
