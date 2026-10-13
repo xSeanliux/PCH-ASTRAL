@@ -1,8 +1,7 @@
 #!/bin/bash
 # NetCS network inference: PCH-W quartets and the tob_qmc tree of blobs
-# (<output>/TOB_QMC/trees/<name>.tree, rooted on the outgroup) in, one eNewick line
-# out. Writes <output>/NETCS/networks/<name>.raw.net; NetcsRunner.execute then
-# writes <name>.family.csv and, if NetCS kept the root, <name>.net.
+# (<output>/TOB_QMC/trees/<name>.tree, rooted on the outgroup) in. Writes <output>/NETCS/networks/<name>.net:
+# one eNewick line, rooted wherever NetCS left it.
 RUNID=""
 INPUT=""
 TREEOUTPUT=""
@@ -44,10 +43,8 @@ mkdir -p "$PCH_SCRATCH" "$TREEOUTPUT/NETCS/logs" "$TREEOUTPUT/NETCS/networks"
 
 SCRATCH_QUARTET_PATH="$PCH_SCRATCH/tmp_quartet_$RUNID.txt"
 TOB_PATH="$TREEOUTPUT/TOB_QMC/trees/$NAME.tree"
-NET_PATH="$TREEOUTPUT/NETCS/networks/$NAME"
-
-# Drop stale output: the runner writes .net only when NetCS kept the root.
-rm -f "$NET_PATH.net" "$NET_PATH.raw.net" "$NET_PATH.family.csv"
+NET_PATH="$TREEOUTPUT/NETCS/networks/$NAME.net"
+rm -f "$NET_PATH"  # a failed run must not leave a stale network
 
 read -r _ OUTGROUP < <(python3 -m scripts.py.model_graph --input "$INPUT") || exit 1
 [[ "$OUTGROUP" != none ]] || { echo "Error: NetCS needs an outgroup (simulation.outgroup_label)"; exit 1; }
@@ -66,7 +63,7 @@ echo "✅ PCH-W quartet generation, $(wc -l < "$SCRATCH_QUARTET_PATH" | tr -d ' 
 bin/tree-qmc --network \
     -i "$SCRATCH_QUARTET_PATH" \
     --at "$TOB_PATH" \
-    -o "$NET_PATH.raw.net" \
+    -o "$NET_PATH" \
     --override || exit
-[[ -s "$NET_PATH.raw.net" ]] || { echo "Error: NetCS wrote no network"; exit 1; }
+[[ -s "$NET_PATH" ]] || { echo "Error: NetCS wrote no network"; exit 1; }
 echo "✅ NetCS network inference"
