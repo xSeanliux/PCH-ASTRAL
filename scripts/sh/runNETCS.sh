@@ -1,6 +1,6 @@
 #!/bin/bash
 # NetCS network inference: PCH-W quartets and the tob_qmc tree of blobs
-# (<output>/TOB_QMC/trees/<name>.tree, rooted on the outgroup) in. Writes <output>/NETCS/networks/<name>.net:
+# (<output>/TOB_QMC/trees/<name>.tree) in. Writes <output>/NETCS/networks/<name>.net:
 # one eNewick line, rooted wherever NetCS left it.
 RUNID=""
 INPUT=""
@@ -50,9 +50,7 @@ read -r _ OUTGROUP < <(python3 -m scripts.py.model_graph --input "$INPUT") || ex
 [[ "$OUTGROUP" != none ]] || { echo "Error: NetCS needs an outgroup (simulation.outgroup_label)"; exit 1; }
 
 [[ -f "$TOB_PATH" ]] || { echo "Error: no tree of blobs $TOB_PATH (run tob_qmc first)"; exit 1; }
-# tob_qmc writes the outgroup first; the comma rules out a longer label.
-[[ "$(< "$TOB_PATH")" == "($OUTGROUP,"* ]] || { echo "Error: $TOB_PATH is not rooted on $OUTGROUP"; exit 1; }
-echo "✅ outgroup $OUTGROUP, tree of blobs rooted on it"
+echo "✅ outgroup $OUTGROUP"
 
 # PCH-W quartets, each once per unit of weight.
 python3 -m scripts.py.printQuartets -i "$INPUT" > "$SCRATCH_QUARTET_PATH" || exit 1
