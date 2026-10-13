@@ -7,12 +7,14 @@ import pytest
 from scripts.lib.experiment import MethodConfig, NetcsConfig
 from scripts.lib.inference import api
 from scripts.lib.inference.method_config import resolve_config
-from scripts.lib.inference.runners.netcs import NetcsRunner
+from scripts.lib.inference.runners.netcs import NetcsRunner, reroot_on
 from scripts.lib.model.methods import (
     NetworkInferenceMethod,
     RunStatus,
     TreeInferenceMethod,
 )
+from scripts.lib.model.model_graph import ModelGraph
+from scripts.py.cli.handle_network_score import is_rooted_on
 
 NETCS = NetworkInferenceMethod.NETCS
 
@@ -24,6 +26,28 @@ REROOTED = (
     "((((t28,t21),t23),((t20,t25),t18)),#H0))))),t22)));"
 )
 TREE = "(OUT,((a,b),(c,d)));"
+# Rooted elsewhere, the outgroup below no hybrid; its rerooting.
+ROOTABLE = "((a,(b)#H0),((c,(d,#H0)),(OUT,e)));"
+REROOTED_ON_OUT = "((((a,(b)#H0),(c,(d,#H0))),e),OUT);"
+
+
+@pytest.mark.parametrize(
+    ("newick", "expected"),
+    [
+        (ROOTABLE, REROOTED_ON_OUT),
+        ("(a,(b)#H0,((c,(d,#H0)),(OUT,e)));", REROOTED_ON_OUT),  # trifurcating root
+        (REROOTED, None),
+        ("(a,((OUT)#H0,(c,(d,#H0))));", None),
+    ],
+)
+def test_reroot_on(newick: str, expected: str | None):
+    assert reroot_on(newick, "OUT") == expected
+
+
+@pytest.mark.parametrize("newick", [ROOTED, TREE])
+def test_reroot_on_keeps_a_rooted_network_rooted(newick: str):
+    rerooted = reroot_on(newick, "OUT")
+    assert rerooted is not None and is_rooted_on(rerooted, "OUT")
 
 
 def test_empty_yaml_block_yields_one_runner():
@@ -60,17 +84,24 @@ def _infer(
         return subprocess.CompletedProcess(argv, returncode)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        ModelGraph,
+        "from_dataset",
+        lambda _: ModelGraph(1, 1, tmp_path / "net1-1.txt", "OUT"),
+    )
     return api.infer(tmp_path / "d.csv", tmp_path, NetcsRunner(config=NetcsConfig()))
 
 
-# REROOTED: the network is recorded as written, rooted on the outgroup or not.
-@pytest.mark.parametrize("newick", [ROOTED, TREE, REROOTED])
-def test_infer_records_network_as_written(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, newick: str
+# Rerooted on the outgroup if it can be; else recorded as NetCS wrote it.
+@pytest.mark.parametrize(
+    ("written", "recorded"), [(ROOTABLE, REROOTED_ON_OUT), (REROOTED, REROOTED)]
+)
+def test_infer_records_network_rerooted_if_possible(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, written: str, recorded: str
 ):
-    result = _infer(tmp_path, monkeypatch, newick)
+    result = _infer(tmp_path, monkeypatch, written)
     assert result.status is RunStatus.OK
-    assert result.point_estimate_newick == newick
+    assert result.point_estimate_newick == recorded
     assert result.group_estimate_path is None
 
 

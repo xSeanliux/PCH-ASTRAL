@@ -1,7 +1,8 @@
 #!/bin/bash
 # NetCS network inference: PCH-W quartets and the tob_qmc tree of blobs
 # (<output>/TOB_QMC/trees/<name>.tree) in. Writes <output>/NETCS/networks/<name>.net:
-# one eNewick line, rooted wherever NetCS left it.
+# one eNewick line, rooted wherever NetCS left it; NetcsRunner.execute then reroots it
+# on the outgroup if it can be.
 RUNID=""
 INPUT=""
 TREEOUTPUT=""

@@ -58,7 +58,8 @@ Fixed choices, not configurable:
 
 ## Normalising to the network contract
 
-**Point estimate: `N.net`, the network as NetCS wrote it.** NetCS decides the root:
+**Point estimate: `N.net`, rerooted on the outgroup if it can be, else as NetCS wrote it.**
+NetCS decides the root first:
 
 | `--at` tree rooted on | Log | Output |
 |---|---|---|
@@ -66,8 +67,14 @@ Fixed choices, not configurable:
 | a taxon below a hybrid | "not valid … Perform rerooting on the edge above taxon X" | Rooted elsewhere, a unary node left behind. Exit 0. |
 | any, plus `--root <taxon>` | "Rooting species tree at …" | Segfault, exit 139, no file. |
 
-When NetCS reroots off the outgroup the network is still recorded, but not scored (below).
-No reroot code.
+`NetcsRunner.execute` then tries `reroot_on(network, outgroup)`:
+- No hybrid above the outgroup: `N.net` is the network rerooted on it (topology only;
+  only edges on the root-to-outgroup path flip), and it is scored.
+- A hybrid above the outgroup: no valid root there. `N.net` stays as NetCS wrote it; its
+  score is null (below).
+
+On our data the reroot never rescues a network: all 11 distinct outputs NetCS rerooted have
+the outgroup below a hybrid, and the 9 it kept were rooted on `OUT` already.
 
 **Not deterministic.** NetCS's hybrid varies per run, and with it whether the input root is
 valid. Repeat runs on one input (trees of blobs at TOB-QMC alpha 0.25, the only ones with
@@ -85,7 +92,7 @@ So the root is mostly per dataset, not a coin flip; resume keeps the first succe
 distinct `#H<n>` labels, 0 for a tree.
 
 Rejected alternatives:
-- Rerooting ourselves: a root below a hybrid is invalid; NetCS did the rooting or nobody does.
+- Rerooting with Julia (`rootatnode!`, as SNaQ): `Bio.Phylo` suffices, no Julia dependency.
 - Scoring a network not rooted on `OUT`: FN 0.67 / FP 0.58, against 0.32 / 0.32 rooted
   (alpha 0.25).
 - Repeat-and-vote over runs: analysis, not inference.
@@ -102,7 +109,7 @@ status `ok` (`handle_network_score.is_rooted_on`: the outgroup is a leaf child o
 Cluster scoring is root-dependent; scored anyway, such networks gave FN 0.67 / FP 0.58,
 against 0.32 / 0.32 rooted on `OUT` (alpha 0.25).
 
-**Limit: a NetCS network with hybrids is often not rooted on `OUT`, so has no score.** On
+**Limit: a NetCS network with hybrids often cannot be rooted on `OUT`, so has no score.** On
 our data (table above) three of four such datasets never were. Scored so far beyond that:
 k = 0, the two default-alpha datasets with a kept 4-polytomy (FN 0.419 / FP 0.357;
 FN 0.422 / FP 0.071). Analyses must count the null rows.
@@ -113,7 +120,7 @@ FN 0.422 / FP 0.071). Analyses must count the null rows.
 
 | File | Writer | Content |
 |---|---|---|
-| `N.net` | `tree-qmc` | point estimate: the network as NetCS wrote it |
+| `N.net` | `tree-qmc`, then `NetcsRunner.execute` | point estimate: rerooted on the outgroup, or as NetCS wrote it if it cannot be |
 
 The run log is at `<cond>/NETCS/logs/N.log`; it holds NetCS's rooting verdict.
 

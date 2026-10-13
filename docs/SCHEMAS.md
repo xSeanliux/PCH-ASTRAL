@@ -116,7 +116,7 @@ SNaQ only: it fits unrooted quartet CFs, so its networks are semi-directed (root
 3. Its newick is `.net`: that network rerooted on the outgroup. None: no `.net`, empty `point_estimate_newick`, run still `ok`.
 4. CmpNets scores `.net` against the true network.
 
-NetCS only: no family. Its `.net` is as NetCS wrote it: it may be rerooted off the outgroup (then not scored, see `network_scores`), and it may keep polytomies (blobs of degree < 5).
+NetCS only: no family. Its `.net` is rerooted on the outgroup; if a hybrid is above the outgroup it cannot be, and is kept as NetCS wrote it (then not scored, see `network_scores`). It may keep polytomies (blobs of degree < 5).
 
 Trees root on any edge; CAMUS and PhyloNet output rooted networks.
 
