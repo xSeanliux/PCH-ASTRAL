@@ -66,8 +66,8 @@ Fixed choices, not configurable:
 | a taxon below a hybrid | "not valid … Perform rerooting on the edge above taxon X" | Rooted elsewhere, a unary node left behind. Exit 0. |
 | any, plus `--root <taxon>` | "Rooting species tree at …" | Segfault, exit 139, no file. |
 
-When NetCS reroots off the outgroup the network is still recorded and scored as written;
-such networks scored worse in our trials (below). No reroot code, no rooting check.
+When NetCS reroots off the outgroup the network is still recorded, but not scored (below).
+No reroot code.
 
 **Not deterministic.** NetCS's hybrid varies per run, and with it whether the input root is
 valid. Repeat runs on one input (trees of blobs at TOB-QMC alpha 0.25, the only ones with
@@ -86,7 +86,8 @@ distinct `#H<n>` labels, 0 for a tree.
 
 Rejected alternatives:
 - Rerooting ourselves: a root below a hybrid is invalid; NetCS did the rooting or nobody does.
-- Dropping networks not rooted on `OUT`: a method with one network is scored on it.
+- Scoring a network not rooted on `OUT`: FN 0.67 / FP 0.58, against 0.32 / 0.32 rooted
+  (alpha 0.25).
 - Repeat-and-vote over runs: analysis, not inference.
 
 ## Scoring
@@ -96,10 +97,15 @@ hybrids (`score_network`; CmpNets rejects `#H0`), then runs PhyloNet `CmpNets -m
 against the true network. Tree scoring (RF) skips NetCS. `guide_tree` in
 `network_scores.csv` is null. Unresolved blobs (degree < 5) are scored as written.
 
-**Limit: cluster scoring is root-dependent, and a NetCS network with hybrids is often not
-rooted on `OUT`.** On our data (table above) three of four such datasets never were. At
-alpha 0.25: FN 0.67 / FP 0.58 not rooted on `OUT`, against 0.32 / 0.32 rooted. k = 0, the
-two default-alpha datasets with a kept 4-polytomy: FN 0.419 / FP 0.357; FN 0.422 / FP 0.071.
+**A network not rooted on the dataset's outgroup is not scored:** its row has null rates,
+status `ok` (`handle_network_score.is_rooted_on`: the outgroup is a leaf child of the root).
+Cluster scoring is root-dependent; scored anyway, such networks gave FN 0.67 / FP 0.58,
+against 0.32 / 0.32 rooted on `OUT` (alpha 0.25).
+
+**Limit: a NetCS network with hybrids is often not rooted on `OUT`, so has no score.** On
+our data (table above) three of four such datasets never were. Scored so far beyond that:
+k = 0, the two default-alpha datasets with a kept 4-polytomy (FN 0.419 / FP 0.357;
+FN 0.422 / FP 0.071). Analyses must count the null rows.
 
 ## Outputs
 

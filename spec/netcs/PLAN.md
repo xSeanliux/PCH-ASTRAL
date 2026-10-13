@@ -70,8 +70,9 @@ smoke) are in the BROOQS plan. NetCS-specific:
 
 | Decision | Rationale |
 |---|---|
-| Point estimate = the network as NetCS wrote it, rooted on the outgroup or not; no family CSV | One network per run: only the point estimate is scored (as BROOQS). Networks NetCS rerooted scored worse (above). |
-| No rooting check, no reroot code | NetCS exits 0 either way; it did the rooting or nobody does. |
+| Point estimate = the network as NetCS wrote it, rooted on the outgroup or not; no family CSV | One network per run: only the point estimate is scored (as BROOQS). |
+| A network not rooted on the dataset's outgroup gets null rates, status `ok` (`network-score`, every method) | Cluster scoring is root-dependent; rerooted networks scored worse (above). |
+| No reroot code | NetCS did the rooting or nobody does. |
 | Unresolved 4-blobs are recorded as written | They show up as FN. |
 | Accept non-determinism; state it in the method doc | No seed flag. Repeat-and-vote is analysis. |
 | No dependency on the SNaQ/Julia install | Rerooting with `rootatnode!` is not needed. |
@@ -102,7 +103,7 @@ Touches the same registry lines as BROOQS; the second to merge rebases.
 | `scripts/lib/experiment.py` | `NetcsConfig(RunnableConfig)`, one runner; `MethodConfig.netcs`; `get_enabled_configs` |
 | `scripts/lib/inference/method_config.py`, `runners/__init__.py` | Registry entries, after `TOB_QMC` |
 | `scripts/lib/inference/runners/netcs.py` | `NetcsRunner`: `get_dependencies() -> [TOB_QMC]`; `build_argv` as `TobQmcRunner`; point-estimate and log paths |
-| `scripts/py/cli/handle_network_score.py` | `read_families`: a run without a family is scored on its point estimate (same change as the BROOQS PR) |
+| `scripts/py/cli/handle_network_score.py` | `read_families`: a run without a family is scored on its point estimate (same change as the BROOQS PR); `is_rooted_on` and the null-score rule |
 | `scripts/sh/runNETCS.sh` | Arguments as `runTOBQMC.sh`; steps as the diagram. `rm -f` a stale `.net` first. |
 | `scripts/sh/installs/install_w_tree_qmc.sh` | Header comment: the build also provides NetCS |
 | `experiments/netcs_smoke/` | `tob_qmc_smoke` plus `outgroup_label: OUT`, `tob_qmc: {}`, `netcs: {}` |
@@ -114,7 +115,8 @@ SLURM tier: light.
 Smoke checks, in order:
 1. Count runs where the outgroup is not a child of the root; log line says "not valid".
 2. `edges_added` equals the count of degree-≥ 5 blobs in the matching tree of blobs.
-3. `network_scores.csv` has an `ok` row for every NetCS run, `guide_tree` null.
+3. `network_scores.csv` has an `ok` row for every NetCS run, `guide_tree` null; rates are
+   null exactly for the runs counted in check 1.
 4. Record how many datasets gave k = 0, and how many had only blobs of degree < 5.
 
 If check 4 says every dataset is k = 0: merge anyway (settled), report the counts on #58.
@@ -126,8 +128,8 @@ Breaks 1–11 in `spec/brooqs/PLAN.md` apply. NetCS adds:
 12. **A "network" may keep polytomies.** Blobs of degree < 5 are unresolved, so the output
     is neither binary nor a full level-1 network. CmpNets scores it (checked once
     renumbered); nothing in the schema says a row is partly resolved.
-13. **A score does not say where the network is rooted.** NetCS may reroot off the
-    outgroup; the network is scored as written and scores worse, and no column marks it.
+13. **`ok` with null rates = not rooted on the outgroup.** NetCS may reroot; the row is
+    visible but unscored. Analyses must count these rows or they vanish.
 14. **Run-to-run differences are invisible** (break 10, concrete here): NetCS's hybrid and
     its root vary per run on the same input; resume keeps the first success. Whether a
     network is rooted on the outgroup is mostly per dataset, sometimes per run.

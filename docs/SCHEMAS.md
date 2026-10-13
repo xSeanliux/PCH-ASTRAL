@@ -116,7 +116,7 @@ SNaQ only: it fits unrooted quartet CFs, so its networks are semi-directed (root
 3. Its newick is `.net`: that network rerooted on the outgroup. None: no `.net`, empty `point_estimate_newick`, run still `ok`.
 4. CmpNets scores `.net` against the true network.
 
-NetCS only: no family. Its `.net` is scored as written: NetCS may reroot it off the outgroup, and it may keep polytomies (blobs of degree < 5).
+NetCS only: no family. Its `.net` is as NetCS wrote it: it may be rerooted off the outgroup (then not scored, see `network_scores`), and it may keep polytomies (blobs of degree < 5).
 
 Trees root on any edge; CAMUS and PhyloNet output rooted networks.
 
@@ -126,6 +126,8 @@ Trees root on any edge; CAMUS and PhyloNet output rooted networks.
 
 PhyloNet `CmpNets -m cluster` of each `is_best` row of each network run's family CSV, lengths and γ stripped and 0-indexed hybrids renumbered, against the reference network. Existing keys are kept, failures and timeouts included, so a slow network is not retried each run.
 
+A network not rooted on its dataset's outgroup (the outgroup is not a leaf child of the root) is not scored: null rates, status `ok`. Cluster scoring is root-dependent. No outgroup: every network is scored.
+
 | Column | Type | Meaning |
 |---|---|---|
 | `dataset_id` | String | As in `inference_registry`. |
@@ -133,7 +135,7 @@ PhyloNet `CmpNets -m cluster` of each `is_best` row of each network run's family
 | `guide_tree` | String | From `method_config_json` (`guide_trees`, one per run) for guided methods (SNaQ: its start tree); null otherwise. Not part of the key. |
 | `config_hash` | String | As in `inference_registry`. |
 | `edges_added` | Int64 | From the family CSV. |
-| `fn_rate` | Float64 | False-negative rate; null unless `ok`. |
-| `fp_rate` | Float64 | False-positive rate; null unless `ok`. |
+| `fn_rate` | Float64 | False-negative rate; null unless `ok`, or if not rooted on the outgroup. |
+| `fp_rate` | Float64 | False-positive rate; null unless `ok`, or if not rooted on the outgroup. |
 | `runtime_seconds` | Float64 | CmpNets wall time. |
 | `status` | String | `ok`, `failed` or `timeout`. |
