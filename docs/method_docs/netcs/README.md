@@ -20,14 +20,13 @@ Facts below were checked by running TREE-QMC `53b15e5` (`spec/netcs/PLAN.md`).
 ## How we run it
 
 ```text
-NetcsRunner.execute                              scripts/lib/inference/runners/netcs.py
+NetcsRunner                                      scripts/lib/inference/runners/netcs.py
 └── runNETCS.sh                                  scripts/sh/runNETCS.sh
     ├── model_graph --input        → OUT         the dataset's outgroup; none: exit 1
-    ├── TOB_QMC/trees/N.tree                     dependency; must start `(OUT,`, else exit 1
+    ├── TOB_QMC/trees/N.tree                     dependency; missing: exit 1
     ├── printQuartets              → quartets    PCH-W; each quartet once per unit of weight
-    └── tree-qmc --network -i quartets --at N.tree -o N.raw.net --override
+    └── tree-qmc --network -i quartets --at N.tree -o N.net --override
                                                  TREE-QMC 53b15e5
-└── netcs_to_family                → N.family.csv, N.net   below
 ```
 
 PCH-W weights are not gene-tree counts; each quartet is repeated per unit of weight.
@@ -59,8 +58,7 @@ Fixed choices, not configurable:
 
 ## Normalising to the network contract
 
-**Point estimate: NetCS's network, only if rooted on the outgroup.** Cluster scoring is
-root-dependent, and NetCS decides the root:
+**Point estimate: `N.net`, the network as NetCS wrote it.** NetCS decides the root:
 
 | `--at` tree rooted on | Log | Output |
 |---|---|---|
@@ -68,13 +66,8 @@ root-dependent, and NetCS decides the root:
 | a taxon below a hybrid | "not valid … Perform rerooting on the edge above taxon X" | Rooted elsewhere, a unary node left behind. Exit 0. |
 | any, plus `--root <taxon>` | "Rooting species tree at …" | Segfault, exit 139, no file. |
 
-1. `runNETCS.sh` requires the tree of blobs rooted on the outgroup and removes stale
-   outputs (`N.net`, `N.raw.net`, `N.family.csv`).
-2. `is_rooted_on`: the outgroup is a leaf child of the output's root. A unary `(OUT)` node
-   is not.
-3. Rooted: `N.net` is a copy of `N.raw.net`.
-4. Not rooted: no `N.net`, the family row has `is_best` false, nothing is scored. The run is
-   still `ok` (`Runner.is_point_estimate_optional`). No reroot code.
+When NetCS reroots off the outgroup the network is still recorded and scored as written;
+such networks scored worse in our trials (below). No reroot code, no rooting check.
 
 **Not deterministic.** NetCS's hybrid varies per run, and with it whether the input root is
 valid. Repeat runs on one input (trees of blobs at TOB-QMC alpha 0.25, the only ones with
@@ -86,33 +79,27 @@ blobs of degree ≥ 5):
 | `sim_2_1_1` (fixture) | 32 | 0 | 6 in 30 |
 | two new datasets, real pipeline (k = 1, k = 2) | 10 | 0 | 9 roots |
 
-So the verdict is mostly per dataset, not a coin flip; resume keeps the first success.
+So the root is mostly per dataset, not a coin flip; resume keeps the first success.
 
-**Group estimate: `N.family.csv`, one row.**
-
-| Column | Value |
-|---|---|
-| `edges_added` | distinct `#H<n>` labels in the newick; 0 for a tree |
-| `network_newick` | `N.raw.net`'s line, as NetCS wrote it |
-| `is_best` | the outgroup is a leaf child of the root |
+**Group estimate: none.** `network-score` scores the point estimate; `edges_added` = its
+distinct `#H<n>` labels, 0 for a tree.
 
 Rejected alternatives:
 - Rerooting ourselves: a root below a hybrid is invalid; NetCS did the rooting or nobody does.
-- Scoring the arbitrary root (alpha 0.25): FN 0.67 / FP 0.58, against 0.32 / 0.32 rooted
-  on `OUT`.
+- Dropping networks not rooted on `OUT`: a method with one network is scored on it.
 - Repeat-and-vote over runs: analysis, not inference.
 
 ## Scoring
 
-`network-score` reads the `is_best` row, strips annotations and renumbers NetCS's 0-indexed
+`network-score` reads the point estimate, strips annotations and renumbers NetCS's 0-indexed
 hybrids (`score_network`; CmpNets rejects `#H0`), then runs PhyloNet `CmpNets -m cluster`
 against the true network. Tree scoring (RF) skips NetCS. `guide_tree` in
 `network_scores.csv` is null. Unresolved blobs (degree < 5) are scored as written.
 
-**Limit: a NetCS network with hybrids often has no point estimate, so no score row.** On our
-data (table above) three of four such datasets were never rooted on `OUT`. Scored so far:
-k = 0 only, e.g. the two default-alpha datasets with a kept 4-polytomy (FN 0.419 / FP 0.357;
-FN 0.422 / FP 0.071). Analyses must count the unscored rows.
+**Limit: cluster scoring is root-dependent, and a NetCS network with hybrids is often not
+rooted on `OUT`.** On our data (table above) three of four such datasets never were. At
+alpha 0.25: FN 0.67 / FP 0.58 not rooted on `OUT`, against 0.32 / 0.32 rooted. k = 0, the
+two default-alpha datasets with a kept 4-polytomy: FN 0.419 / FP 0.357; FN 0.422 / FP 0.071.
 
 ## Outputs
 
@@ -120,9 +107,7 @@ FN 0.422 / FP 0.071). Analyses must count the unscored rows.
 
 | File | Writer | Content |
 |---|---|---|
-| `N.raw.net` | `tree-qmc` | the network as NetCS wrote it |
-| `N.family.csv` | `NetcsRunner.execute` | group estimate |
-| `N.net` | `NetcsRunner.execute` | point estimate: copy of `N.raw.net`; absent if not rooted on the outgroup |
+| `N.net` | `tree-qmc` | point estimate: the network as NetCS wrote it |
 
 The run log is at `<cond>/NETCS/logs/N.log`; it holds NetCS's rooting verdict.
 

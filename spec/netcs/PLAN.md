@@ -51,16 +51,15 @@ On our data (simulated datasets with `OUT`, trees of blobs rooted on `OUT`):
 - Default alpha, 4 fixture datasets: every tree of blobs is binary; NetCS echoes it, rooted
   on `OUT`, k = 0.
 - Default alpha, 2 new datasets through the real pipeline: each tree of blobs has one
-  degree-4 polytomy; NetCS keeps it, k = 0, rooted on `OUT`, `is_best` true, scored
+  degree-4 polytomy; NetCS keeps it, k = 0, rooted on `OUT`, scored
   (FN 0.419 / FP 0.357; FN 0.422 / FP 0.071).
 - Alpha 0.25 (blobs of degree 4–10): 2 of 4 first runs put `OUT` below a hybrid and
   rerooted elsewhere, leaving a unary `(OUT)` node.
-- **The verdict varies per run, but mostly per dataset.** NetCS's choice of hybrid varies,
+- **The root varies per run, but mostly per dataset.** NetCS's choice of hybrid varies,
   and with it whether the input root is valid. Alpha 0.25, repeat `api.infer` runs:
   `sim_1_1_1` rooted on `OUT` 35 times, rerooted once; `sim_2_1_1` rooted 0 of 32
   (6 distinct outputs in 30). Two new datasets through the real pipeline (k = 1, k = 2, as
-  expected): rerooted in 10 of 10 runs, 9 distinct roots, so no network with a hybrid was
-  scored there.
+  expected): rerooted in 10 of 10 runs, 9 distinct roots.
 - Scored once renumbered: rooted on `OUT` FN 0.32 / FP 0.32; not rooted FN 0.67 / FP 0.58.
 
 ## Settled decisions
@@ -71,8 +70,8 @@ smoke) are in the BROOQS plan. NetCS-specific:
 
 | Decision | Rationale |
 |---|---|
-| Point estimate only when the output is rooted on the outgroup; else none, and the family row has `is_best` false | SNaQ's rule for a network inconsistent with the outgroup. Cluster scoring is root-dependent; an arbitrary root would score noise. |
-| The check is ours, in Python, on the output Newick | NetCS exits 0 either way. No reroot code: NetCS did the rooting or nobody does. |
+| Point estimate = the network as NetCS wrote it, rooted on the outgroup or not; no family CSV | One network per run: only the point estimate is scored (as BROOQS). Networks NetCS rerooted scored worse (above). |
+| No rooting check, no reroot code | NetCS exits 0 either way; it did the rooting or nobody does. |
 | Unresolved 4-blobs are recorded as written | They show up as FN. |
 | Accept non-determinism; state it in the method doc | No seed flag. Repeat-and-vote is analysis. |
 | No dependency on the SNaQ/Julia install | Rerooting with `rootatnode!` is not needed. |
@@ -83,18 +82,14 @@ smoke) are in the BROOQS plan. NetCS-specific:
 dataset.csv
  ├─ scripts.py.model_graph            → outgroup label (none → exit 1)
  ├─ scripts.py.printQuartets          → $PCH_SCRATCH/tmp_quartet_<runid>.txt
- ├─ <cond>/TOB_QMC/trees/<stem>.tree  (dependency; must be rooted on the outgroup, else exit 1)
- └─ bin/tree-qmc --network -i <quartets> --at <tob> -o <raw> --override
-      → <cond>/NETCS/networks/<name>.raw.net      as NetCS wrote it
-      → <cond>/NETCS/networks/<name>.family.csv   NetcsRunner.execute; one row
-      → <cond>/NETCS/networks/<name>.net          copy of raw, only if rooted on the outgroup
+ ├─ <cond>/TOB_QMC/trees/<stem>.tree  (dependency; missing → exit 1)
+ └─ bin/tree-qmc --network -i <quartets> --at <tob> -o <net> --override
+      → <cond>/NETCS/networks/<name>.net          as NetCS wrote it
       → <cond>/NETCS/logs/<name>.log
 ```
 
-Family row: `edges_added` = distinct `#H<n>` labels, `network_newick` = the raw line,
-`is_best` = "the outgroup is a child of the root". `is_point_estimate_optional = True`
-(as `SnaqRunner`): the run is `ok` on the family alone. Rows with `is_best` false are not
-scored (`handle_network_score.read_families`).
+No family CSV: `handle_network_score.read_families` scores the point estimate, with
+`edges_added` = its distinct `#H<n>` labels.
 
 ## PR D — NetCS
 
@@ -106,19 +101,20 @@ Touches the same registry lines as BROOQS; the second to merge rebases.
 | `scripts/lib/model/methods.py` | `NetworkInferenceMethod.NETCS = "netcs"` |
 | `scripts/lib/experiment.py` | `NetcsConfig(RunnableConfig)`, one runner; `MethodConfig.netcs`; `get_enabled_configs` |
 | `scripts/lib/inference/method_config.py`, `runners/__init__.py` | Registry entries, after `TOB_QMC` |
-| `scripts/lib/inference/runners/netcs.py` | `NetcsRunner`: `get_dependencies() -> [TOB_QMC]`; `build_argv` as `TobQmcRunner`; `execute` reads the outgroup (`ModelGraph.from_dataset`), writes the family via `netcs_to_family(raw_path, outgroup_label)` and copies raw → `.net` when rooted; `is_point_estimate_optional = True` |
+| `scripts/lib/inference/runners/netcs.py` | `NetcsRunner`: `get_dependencies() -> [TOB_QMC]`; `build_argv` as `TobQmcRunner`; point-estimate and log paths |
+| `scripts/py/cli/handle_network_score.py` | `read_families`: a run without a family is scored on its point estimate (same change as the BROOQS PR) |
 | `scripts/sh/runNETCS.sh` | Arguments as `runTOBQMC.sh`; steps as the diagram. `rm -f` a stale `.net` first. |
 | `scripts/sh/installs/install_w_tree_qmc.sh` | Header comment: the build also provides NetCS |
 | `experiments/netcs_smoke/` | `tob_qmc_smoke` plus `outgroup_label: OUT`, `tob_qmc: {}`, `netcs: {}` |
-| `tests/scripts/lib/inference/test_netcs_runner.py` | One runner from `{}`, dependency, argv, `api.infer` with a stubbed command; family from: rooted 1-hybrid network (best, `.net` written), network rooted elsewhere (not best, no `.net`, run still `ok`), plain tree (k = 0) |
-| Docs | `docs/method_docs/netcs/README.md` from `TEMPLATE.md` (rooting table above, non-determinism, degree ≥ 5); rows in `SCRIPT_CONTRACTS.md`, `ARCHITECTURE.md`, `KEYS.md`, `SCHEMAS.md` (`is_best` for NetCS), `CLI.md` |
+| `tests/scripts/lib/inference/test_netcs_runner.py` | One runner from `{}`, dependency, argv, `api.infer` with a stubbed command: rooted 1-hybrid network, network rooted elsewhere, plain tree (k = 0) are all `ok`, point estimate as written, no family |
+| Docs | `docs/method_docs/netcs/README.md` from `TEMPLATE.md` (rooting table above, non-determinism, degree ≥ 5); rows in `SCRIPT_CONTRACTS.md`, `ARCHITECTURE.md`, `KEYS.md`, `SCHEMAS.md`, `CLI.md` |
 
 SLURM tier: light.
 
 Smoke checks, in order:
 1. Count runs where the outgroup is not a child of the root; log line says "not valid".
 2. `edges_added` equals the count of degree-≥ 5 blobs in the matching tree of blobs.
-3. `network_scores.csv` has an `ok` row for every `is_best` network, `guide_tree` null.
+3. `network_scores.csv` has an `ok` row for every NetCS run, `guide_tree` null.
 4. Record how many datasets gave k = 0, and how many had only blobs of degree < 5.
 
 If check 4 says every dataset is k = 0: merge anyway (settled), report the counts on #58.
@@ -130,18 +126,17 @@ Breaks 1–11 in `spec/brooqs/PLAN.md` apply. NetCS adds:
 12. **A "network" may keep polytomies.** Blobs of degree < 5 are unresolved, so the output
     is neither binary nor a full level-1 network. CmpNets scores it (checked once
     renumbered); nothing in the schema says a row is partly resolved.
-13. **No point estimate ≠ failure, and is decided by rooting, not by the method.** The `ok`
-    rule passes on the family alone; the row's network is on disk but unscored. Analyses
-    must count these rows or they vanish.
-14. **Run-to-run differences are invisible** (break 10, concrete here): NetCS's hybrid, its
-    root, and so `is_best` vary per run on the same input; resume keeps the first success.
-    Whether a dataset has a scored NetCS network is mostly per dataset, sometimes per run.
-15. **`tob_qmc`'s root now carries meaning for NetCS** (it decides rooted vs not), yet it is
+13. **A score does not say where the network is rooted.** NetCS may reroot off the
+    outgroup; the network is scored as written and scores worse, and no column marks it.
+14. **Run-to-run differences are invisible** (break 10, concrete here): NetCS's hybrid and
+    its root vary per run on the same input; resume keeps the first success. Whether a
+    network is rooted on the outgroup is mostly per dataset, sometimes per run.
+15. **`tob_qmc`'s root now carries meaning for NetCS** (NetCS keeps it when valid), yet it is
     not part of any config or hash (break 5).
 
 ## Follow-ups, not in this PR
 
-- File `spec/netcs/upstream-root-issue.md` upstream; a working `--root` makes the
-  rooted-on-outgroup check and `is_best` false rows unnecessary.
+- File `spec/netcs/upstream-root-issue.md` upstream; a working `--root` would root
+  every network on the outgroup.
 - Read the paper body for its alpha/beta and degree-< 5 treatment; fill the method doc's
   "Versus the paper".

@@ -95,15 +95,17 @@ Join to the registry on the three key columns.
 
 ## Network family CSV
 
-`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's `Runner.execute` (`CamusRunner` via `camus_to_family`, `SnaqRunner` via `snaq_to_family`, `NetcsRunner` via `netcs_to_family`) · `NETWORK_FAMILY_SCHEMA` · one row per network
+`<cond>/<METHOD>/networks/<name>.family.csv` · writer the method's `Runner.execute` (`CamusRunner` via `camus_to_family`, `SnaqRunner` via `snaq_to_family`) · `NETWORK_FAMILY_SCHEMA` · one row per network
 
 A network run's `group_estimate_path`. The tool's raw output stays beside it.
+
+A network method with no family (NetCS) is scored on its point estimate: one `is_best` row, `edges_added` = its distinct `#H<n>` labels.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `edges_added` | Int64 | Reticulation edges in the network. |
 | `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring, which also renumbers 0-indexed hybrids. |
-| `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: at most one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik` consistent with the outgroup, or none (see below); NetCS: its one row, if rooted on the outgroup. |
+| `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: at most one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik` consistent with the outgroup, or none (see below). |
 
 Method-specific columns may follow: CAMUS `quartet_satisfied_percent`; SNaQ `neg_loglik`.
 
@@ -114,7 +116,7 @@ SNaQ only: it fits unrooted quartet CFs, so its networks are semi-directed (root
 3. Its newick is `.net`: that network rerooted on the outgroup. None: no `.net`, empty `point_estimate_newick`, run still `ok`.
 4. CmpNets scores `.net` against the true network.
 
-NetCS only: one row per run. NetCS exits 0 whether or not it keeps the tree of blobs' outgroup root, so `is_best` is our check that the outgroup is a leaf child of the root (`is_rooted_on`). False: no `.net`, empty `point_estimate_newick`, run still `ok`, nothing scored. Its newick may keep polytomies (blobs of degree < 5).
+NetCS only: no family. Its `.net` is scored as written: NetCS may reroot it off the outgroup, and it may keep polytomies (blobs of degree < 5).
 
 Trees root on any edge; CAMUS and PhyloNet output rooted networks.
 
