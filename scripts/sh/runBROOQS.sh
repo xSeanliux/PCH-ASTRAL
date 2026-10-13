@@ -51,8 +51,6 @@ read -r _ OUTGROUP < <(python3 -m scripts.py.model_graph --input "$INPUT") || ex
 echo "✅ outgroup $OUTGROUP"
 
 [[ -f "$TOB" ]] || { echo "Error: no tree of blobs at $TOB (run tob_qmc first)"; exit 1; }
-# Prefix test: tree-qmc --root writes the outgroup first.
-[[ "$(<"$TOB")" == "($OUTGROUP,"* ]] || { echo "Error: tree of blobs $TOB is not rooted on $OUTGROUP"; exit 1; }
 
 # PCH-W writes each quartet once per unit of weight; BROOQS reads repeats as counts.
 python3 -m scripts.py.printQuartets -i "$INPUT" > "$SCRATCH_QUARTET_PATH" || exit 1

@@ -23,7 +23,7 @@ Deterministic and single-threaded at our flags: identical across runs.
 BrooqsRunner                                    scripts/lib/inference/runners/brooqs.py
 └── runBROOQS.sh                                scripts/sh/runBROOQS.sh
     ├── model_graph --input         → outgroup  the dataset's model graph
-    ├── <cond>/TOB_QMC/trees/N.tree             tree of blobs from `tob_qmc`; must be rooted on the outgroup
+    ├── <cond>/TOB_QMC/trees/N.tree             tree of blobs from `tob_qmc`, rooted on the outgroup
     ├── printQuartets               → quartets  PCH-W; each quartet once per unit of weight
     └── python3 -m count_quartets -i quartets -t tree -o N.net --rooted
                                                 BROOQS 17b25b2, pinned in `pyproject.toml`/`uv.lock`; `make setup` installs it
@@ -38,9 +38,9 @@ The run fails (exit 1, message in the log) when:
 |---|---|
 | `BROOQS needs an outgroup (simulation.outgroup_label)` | the dataset's model graph has no outgroup |
 | `no tree of blobs at … (run tob_qmc first)` | `tob_qmc` has not run in this output dir |
-| `tree of blobs … is not rooted on <outgroup>` | `tob_qmc` output from before it rooted on the outgroup (`docs/MIGRATIONS.md`); delete its registry rows and rerun `tob_qmc` |
 
-The rooting check is a prefix test: the tree must start `(<outgroup>,`.
+The tree's rooting is not checked: a `tob_qmc` tree from before it rooted on the outgroup
+gives a network rooted elsewhere. Drop those rows first (`docs/MIGRATIONS.md`).
 
 ## Configuration
 

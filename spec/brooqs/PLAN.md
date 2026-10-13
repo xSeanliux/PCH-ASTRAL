@@ -71,7 +71,7 @@ Rooting changes the score (investigator's subagent, alpha-0.25 tree, `t1` as out
 dataset.csv
  ├─ scripts.py.model_graph            → outgroup label (none → exit 1)
  ├─ scripts.py.printQuartets          → $PCH_SCRATCH/tmp_quartet_<runid>.txt
- ├─ <cond>/TOB_QMC/trees/<stem>.tree  (dependency; must be rooted on the outgroup, else exit 1)
+ ├─ <cond>/TOB_QMC/trees/<stem>.tree  (dependency, rooted on the outgroup; missing → exit 1)
  └─ python3 -m count_quartets -i <quartets> -t <tob> -o <net> --rooted
       → <cond>/BROOQS/networks/<name>.net          point estimate, as BROOQS wrote it
       → <cond>/BROOQS/logs/<name>.log
@@ -146,7 +146,7 @@ Smoke checks, in order:
    `#H0`. The normalisation lives at scoring (PR A).
 5. **A dependency names a method, not a config or an output version.** The BROOQS
    `config_hash` covers neither TOB-QMC's settings nor PR B's rooting change. Stale unrooted
-   trees keep their registry rows; the wrapper's rooted-on-outgroup guard is the only check.
+   trees keep their registry rows and nothing checks them; `docs/MIGRATIONS.md` says to drop them.
 6. **Two outgroup sources.** `CamusConfig.outgroup_label` duplicates
    `simulation.outgroup_label`; SNaQ, `tob_qmc`, BROOQS and NetCS read the model graph.
    Follow-up PR: CAMUS reads it too. Real (non-simulated) datasets have no model graph, so
