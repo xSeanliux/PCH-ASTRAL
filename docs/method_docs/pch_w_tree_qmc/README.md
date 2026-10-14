@@ -77,8 +77,9 @@ Both are unrooted first; FN and FP rates of nontrivial splits go to `scores.csv`
 can raise FN, not FP. A tree missing taxa fails RFScorer's leaf-count assertion; `handle_score`
 prints "Scoring failed" and skips the row.
 
-Not allowed as a CAMUS guide (`CAMUS_GUIDE_TREES`): it can emit polytomies (1 of 8 smoke
-datasets, `spec/camus/inference.md`). SNaQ accepts it.
+Allowed as a CAMUS guide (`CAMUS_GUIDE_TREES`). It can emit polytomies (1 of 8 smoke
+datasets, `spec/camus/inference.md`); the guide builder resolves them arbitrarily, which
+biases CAMUS there. SNaQ accepts it.
 
 ## Outputs
 
