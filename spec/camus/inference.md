@@ -65,12 +65,12 @@ Measured on `experiments/smoke_test` output (`low_0.1_4_80/sim_0_1_1`):
 | `ga` (MCC) | 3 | 0 | **rejected** (unrooted) |
 | `pch_astral3` | 2 | 0 | accepted |
 | `pch_wastral` | 2 | 0 | accepted |
-| `pch_w_tree_qmc` | 2 | 0 | accepted here, **not allowed** |
+| `pch_w_tree_qmc` | 2 | 0 | accepted here; allowed |
 | `true_tree` (base tree) | 2 | 0 | accepted |
 
 Over all 8 smoke datasets, `pch_astral3` and `pch_wastral` are binary every time; `pch_w_tree_qmc`
-has 2 polytomies in one (`low_0.1_4_80/sim_0_1_4`), which CAMUS would reject. So
-`pch_w_tree_qmc` is not an allowed guide for now.
+has 2 polytomies in one (`low_0.1_4_80/sim_0_1_4`), which CAMUS would reject; the guide
+builder resolves them arbitrarily first.
 
 `mp` fails structurally, not by luck: its point estimate is a **majority
 consensus** (`consensus(trees, p=0.5, rooted=FALSE)` in `scripts/R/consensusTree.R`),
@@ -86,7 +86,8 @@ the uncertain regions.
 
 **Decisions taken:**
 
-- `mp`, `ga` and `pch_w_tree_qmc` are **not** allowed guides. `SUPPORTED_GUIDE_TREES` in
+- `mp` and `ga` are **not** allowed guides. `pch_w_tree_qmc` is allowed since
+  2026-10-13: its rare polytomy is auto-resolved, at the cost above. `SUPPORTED_GUIDE_TREES` in
   `scripts/lib/model/guide_tree.py` is the allow-list; a
   `CamusConfig` field validator rejects them at config load with the reason.
 - Rooting for the PCH methods (`pch_astral3`, `pch_wastral`) will be solved

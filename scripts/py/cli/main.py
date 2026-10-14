@@ -128,6 +128,7 @@ def inference(
     method: str | None = typer.Option(None, "--method"),
     resubmits: int = typer.Option(3, "--resubmits"),
     astral_mem_gb: int | None = typer.Option(None, "--astral-mem-gb"),
+    chunk_size: int | None = typer.Option(None, "--chunk-size", min=1),
     dry_run: bool = typer.Option(False, "--dry-run/--no-dry-run"),
 ):
     """Run enabled methods over the sim registry. `--executor slurm` fans out one
@@ -169,6 +170,7 @@ def inference(
         datasets=datasets,
         resubmits=resubmits,
         astral_mem_gb=astral_mem_gb,
+        chunk_size=chunk_size,
         dry_run=dry_run,
     )
     if not dry_run:

@@ -120,6 +120,25 @@ def test_dry_run_writes_batches_without_submitting(tmp_path: Path):
     assert not (tmp_path / "inference_data" / "submitit").exists()
 
 
+def test_chunk_size_splits_conditions(tmp_path: Path):
+    ex = SlurmExecutor(_config(tmp_path))
+    plan = ex.fan_out(_rows(), chunk_size=1, dry_run=True)
+
+    # 2 conditions x 2 chunks x 3 methods, deps inside the chunk.
+    assert len(_batch(plan)) == 12
+    a3 = next(s for s in plan if s.label == "pch_astral3@netA.part1")
+    assert set(a3.dep_labels) == {"mp@netA.part1", "ga@netA.part1"}
+    batches = tmp_path / "inference_data" / "batches"
+    assert (batches / "netA.part1.txt").read_text().splitlines() == [
+        "exp/simulation_data/netA/d2.csv"
+    ]
+
+
+def test_chunk_size_keeps_a_condition_that_fits(tmp_path: Path):
+    plan = SlurmExecutor(_config(tmp_path)).fan_out(_rows(), chunk_size=2, dry_run=True)
+    assert {s.condition for s in _batch(plan)} == {"netA", "netB"}
+
+
 def test_method_restricts_plan(tmp_path: Path):
     plan = _plan(tmp_path, method="pch_astral3", astral_mem_gb=None)
     batch = _batch(plan)

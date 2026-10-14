@@ -148,6 +148,21 @@ class SlurmExecutor:
             conditions.setdefault(name, []).append(p)
         return conditions
 
+    def _chunk(
+        self, conditions: Mapping[str, list[Path]], chunk_size: int
+    ) -> dict[str, list[Path]]:
+        """Split each condition into `<condition>.part<k>` batches of at most
+        `chunk_size` datasets, so a slow method fits the walltime cap. A condition
+        that already fits keeps its name."""
+        chunks: dict[str, list[Path]] = {}
+        for condition, paths in conditions.items():
+            if len(paths) <= chunk_size:
+                chunks[condition] = paths
+                continue
+            for k, start in enumerate(range(0, len(paths), chunk_size)):
+                chunks[f"{condition}.part{k}"] = paths[start : start + chunk_size]
+        return chunks
+
     def _plan(
         self,
         conditions: Mapping[str, list[Path]],
@@ -242,11 +257,13 @@ class SlurmExecutor:
         datasets: Path | None = None,
         resubmits: int = 3,
         astral_mem_gb: int | None = None,
+        chunk_size: int | None = None,
         dry_run: bool = False,
     ) -> list[JobSpec] | list[Job[None]]:
         """Filter rows (`datasets` paths file), write per-condition batch files,
         plan the DAG (`method` restricts to one enabled method), then print it
-        (dry_run) or submit it. Returns the plan (dry_run) or the submitit Jobs."""
+        (dry_run) or submit it. `chunk_size` caps the datasets per job. Returns the
+        plan (dry_run) or the submitit Jobs."""
         rows = list(rows)
         if datasets is not None:
             wanted = {
@@ -259,6 +276,8 @@ class SlurmExecutor:
             ]
 
         conditions = self._group_conditions(rows)  # group once, reuse
+        if chunk_size is not None:
+            conditions = self._chunk(conditions, chunk_size)
         self._write_batches(conditions)
         plan = self._plan(conditions, method=method, astral_mem_gb=astral_mem_gb)
 

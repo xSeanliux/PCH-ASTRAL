@@ -48,7 +48,7 @@ Reads `{experiment_folder}/simulation_data/simulated_data_registry.csv`, runs th
 
 ```bash
 pch experiment inference EXPERIMENT.yaml [--executor local|slurm] [--datasets FILE] [--method M] \
-    [--dry-run] [--resubmits K] [--astral-mem-gb N]
+    [--dry-run] [--resubmits K] [--astral-mem-gb N] [--chunk-size N]
 ```
 - `--executor local` (default) — run every enabled method in-process (today's behavior).
 - `--datasets FILE` — text file of dataset paths (one per line); restrict the run to those datasets (matched by canonical path). Default = all sim rows.
@@ -58,6 +58,7 @@ pch experiment inference EXPERIMENT.yaml [--executor local|slurm] [--datasets FI
 Fans the work out as **one submitit job per (condition, method)** (condition = the dataset's parent-dir name, as in `run_parallel_sim.sh`). Method dependencies become `afterok` edges within a condition (MP4/GA → ASTRAL3); a final **compact** job depends `afterany` on all method jobs and merges the shards into the registry + manifest. Batch jobs write only per-job JSONL shards; only the compact job compacts — so concurrent jobs never race the manifest.
 - **Requeue-on-timeout** absorbs the `secondary` queue's 4 h cap (`slurm_max_num_timeout=--resubmits`, default 3): a timed-out job auto-requeues, and idempotent `get_completed_runs` makes the rerun safe (finished datasets are skipped).
 - **Two resource tiers**, not a per-method map: ASTRAL3 is `heavy` (big `mem_gb`/heap; override with `--astral-mem-gb N`), MP4/GA are `light`. Each job exports a short **node-local** scratch (`PCH_SCRATCH=/tmp/pch.$SLURM_JOB_ID`, dodging MrBayes' 99-char cap) and `PCH_ASTRAL_XMX` from its `mem_gb`.
+- `--chunk-size N` splits each condition into `<condition>.part<k>` batches of at most `N` datasets, one job per (batch, method), dependencies within a batch. Use it when a method cannot clear a condition in 4 h (TOB-QMC: ~15 min per dataset at 320 chars).
 - `--dry-run` prints the (condition, method) DAG + tiers + `afterok`/`afterany` edges and submits nothing (works without `sbatch`). Without `--dry-run`, a missing `sbatch` errors (no silent local fallback — use `--executor local` for that).
 
 ### `pch experiment score EXPERIMENT.yaml`

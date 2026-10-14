@@ -15,10 +15,16 @@ SNAQ_GUIDE_TREES: Final[frozenset[GuideTree]] = GUIDE_TREES - {
     TreeInferenceMethod.TOB_QMC
 }
 
-# Rooted binary only. mp is a majority consensus (polytomies), ga is unrooted,
-# TREE-QMC can emit polytomies; CAMUS rejects all three.
+# Rooted binary only. mp is a majority consensus (polytomies) and ga is unrooted;
+# CAMUS rejects both. TREE-QMC's rare polytomy is resolved arbitrarily
+# (`scripts/py/guide_tree.py`).
 CAMUS_GUIDE_TREES: Final[frozenset[GuideTree]] = frozenset(
-    {TreeInferenceMethod.PCH_ASTRAL3, TreeInferenceMethod.PCH_WASTRAL, TRUE_TREE}
+    {
+        TreeInferenceMethod.PCH_ASTRAL3,
+        TreeInferenceMethod.PCH_WASTRAL,
+        TreeInferenceMethod.PCH_W_TREE_QMC,
+        TRUE_TREE,
+    }
 )
 
 

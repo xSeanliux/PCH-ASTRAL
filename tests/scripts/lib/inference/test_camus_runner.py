@@ -22,25 +22,25 @@ def _config(*guides: GuideTree) -> CamusConfig:
 
 @pytest.mark.parametrize(
     "guide",
-    [
-        TreeInferenceMethod.MP,
-        TreeInferenceMethod.GA,
-        TreeInferenceMethod.PCH_W_TREE_QMC,
-    ],
+    [TreeInferenceMethod.MP, TreeInferenceMethod.GA],
 )
 def test_unsupported_guides_are_rejected(guide: GuideTree):
     # CAMUS refuses a non-binary/unrooted guide tree: mp is a majority consensus
-    # (polytomies), ga is unrooted, and TREE-QMC can emit polytomies. Fail at
-    # config load, not mid-run.
+    # (polytomies) and ga is unrooted. Fail at config load, not mid-run.
     assert guide not in CAMUS_GUIDE_TREES
     with pytest.raises(ValidationError, match="unsupported guide tree"):
         _config(guide)
 
 
-@pytest.mark.parametrize("guide", ["mp", "ga", "pch_w_tree_qmc"])
+@pytest.mark.parametrize("guide", ["mp", "ga"])
 def test_unsupported_guides_are_rejected_from_yaml(guide: str):
     with pytest.raises(ValidationError, match="unsupported guide tree"):
         CamusConfig.model_validate({"guide_trees": [guide], "outgroup_label": "OUT"})
+
+
+def test_tree_qmc_guide_is_accepted():
+    # Its rare polytomy is resolved when the guide is built.
+    assert _config(TreeInferenceMethod.PCH_W_TREE_QMC).get_runners()
 
 
 def test_no_guides_is_rejected():

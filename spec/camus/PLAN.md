@@ -30,8 +30,8 @@ Verified against its Go source and by running `bin/camus`.
 2. **It rejects unrooted or non-binary guide trees** (exit 1, no CSV) and ships no rooting
    or refinement code. `mp` is a majority consensus, so polytomies are what it is for, and
    `ga` is unrooted, and TREE-QMC can emit a polytomy (1 of 8 smoke trees); a config
-   validator rejects `mp`, `ga` and `pch_w_tree_qmc`. `pch_astral3`, `pch_wastral` and `true_tree`
-   are allowed.
+   validator rejects `mp` and `ga`. `pch_astral3`, `pch_wastral`, `true_tree` and
+   (polytomies auto-resolved) `pch_w_tree_qmc` are allowed.
 3. **It drops every quartet the guide tree already displays**, so inventing a resolution
    for a polytomy would suppress conflicting signal where support is weakest. Rooting must
    come from data, hence the outgroup.
