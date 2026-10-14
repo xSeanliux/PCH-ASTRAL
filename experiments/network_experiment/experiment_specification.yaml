@@ -1,0 +1,41 @@
+# Network experiment: 30 taxa + OUT, 0-3 contact events, 16 trees x 2 replicas, 320 chars.
+# BROOQS and NetCS expand the tob_qmc tree of blobs; CAMUS searches from each guide tree.
+experiment_folder: experiments/network_experiment
+simulation:
+  n_taxa: 30
+  outgroup_label: OUT # the tree of blobs and the network are rooted on it
+  n_horizontal_edges:
+    - 0
+    - 1
+    - 2
+    - 3
+  n_trees: 16
+  n_replicas: 2
+  base_config_dir: data/base_configs
+  base_trees_file: data/trees.txt
+  base_networks_dir: data/base_networks
+  simulation_params:
+    - poly: high
+      homoplasy_factor: 0.1
+      tree_height: 2
+      n_chars: 320
+
+methods:
+  # tree methods
+  w_tree_qmc: {}   # default norm_atax=2 (N2)
+  astral_3:
+    is_exact: False
+    bipartition_strategies: []
+  wastral: {}
+  # TOB
+  tob_qmc: {}
+  # network methods
+  brooqs: {}
+  netcs: {}
+  camus:
+    outgroup_label: OUT
+    guide_trees:
+      - pch_astral3
+      - pch_w_tree_qmc # rare polytomies resolved arbitrarily
+      - pch_wastral
+      - true_tree
