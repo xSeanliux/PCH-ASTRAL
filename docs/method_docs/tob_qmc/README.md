@@ -26,7 +26,7 @@ TobQmcRunner (default execute)                  scripts/lib/inference/runners/to
 └── runTOBQMC.sh                                scripts/sh/runTOBQMC.sh
     ├── printQuartets               → quartets  PCH-W; each quartet once per unit of weight
     ├── model_graph                 → outgroup
-    └── tree-qmc --blob [--root <outgroup>] --override
+    └── tree-qmc --blob [--root <outgroup>] --alpha A [--3f1a] -w f --override
                                     → N.tree    TREE-QMC 53b15e5, R-embedded build
 ```
 
@@ -41,17 +41,33 @@ at the defaults).
 
 ```yaml
 methods:
-  tob_qmc: {}   # no fields
+  tob_qmc:
+    alpha: 0.01               # default 1e-7
+    three_fix_one_alter: true # default true
 ```
+
+| Field | Default | Flag | Meaning |
+|---|---|---|---|
+| `alpha` | 1e-7 (TREE-QMC's) | `--alpha` | QTT level: an edge with min p below it becomes a blob. |
+| `three_fix_one_alter` | `true` | `--3f1a` | 3-fix-1-alter min p-value search, the paper's. `false`: TREE-QMC's bipartition search. |
+
+**Lower alpha for PCH-W input.** A test sees only the quartets of one 4-taxon set:
+~20 at 320 characters (a character informs a set only when it splits it 2|2). No p-value
+gets near 1e-7, so every tree of blobs is binary and BROOQS/NetCS add nothing. In
+`network_experiment` (320 chars, 31 taxa) the smallest QTT p was 0.013 at h = 0 and 0.002
+at h = 3; alpha = 0.01 contracts no h = 0 edge.
 
 Fixed choices, not configurable:
 
 | Choice | Value | Why |
 |---|---|---|
-| `--alpha` (QTT level) | 1e-7 | TREE-QMC default |
+| `-w f` | unweighted, fast | Same base tree as `-w n`: PCH-W quartets have no polytomies to refine arbitrarily |
 | `--beta` (QST level) | 0.95 | TREE-QMC default |
-| `--iter_limit_blob` | 2n² | TREE-QMC default |
+| `--iter_limit_blob` | 2n² | TREE-QMC default; bipartition search only |
 | `--root` | the experiment's `outgroup_label`, if any | BROOQS and NetCS need a rooted tree |
+
+One `tob_qmc` config per experiment: every config writes the same `TOB_QMC/trees/N.tree`,
+which BROOQS and NetCS read.
 
 ## Normalising to the tree contract
 
@@ -81,7 +97,8 @@ The run log is at `<cond>/TOB_QMC/logs/N.log`.
 
 ## Versus the TOB-QMC paper
 
-Unverified: the paper's alpha, beta and search settings, and its runtimes.
+Search: the paper uses 3-fix-1-alter (`--3f1a`), our default. Unverified: its alpha,
+beta and runtimes.
 
 ## References
 
