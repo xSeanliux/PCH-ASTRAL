@@ -5,6 +5,8 @@ RUNID=""
 INPUT=""
 TREEOUTPUT=""
 NAME=""
+ALPHA=""
+SEARCH_3F1A=""
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -12,14 +14,20 @@ while [[ "$#" -gt 0 ]]; do
         -i|--input) INPUT="$2"; shift ;;
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
+        -a|--alpha) ALPHA="$2"; shift ;;
+        --3f1a) SEARCH_3F1A="--3f1a" ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name>"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> [-a <alpha>] [--3f1a]"
             echo ""
             echo "Required:"
             echo "  -H, --runid        Run ID"
             echo "  -i, --input        Input characters CSV"
             echo "  -o, --output       Output dir"
             echo "  -n, --name         Run name; names the output files"
+            echo ""
+            echo "Optional:"
+            echo "  -a, --alpha        QTT level; TREE-QMC default 1e-7"
+            echo "  --3f1a             3-fix-1-alter min p-value search (TOB-QMC paper)"
             exit 0
             ;;
         *)
@@ -56,9 +64,10 @@ read -r _ OUTGROUP < <(python3 -m scripts.py.model_graph --input "$INPUT" 2>"$LO
     || echo "Warning: no outgroup, unrooted: $(tail -n 1 "$LOOKUP_ERR")"
 [[ "$OUTGROUP" != none ]] || OUTGROUP=""
 
-# ponytail: TREE-QMC defaults (--alpha 1e-7 --beta 0.95, bipartition search capped
-# at 2n^2 subsets). Needs a TREE-QMC built with R (install_w_tree_qmc.sh does).
-bin/tree-qmc --blob ${OUTGROUP:+--root "$OUTGROUP"} \
+# -w f: unweighted, fast algorithm; same tree as -w n on PCH-W quartets (binary, so
+# nothing to refine arbitrarily). --beta 0.95 and the 2n^2 bipartition-search cap stay
+# at TREE-QMC's defaults. Needs a TREE-QMC built with R (install_w_tree_qmc.sh does).
+bin/tree-qmc --blob ${OUTGROUP:+--root "$OUTGROUP"} ${ALPHA:+--alpha "$ALPHA"} $SEARCH_3F1A -w f \
     -i "$SCRATCH_QUARTET_PATH" \
     -o "$TREEOUTPUT/TOB_QMC/trees/$NAME.tree" \
     --override

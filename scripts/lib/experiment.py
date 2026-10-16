@@ -94,8 +94,13 @@ class GAConfig(RunnableConfig):
 
 
 class TobQmcConfig(RunnableConfig):
-    # ponytail: no knobs; TREE-QMC's alpha (1e-7), beta (0.95) and search limit
-    # (2n^2) apply. Expose them when a sweep needs them.
+    # QTT level: an edge with p below it is contracted into a blob. TREE-QMC's 1e-7
+    # needs hundreds of gene trees per 4-taxon set; PCH-W gives ~20.
+    alpha: float = Field(1e-7, gt=0, lt=1)
+    # Min p-value search per edge: 3-fix-1-alter (the TOB-QMC paper's), or TREE-QMC's
+    # default bipartition search, capped at 2n^2 4-taxon sets. beta stays 0.95.
+    three_fix_one_alter: bool = True
+
     def get_runners(self) -> list[Runner[BaseModel]]:
         """One run."""
         return [TobQmcRunner(config=self)]
