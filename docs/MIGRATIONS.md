@@ -2,6 +2,23 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## TOB-QMC has `alpha` and `three_fix_one_alter`
+
+**Affects:** `tob_qmc` rows, and the BROOQS/NetCS rows built on them. `method_config_json`
+`{}` became `{"alpha":1e-07,"three_fix_one_alter":true}`, so `config_hash` changed and
+resume reruns `tob_qmc`. Old trees used the bipartition search; the new default uses
+`--3f1a`, and every run now passes `-w f`. BROOQS/NetCS hashes did not change, so drop their rows and scores, or they keep
+networks built from the old trees:
+
+```python
+import polars as pl
+
+for name in ("inference_registry", "scores", "network_scores"):
+    p = f"experiments/my_run/inference_data/{name}.csv"
+    df = pl.read_csv(p, infer_schema=False)
+    df.filter(~pl.col("method").is_in(["tob_qmc", "brooqs", "netcs"])).write_csv(p)
+```
+
 ## Quartet order is deterministic
 
 **Affects:** rows of quartet-based methods; TREE-QMC (`tob_qmc`) is order-sensitive. Old rows came from an arbitrary per-process quartet order; quartets are now printed sorted, so reruns may not match them. Hashes did not change; drop those rows and rerun to compare.

@@ -31,6 +31,9 @@ class TobQmcRunner(Runner["TobQmcConfig"]):
             name,
             "--output",
             str(output_dir),
+            "--alpha",
+            str(self.config.alpha),
+            *(["--3f1a"] if self.config.three_fix_one_alter else []),
         ]
 
     @staticmethod

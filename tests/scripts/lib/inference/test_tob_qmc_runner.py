@@ -30,7 +30,29 @@ def test_build_argv(tmp_path: Path):
         "r1", tmp_path / "d.csv", "d", tmp_path
     )
     assert argv[:2] == ["bash", "scripts/sh/runTOBQMC.sh"]
-    assert argv[-2:] == ["--output", str(tmp_path)]
+    assert argv[argv.index("--output") + 1] == str(tmp_path)
+    assert argv[-3:] == ["--alpha", "1e-07", "--3f1a"]
+
+
+def test_alpha_reaches_argv(tmp_path: Path):
+    argv = TobQmcRunner(config=TobQmcConfig(alpha=0.01)).build_argv(
+        "r1", tmp_path / "d.csv", "d", tmp_path
+    )
+    assert argv[-3:] == ["--alpha", "0.01", "--3f1a"]
+
+
+def test_bipartition_search_drops_3f1a(tmp_path: Path):
+    config = TobQmcConfig(three_fix_one_alter=False)
+    argv = TobQmcRunner(config=config).build_argv(
+        "r1", tmp_path / "d.csv", "d", tmp_path
+    )
+    assert "--3f1a" not in argv
+
+
+@pytest.mark.parametrize("alpha", [0, 1, -0.1])
+def test_alpha_outside_unit_interval_rejected(alpha: float):
+    with pytest.raises(ValueError):
+        TobQmcConfig(alpha=alpha)
 
 
 def test_infer_records_tree_of_blobs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
