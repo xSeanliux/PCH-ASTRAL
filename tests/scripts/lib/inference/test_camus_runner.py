@@ -1,4 +1,3 @@
-import shutil
 import subprocess
 from pathlib import Path
 from typing import TextIO
@@ -22,7 +21,8 @@ from scripts.lib.inference.runners.camus import (
     CamusRunner,
     camus_to_family,
 )
-from scripts.lib.inference.scoring import PHYLONET_JAR, ScoreResult, score_network
+from scripts.lib.inference.scoring import ScoreResult, score_network
+from tests.scripts.lib.inference.test_scoring import needs_phylonet
 
 ASTRAL3 = TreeInferenceMethod.PCH_ASTRAL3
 WASTRAL = TreeInferenceMethod.PCH_WASTRAL
@@ -183,10 +183,7 @@ REFERENCE = "((((A,((B)#H2,#H1)),((C)#H1,#H2)),(D,E)),OUT);"
 
 
 @pytest.mark.skipif(not CAMUS_BIN.exists(), reason="needs bin/camus")
-@pytest.mark.skipif(
-    shutil.which("java") is None or not PHYLONET_JAR.exists(),
-    reason="java or bin/PhyloNet.jar missing",
-)
+@needs_phylonet
 def test_bin_camus_bidirectional_writes_two_hybrids_per_event(tmp_path: Path):
     """The pinned fork's `-B` emits each event as two hybrids, scoring 0/0.
 
@@ -195,35 +192,17 @@ def test_bin_camus_bidirectional_writes_two_hybrids_per_event(tmp_path: Path):
     guide, genes = tmp_path / "guide.nwk", tmp_path / "genes.nwk"
     guide.write_text("((((A,B),C),(D,E)),OUT);\n")
     genes.write_text("\n".join(GENE_TREES) + "\n")
-    is_bidirectional_to_newick = {}
-    for is_bidirectional in (False, True):
-        prefix = tmp_path / str(is_bidirectional)  # CAMUS writes <prefix>.csv
-        flags = ["-B"] if is_bidirectional else []
-        subprocess.run(
-            [
-                str(CAMUS_BIN),
-                "-n",
-                "1",
-                *flags,
-                "-o",
-                str(prefix),
-                str(guide),
-                str(genes),
-            ],
-            capture_output=True,
-            check=True,
-        )
-        raw = prefix.with_suffix(".csv")
-        (newick,) = camus_to_family(raw).filter(pl.col("edges_added") == 1)[
-            "network_newick"
-        ]
-        is_bidirectional_to_newick[is_bidirectional] = newick
-    assert (
-        is_bidirectional_to_newick[False].count("#H") == 2
-    )  # one hybrid: node + reference
-    assert (
-        is_bidirectional_to_newick[True].count("#H") == 4
-    )  # two hybrids for one event
-    assert score_network(is_bidirectional_to_newick[True], REFERENCE) == ScoreResult(
-        0.0, 0.0
-    )
+
+    def run(*flags: str) -> str:
+        """:returns: CAMUS's k=1 network; CAMUS writes `<prefix>.csv`."""
+        prefix = tmp_path / ("bi" if flags else "uni")
+        cmd = [CAMUS_BIN, "-n", "1", *flags, "-o", prefix, guide, genes]
+        subprocess.run(cmd, cwd=tmp_path, capture_output=True, check=True)
+        family = camus_to_family(prefix.with_suffix(".csv"))
+        (newick,) = family.filter(pl.col("edges_added") == 1)["network_newick"]
+        return newick
+
+    uni, bi = run(), run("-B")
+    assert uni.count("#H") == 2  # one hybrid: node + reference
+    assert bi.count("#H") == 4  # two hybrids for one event
+    assert score_network(bi, REFERENCE) == ScoreResult(0.0, 0.0)
