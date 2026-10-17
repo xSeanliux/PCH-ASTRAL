@@ -108,7 +108,13 @@ def test_camus_and_camus_bidirectional_runs_are_distinct():
     uni, bi = select_runners(cfg.methods)
     assert [r.method for r in (uni, bi)] == ["camus", "camus_bidirectional"]
     assert uni.get_run_name("d") == "d.true_tree"
-    assert bi.get_run_name("d") == "d.true_tree.bi"
+    assert bi.get_run_name("d") == "d.true_tree"
+    out = Path("o")
+    assert uni.get_log_path(out, "d") != bi.get_log_path(out, "d")
+    assert bi.get_group_estimate_path(out, "d").parts[:2] == (
+        "o",
+        "CAMUS_BIDIRECTIONAL",
+    )
 
 
 def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):

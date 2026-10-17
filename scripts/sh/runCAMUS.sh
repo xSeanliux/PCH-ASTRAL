@@ -1,7 +1,8 @@
 #!/bin/bash
 # CAMUS network inference: PCH-W quartets plus one rooted guide tree in, one
-# network per k out. Writes CAMUS's raw <output>/CAMUS/networks/<name>.csv (also
-# .log, .png); CamusRunner.execute converts it to <name>.family.csv.
+# network per k out. Writes CAMUS's raw <output>/<DIR>/networks/<name>.csv (also
+# .log, .png); DIR is CAMUS, or CAMUS_BIDIRECTIONAL with -B. CamusRunner.execute
+# converts it to <name>.family.csv.
 # Initialize variables with defaults
 RUNID=""
 INPUT=""
@@ -58,8 +59,11 @@ fi
 PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
 mkdir -p "$PCH_SCRATCH"
 
-mkdir -p "$TREEOUTPUT/CAMUS/logs"
-mkdir -p "$TREEOUTPUT/CAMUS/networks"
+# Two methods, two dirs: same run names never collide.
+DIR=CAMUS
+[[ -n "$BIDIRECTIONAL" ]] && DIR=CAMUS_BIDIRECTIONAL
+mkdir -p "$TREEOUTPUT/$DIR/logs"
+mkdir -p "$TREEOUTPUT/$DIR/networks"
 
 SCRATCH_QUARTET_PATH="$PCH_SCRATCH/tmp_quartet_$RUNID.txt"
 SCRATCH_GUIDE_PATH="$PCH_SCRATCH/tmp_guide_$RUNID.tree"
@@ -75,7 +79,7 @@ echo "✅ guide tree ($GUIDE), rooted on $OUTGROUP"
 
 # No -t: CAMUS's default quartet filter applies.
 bin/camus -n "${PCH_CAMUS_PROCS:-1}" $BIDIRECTIONAL \
-    -o "$TREEOUTPUT/CAMUS/networks/$NAME" \
+    -o "$TREEOUTPUT/$DIR/networks/$NAME" \
     "$SCRATCH_GUIDE_PATH" \
     "$SCRATCH_QUARTET_PATH" || exit 1
 echo "✅ CAMUS network inference"

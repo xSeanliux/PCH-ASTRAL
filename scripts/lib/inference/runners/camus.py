@@ -93,12 +93,10 @@ class CamusRunner(GuidedNetworkRunner["CamusConfig"]):
 
 @dataclass(frozen=True)
 class CamusBidirectionalRunner(CamusRunner):
-    """CAMUS with `-B`: each added event is two contact edges, one per direction."""
+    """CAMUS with `-B`: each added event is two contact edges, one per direction.
 
-    @property
-    def suffix(self) -> str:
-        """The guide plus `.bi`: uni runs share `CAMUS/` and the run name."""
-        return f"{self.guide}.bi"
+    A separate method: own `CAMUS_BIDIRECTIONAL/` dir, same run names as CAMUS.
+    """
 
     @property
     def method(self) -> NetworkInferenceMethod:
@@ -112,3 +110,13 @@ class CamusBidirectionalRunner(CamusRunner):
         return super().build_argv(runid, input_csv, name, output_dir) + [
             "--bidirectional"
         ]
+
+    @staticmethod
+    def get_group_estimate_path(output_dir: Path, name: str) -> Path:
+        """:returns: the family CSV under `CAMUS_BIDIRECTIONAL/`."""
+        return output_dir / "CAMUS_BIDIRECTIONAL" / "networks" / f"{name}.family.csv"
+
+    @staticmethod
+    def get_log_path(output_dir: Path, name: str) -> Path:
+        """:returns: the log under `CAMUS_BIDIRECTIONAL/`."""
+        return output_dir / "CAMUS_BIDIRECTIONAL" / "logs" / f"{name}.log"

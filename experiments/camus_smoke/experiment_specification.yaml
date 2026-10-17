@@ -32,7 +32,7 @@ methods:
       - pch_astral3
       - pch_wastral
       - true_tree
-  camus_bidirectional: # CAMUS -B: each event adds edges both ways; runs <stem>.<guide>.bi
+  camus_bidirectional: # CAMUS -B: each event adds edges both ways; outputs CAMUS_BIDIRECTIONAL/
     outgroup_label: OUT
     guide_trees:
       - true_tree

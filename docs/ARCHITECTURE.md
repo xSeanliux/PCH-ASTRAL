@@ -138,7 +138,7 @@ inference_data/
 ├─ manifest.json                       # registry.init/finalize_manifest
 ├─ shards/{job}.jsonl                  # registry.write_result; removed by compact
 ├─ batches/<cond>.txt, spec.snapshot.*.yaml   # SlurmExecutor
-└─ <cond>/<METHOD>/{trees,logs}/       # runner paths; CAMUS/{networks,logs}/
+└─ <cond>/<METHOD>/{trees,logs}/       # runner paths; CAMUS{,_BIDIRECTIONAL}/{networks,logs}/
 ```
 
 ## Invariants
