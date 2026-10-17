@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 from typing import TextIO
 
+import polars as pl
 import pytest
 from pydantic import ValidationError
 
@@ -15,7 +16,13 @@ from scripts.lib.model.methods import (
 )
 from scripts.lib.inference.method_config import METHOD_TO_CONFIG_CLASS, hash_config
 from scripts.lib.inference.runners import METHOD_TO_RUNNER_CLASS
-from scripts.lib.inference.runners.camus import CamusBidirectionalRunner, CamusRunner
+from scripts.lib.inference.scoring import ScoreResult, score_network
+from tests.scripts.lib.inference.test_scoring import needs_phylonet
+from scripts.lib.inference.runners.camus import (
+    CamusBidirectionalRunner,
+    CamusRunner,
+    camus_to_family,
+)
 
 ASTRAL3 = TreeInferenceMethod.PCH_ASTRAL3
 WASTRAL = TreeInferenceMethod.PCH_WASTRAL
@@ -161,3 +168,41 @@ def test_infer_fails_when_no_family_written(
     result = api.infer(tmp_path / "d.csv", tmp_path, runner)
     assert result.status is RunStatus.FAILED
     assert result.group_estimate_path is None
+
+
+CAMUS_BIN = Path(__file__).parents[4] / "bin" / "camus"
+# B and C are sisters in 8 of 20 non-OUT quartets: one B–C contact event.
+GENE_TREES = (
+    ["((A,B),(C,D));"] * 6
+    + ["((A,B),(C,E));"] * 6
+    + ["((B,C),(A,D));"] * 4
+    + ["((B,C),(A,E));"] * 4
+)
+
+
+# The true network: one B–C event as two contact edges (ADR 0001).
+TRUE_NETWORK = "((((A,((B)#H2,#H1)),((C)#H1,#H2)),(D,E)),OUT);"
+
+
+@pytest.mark.skipif(not CAMUS_BIN.exists(), reason="needs bin/camus")
+@needs_phylonet
+def test_bin_camus_bidirectional_recovers_bidirectional_event(tmp_path: Path):
+    """At k=1, only `-B` recovers a bidirectional event exactly.
+
+    Fails on a pre-fork `bin/camus`: rerun `install_camus.sh`.
+    """
+    guide, genes = tmp_path / "guide.nwk", tmp_path / "genes.nwk"
+    guide.write_text("((((A,B),C),(D,E)),OUT);\n")
+    genes.write_text("\n".join(GENE_TREES) + "\n")
+
+    def run(*flags: str) -> ScoreResult:
+        """:returns: the k=1 network's score; CAMUS writes `<prefix>.csv`."""
+        prefix = tmp_path / ("bi" if flags else "uni")
+        cmd = [CAMUS_BIN, "-n", "1", *flags, "-o", prefix, guide, genes]
+        subprocess.run(cmd, cwd=tmp_path, capture_output=True, check=True)
+        family = camus_to_family(prefix.with_suffix(".csv"))
+        (newick,) = family.filter(pl.col("edges_added") == 1)["network_newick"]
+        return score_network(newick, TRUE_NETWORK)
+
+    assert run("-B") == ScoreResult(0.0, 0.0)
+    assert run() != ScoreResult(0.0, 0.0)
