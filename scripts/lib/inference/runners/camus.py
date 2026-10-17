@@ -89,3 +89,34 @@ class CamusRunner(GuidedNetworkRunner["CamusConfig"]):
     @staticmethod
     def get_log_path(output_dir: Path, name: str) -> Path:
         return output_dir / "CAMUS" / "logs" / f"{name}.log"
+
+
+@dataclass(frozen=True)
+class CamusBidirectionalRunner(CamusRunner):
+    """CAMUS with `-B`: each added event is two contact edges, one per direction.
+
+    A separate method: own `CAMUS_BIDIRECTIONAL/` dir, same run names as CAMUS.
+    """
+
+    @property
+    def method(self) -> NetworkInferenceMethod:
+        """:returns: ``CAMUS_BIDIRECTIONAL``."""
+        return NetworkInferenceMethod.CAMUS_BIDIRECTIONAL
+
+    def build_argv(
+        self, runid: str, input_csv: Path, name: str, output_dir: Path
+    ) -> list[str]:
+        """The uni argv plus ``--bidirectional`` (CAMUS ``-B``)."""
+        return super().build_argv(runid, input_csv, name, output_dir) + [
+            "--bidirectional"
+        ]
+
+    @staticmethod
+    def get_group_estimate_path(output_dir: Path, name: str) -> Path:
+        """:returns: the family CSV under `CAMUS_BIDIRECTIONAL/`."""
+        return output_dir / "CAMUS_BIDIRECTIONAL" / "networks" / f"{name}.family.csv"
+
+    @staticmethod
+    def get_log_path(output_dir: Path, name: str) -> Path:
+        """:returns: the log under `CAMUS_BIDIRECTIONAL/`."""
+        return output_dir / "CAMUS_BIDIRECTIONAL" / "logs" / f"{name}.log"

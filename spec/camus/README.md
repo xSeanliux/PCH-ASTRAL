@@ -7,16 +7,16 @@ CLI-controlled, matching the existing YAML conventions.
 ## Tools
 
 ### CAMUS — network inference
-- Repo: https://github.com/jsdoublel/camus (Go)
+- Repo: https://github.com/xSeanliux/camus (Go; fork of jsdoublel/camus adding `-B`, bidirectional)
 - Dynamic-programming algorithm: infers a level-1 network from **quartets + a
   rooted binary constraint (guide) tree**, maximizing quartet agreement while
   containing the guide tree.
 - Input: a constraint tree (rooted binary newick) + gene trees (newick, labels ⊆
   constraint tree). Output: level-1 networks in **extended newick**, one per k
   (number of added reticulation edges).
-- CLI: `camus [-f fmt -o prefix -t thresh -n procs -q mode] <const_tree> <gene_trees>`
-- Install: `scripts/sh/installs/install_camus.sh` → `GOBIN=bin go install
-  github.com/jsdoublel/camus@latest` → `bin/camus`. Needs Go on PATH.
+- CLI: `camus [-B -f fmt -o prefix -t thresh -n procs -q mode] <const_tree> <gene_trees>`
+- Install: `scripts/sh/installs/install_camus.sh` → clones the fork at pinned
+  `CAMUS_VERSION`, `go build` → `bin/camus`. Needs Go and git on PATH.
 
 ### PhyloNet — network scoring / benchmark
 - Repo: https://github.com/NakhlehLab/PhyloNet (Java)

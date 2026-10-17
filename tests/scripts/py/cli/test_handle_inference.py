@@ -92,11 +92,29 @@ def _config(folder: Path, methods: dict | None = None) -> dict:
     }
 
 
-def test_camus_outgroup_must_match_the_simulation():
+@pytest.mark.parametrize("field", ["camus", "camus_bidirectional"])
+def test_camus_outgroup_must_match_the_simulation(field: str):
     camus = {"guide_trees": ["true_tree"], "outgroup_label": "OTHER"}
-    cfg = _config(Path("."), methods={"camus": camus})
-    with pytest.raises(ValidationError, match="must equal"):
+    cfg = _config(Path("."), methods={field: camus})
+    with pytest.raises(ValidationError, match=f"methods.{field}.outgroup_label"):
         ExperimentConfig.model_validate(cfg)
+
+
+def test_camus_and_camus_bidirectional_runs_are_distinct():
+    camus = {"guide_trees": ["true_tree"], "outgroup_label": "OUT"}
+    cfg = ExperimentConfig.model_validate(
+        _config(Path("."), methods={"camus": camus, "camus_bidirectional": camus})
+    )
+    uni, bi = select_runners(cfg.methods)
+    assert [r.method for r in (uni, bi)] == ["camus", "camus_bidirectional"]
+    assert uni.get_run_name("d") == "d.true_tree"
+    assert bi.get_run_name("d") == "d.true_tree"
+    out = Path("o")
+    assert uni.get_log_path(out, "d") != bi.get_log_path(out, "d")
+    assert bi.get_group_estimate_path(out, "d").parts[:2] == (
+        "o",
+        "CAMUS_BIDIRECTIONAL",
+    )
 
 
 def test_handle_inference_writes_registry(tmp_path: Path, monkeypatch):

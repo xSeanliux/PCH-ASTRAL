@@ -12,7 +12,7 @@ from scripts.lib.model.guide_tree import (
 from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
 from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.brooqs import BrooqsRunner
-from scripts.lib.inference.runners.camus import CamusRunner
+from scripts.lib.inference.runners.camus import CamusBidirectionalRunner, CamusRunner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
 from scripts.lib.inference.runners.netcs import NetcsRunner
@@ -161,6 +161,10 @@ class CamusConfig(GuidedNetworkConfig):
     guide_requirement: ClassVar[str] = "CAMUS requires a rooted binary guide tree."
 
 
+class CamusBidirectionalConfig(CamusConfig):
+    runner_class: ClassVar[type[Runner[BaseModel]]] = CamusBidirectionalRunner
+
+
 class SnaqConfig(GuidedNetworkConfig):
     # Any species tree: snaq! resolves polytomies and unroots its start tree itself.
     runner_class: ClassVar[type[Runner[BaseModel]]] = SnaqRunner
@@ -182,6 +186,7 @@ class MethodConfig(BaseModel):
     brooqs: BrooqsConfig | None = Field(None)
     netcs: NetcsConfig | None = Field(None)
     camus: CamusConfig | None = Field(None)
+    camus_bidirectional: CamusBidirectionalConfig | None = Field(None)
     snaq: SnaqConfig | None = Field(None)
 
     def get_enabled_configs(self) -> list[RunnableConfig]:
@@ -196,6 +201,7 @@ class MethodConfig(BaseModel):
             self.brooqs,
             self.netcs,
             self.camus,
+            self.camus_bidirectional,
             self.snaq,
         ]
         return [f for f in fields if f is not None]
@@ -210,10 +216,17 @@ class ExperimentConfig(BaseModel):
     @model_validator(mode="after")
     def _match_camus_outgroup(self) -> "ExperimentConfig":
         """:raises ValueError: if CAMUS roots on a taxon the simulation doesn't graft."""
-        camus = self.methods.camus
-        if camus is not None and camus.outgroup_label != self.simulation.outgroup_label:
-            raise ValueError(
-                f"methods.camus.outgroup_label ({camus.outgroup_label!r}) must equal "
-                f"simulation.outgroup_label ({self.simulation.outgroup_label!r})."
-            )
+        m = self.methods
+        for field, camus in (
+            ("camus", m.camus),
+            ("camus_bidirectional", m.camus_bidirectional),
+        ):
+            if (
+                camus is not None
+                and camus.outgroup_label != self.simulation.outgroup_label
+            ):
+                raise ValueError(
+                    f"methods.{field}.outgroup_label ({camus.outgroup_label!r}) must "
+                    f"equal simulation.outgroup_label ({self.simulation.outgroup_label!r})."
+                )
         return self
