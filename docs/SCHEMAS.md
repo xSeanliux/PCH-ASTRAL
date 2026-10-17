@@ -133,6 +133,7 @@ A network not rooted on its dataset's outgroup (the outgroup is not a leaf child
 | `dataset_id` | String | As in `inference_registry`. |
 | `method` | String | As in `inference_registry`. |
 | `guide_tree` | String | From `method_config_json` (`guide_trees`, one per run) for guided methods (SNaQ: its start tree); null otherwise. Not part of the key. |
+| `bidirectional` | Boolean | From `method_config_json` (`bidirectional`, one per run) for CAMUS: whether it ran with `-B`; null for other methods. Not part of the key. |
 | `config_hash` | String | As in `inference_registry`. |
 | `edges_added` | Int64 | From the family CSV. |
 | `fn_rate` | Float64 | False-negative rate; null unless `ok`, or if not rooted on the outgroup. |

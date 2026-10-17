@@ -85,6 +85,57 @@ def test_build_argv_passes_one_guide_and_the_outgroup(tmp_path: Path):
     assert argv[-4:] == ["--guide-tree", "true_tree", "--outgroup", "OUT"]
 
 
+def _bi_config(*is_bidirectional: bool) -> CamusConfig:
+    return CamusConfig(
+        guide_trees=frozenset({TRUE_TREE, ASTRAL3}),
+        outgroup_label="OUT",
+        bidirectional=frozenset(is_bidirectional),
+    )
+
+
+def test_get_runners_fan_out_guide_by_direction():
+    runners = _bi_config(True, False).get_runners()
+    assert [r.suffix for r in runners] == [
+        "pch_astral3",
+        "pch_astral3.bi",
+        "true_tree",
+        "true_tree.bi",
+    ]
+    assert [r.config.bidirectional for r in runners] == [{False}, {True}] * 2
+    assert len({hash_config(r.config) for r in runners}) == 4
+
+
+def test_unidirectional_hash_predates_the_field():
+    # Pre-`bidirectional` hash: uni runs must not rerun.
+    (r,) = _config(TRUE_TREE).get_runners()
+    assert r.config.model_dump_json() == (
+        '{"guide_trees":["true_tree"],"outgroup_label":"OUT"}'
+    )
+    assert hash_config(r.config) == (
+        "36c0eecb2ad61dea498fefe60d927d36b60a147d5a2b48504b1ffed776c61b16"
+    )
+
+
+def test_bidirectional_round_trips_through_the_dump():
+    (_, r) = CamusConfig(
+        guide_trees=frozenset({TRUE_TREE}),
+        outgroup_label="OUT",
+        bidirectional=frozenset({False, True}),
+    ).get_runners()
+    assert CamusConfig.model_validate_json(r.config.model_dump_json()) == r.config
+
+
+def test_no_directions_is_rejected():
+    with pytest.raises(ValidationError):
+        _bi_config()
+
+
+def test_build_argv_flags_only_bidirectional(tmp_path: Path):
+    uni, bi = _bi_config(False, True).get_runners()[:2]
+    assert "--bidirectional" not in uni.build_argv("r", tmp_path, "d", tmp_path)
+    assert bi.build_argv("r", tmp_path, "d", tmp_path)[-1] == "--bidirectional"
+
+
 def _fake_camus(family: Path, returncode: int):
     """A `subprocess.run` that writes CAMUS's raw CSV beside `family`."""
 

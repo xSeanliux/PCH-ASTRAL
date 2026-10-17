@@ -20,7 +20,7 @@ import polars as pl
 from Bio import Phylo
 from rich import print
 
-from scripts.lib.experiment import ExperimentConfig, GuidedNetworkConfig
+from scripts.lib.experiment import CamusConfig, ExperimentConfig, GuidedNetworkConfig
 from scripts.lib.inference import registry
 from scripts.lib.inference.method_config import METHOD_TO_CONFIG_CLASS
 from scripts.lib.inference.registry import Cell
@@ -70,12 +70,15 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     )
     families = []
     for r in runs.iter_rows(named=True):
-        # Only guided methods have a guide tree; others score with guide_tree null.
+        # Only guided methods have a guide tree, only CAMUS a direction; else null.
         config_class = METHOD_TO_CONFIG_CLASS[NetworkInferenceMethod(r["method"])]
         guide = None
+        is_bidirectional = None
         if issubclass(config_class, GuidedNetworkConfig):
             config = config_class.model_validate_json(r["method_config_json"])
             (guide,) = config.guide_trees
+            if isinstance(config, CamusConfig):
+                (is_bidirectional,) = config.bidirectional
         if r["group_estimate_path"] is None:
             newick = r["point_estimate_newick"]
             family = pl.DataFrame(
@@ -102,6 +105,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
                 method=pl.lit(r["method"]),
                 config_hash=pl.lit(r["config_hash"]),
                 guide_tree=pl.lit(None if guide is None else str(guide), pl.String),
+                bidirectional=pl.lit(is_bidirectional, pl.Boolean),
             )
         )
     return pl.concat(families)
@@ -149,7 +153,8 @@ def handle_network_score(config: ExperimentConfig) -> Path:
                 continue
             already.add(key)  # a duplicate sim `path` row fans the join out
             row: dict[str, Cell] = {c: r[c] for c in KEY_COLUMNS} | {
-                "guide_tree": r["guide_tree"]
+                "guide_tree": r["guide_tree"],
+                "bidirectional": r["bidirectional"],
             }
             label = (
                 f"{r['dataset_id']} {r['guide_tree']} edges_added={r['edges_added']}"

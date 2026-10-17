@@ -40,12 +40,24 @@ class CamusRunner(GuidedNetworkRunner["CamusConfig"]):
     """
 
     @property
+    def is_bidirectional(self) -> bool:
+        """This run's one `bidirectional` value; `get_runners` splits the set."""
+        (is_bidirectional,) = self.config.bidirectional
+        return is_bidirectional
+
+    @property
+    def suffix(self) -> str:
+        """The guide, plus `.bi` when bidirectional so the two runs don't collide."""
+        return f"{self.guide}.bi" if self.is_bidirectional else str(self.guide)
+
+    @property
     def method(self) -> NetworkInferenceMethod:
         return NetworkInferenceMethod.CAMUS
 
     def build_argv(
         self, runid: str, input_csv: Path, name: str, output_dir: Path
     ) -> list[str]:
+        """`runCAMUS.sh` argv; `--bidirectional` when this run is."""
         return [
             "bash",
             "scripts/sh/runCAMUS.sh",
@@ -61,7 +73,7 @@ class CamusRunner(GuidedNetworkRunner["CamusConfig"]):
             str(self.guide),
             "--outgroup",
             self.config.outgroup_label,
-        ]
+        ] + (["--bidirectional"] if self.is_bidirectional else [])
 
     def execute(
         self, runid: str, input_csv: Path, name: str, output_dir: Path, log_file: TextIO

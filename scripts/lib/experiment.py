@@ -159,6 +159,26 @@ class CamusConfig(GuidedNetworkConfig):
     runner_class: ClassVar[type[Runner[BaseModel]]] = CamusRunner
     supported_guides: ClassVar[frozenset[GuideTree]] = CAMUS_GUIDE_TREES
     guide_requirement: ClassVar[str] = "CAMUS requires a rooted binary guide tree."
+    # Fork's -B per run. Unidirectional-only is left out of the dump, so its
+    # config_hash predates this field: no reruns.
+    bidirectional: frozenset[bool] = Field(
+        frozenset({False}), min_length=1, exclude_if=lambda v: v == frozenset({False})
+    )
+
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run per (guide, bidirectional) pair, in sorted order."""
+        return [
+            self.runner_class(
+                config=self.model_copy(
+                    update={
+                        "guide_trees": frozenset({g}),
+                        "bidirectional": frozenset({b}),
+                    }
+                )
+            )
+            for g in sorted(self.guide_trees)
+            for b in sorted(self.bidirectional)
+        ]
 
 
 class SnaqConfig(GuidedNetworkConfig):

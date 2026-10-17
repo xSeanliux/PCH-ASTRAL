@@ -9,6 +9,7 @@ TREEOUTPUT=""
 NAME=""
 GUIDE=""
 OUTGROUP=""
+BIDIRECTIONAL=()
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -18,8 +19,9 @@ while [[ "$#" -gt 0 ]]; do
         -n|--name) NAME="$2"; shift ;;
         -g|--guide-tree) GUIDE="$2"; shift ;;
         -O|--outgroup) OUTGROUP="$2"; shift ;;
+        -B|--bidirectional) BIDIRECTIONAL=(-B) ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide> -O <outgroup>"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide> -O <outgroup> [-B]"
             echo ""
             echo "Required:"
             echo "  -H, --runid        Run ID"
@@ -29,6 +31,9 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -g, --guide-tree   Guide tree, e.g. pch_astral3 or true_tree"
             echo "                     (all: CAMUS_GUIDE_TREES in scripts/lib/model/guide_tree.py)"
             echo "  -O, --outgroup     Outgroup taxon; the guide tree is rooted on it"
+            echo ""
+            echo "Optional:"
+            echo "  -B, --bidirectional  Pass CAMUS -B (bidirectional search)"
             echo ""
             echo "Environment:"
             echo "  PCH_CAMUS_PROCS    CAMUS parallel processes (default 1)"
@@ -69,7 +74,7 @@ python3 -m scripts.py.guide_tree --guide "$GUIDE" --input "$INPUT" --output "$TR
 echo "✅ guide tree ($GUIDE), rooted on $OUTGROUP"
 
 # No -t: CAMUS's default quartet filter applies.
-bin/camus -n "${PCH_CAMUS_PROCS:-1}" \
+bin/camus -n "${PCH_CAMUS_PROCS:-1}" "${BIDIRECTIONAL[@]}" \
     -o "$TREEOUTPUT/CAMUS/networks/$NAME" \
     "$SCRATCH_GUIDE_PATH" \
     "$SCRATCH_QUARTET_PATH" || exit 1
