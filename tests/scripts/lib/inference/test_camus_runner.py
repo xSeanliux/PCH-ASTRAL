@@ -5,12 +5,17 @@ from typing import TextIO
 import pytest
 from pydantic import ValidationError
 
-from scripts.lib.experiment import CamusConfig
+from scripts.lib.experiment import CamusBidirectionalConfig, CamusConfig
 from scripts.lib.inference import api
 from scripts.lib.model.guide_tree import CAMUS_GUIDE_TREES, TRUE_TREE, GuideTree
-from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
-from scripts.lib.inference.method_config import hash_config
-from scripts.lib.inference.runners.camus import CamusRunner
+from scripts.lib.model.methods import (
+    NetworkInferenceMethod,
+    RunStatus,
+    TreeInferenceMethod,
+)
+from scripts.lib.inference.method_config import METHOD_TO_CONFIG_CLASS, hash_config
+from scripts.lib.inference.runners import METHOD_TO_RUNNER_CLASS
+from scripts.lib.inference.runners.camus import CamusBidirectionalRunner, CamusRunner
 
 ASTRAL3 = TreeInferenceMethod.PCH_ASTRAL3
 WASTRAL = TreeInferenceMethod.PCH_WASTRAL
@@ -83,6 +88,21 @@ def test_build_argv_passes_one_guide_and_the_outgroup(tmp_path: Path):
     (runner,) = _config(TRUE_TREE).get_runners()
     argv = runner.build_argv("r1", tmp_path / "d.csv", "d.true_tree", tmp_path)
     assert argv[-4:] == ["--guide-tree", "true_tree", "--outgroup", "OUT"]
+
+
+def test_bidirectional_resolves_and_flags_b(tmp_path: Path):
+    bi_method = NetworkInferenceMethod.CAMUS_BIDIRECTIONAL
+    assert METHOD_TO_CONFIG_CLASS[bi_method] is CamusBidirectionalConfig
+    assert METHOD_TO_RUNNER_CLASS[bi_method] is CamusBidirectionalRunner
+    bi_config = CamusBidirectionalConfig(
+        guide_trees=frozenset({TRUE_TREE}), outgroup_label="OUT"
+    )
+    (bi,) = bi_config.get_runners()
+    (uni,) = _config(TRUE_TREE).get_runners()
+    assert bi.method == bi_method
+    uni_argv = uni.build_argv("r", tmp_path, "d", tmp_path)
+    assert "--bidirectional" not in uni_argv
+    assert bi.build_argv("r", tmp_path, "d", tmp_path) == uni_argv + ["--bidirectional"]
 
 
 def _fake_camus(family: Path, returncode: int):

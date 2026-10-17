@@ -1,7 +1,8 @@
 #!/bin/bash
 # CAMUS network inference: PCH-W quartets plus one rooted guide tree in, one
-# network per k out. Writes CAMUS's raw <output>/CAMUS/networks/<name>.csv (also
-# .log, .png); CamusRunner.execute converts it to <name>.family.csv.
+# network per k out. Writes CAMUS's raw <output>/<DIR>/networks/<name>.csv (also
+# .log, .png); DIR is CAMUS, or CAMUS_BIDIRECTIONAL with -B. CamusRunner.execute
+# converts it to <name>.family.csv.
 # Initialize variables with defaults
 RUNID=""
 INPUT=""
@@ -9,6 +10,7 @@ TREEOUTPUT=""
 NAME=""
 GUIDE=""
 OUTGROUP=""
+BIDIRECTIONAL=""
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -18,8 +20,9 @@ while [[ "$#" -gt 0 ]]; do
         -n|--name) NAME="$2"; shift ;;
         -g|--guide-tree) GUIDE="$2"; shift ;;
         -O|--outgroup) OUTGROUP="$2"; shift ;;
+        -B|--bidirectional) BIDIRECTIONAL="-B" ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide> -O <outgroup>"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide> -O <outgroup> [-B]"
             echo ""
             echo "Required:"
             echo "  -H, --runid        Run ID"
@@ -29,6 +32,9 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -g, --guide-tree   Guide tree, e.g. pch_astral3 or true_tree"
             echo "                     (all: CAMUS_GUIDE_TREES in scripts/lib/model/guide_tree.py)"
             echo "  -O, --outgroup     Outgroup taxon; the guide tree is rooted on it"
+            echo ""
+            echo "Optional:"
+            echo "  -B, --bidirectional  Pass CAMUS -B (bidirectional search)"
             echo ""
             echo "Environment:"
             echo "  PCH_CAMUS_PROCS    CAMUS parallel processes (default 1)"
@@ -53,8 +59,11 @@ fi
 PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
 mkdir -p "$PCH_SCRATCH"
 
-mkdir -p "$TREEOUTPUT/CAMUS/logs"
-mkdir -p "$TREEOUTPUT/CAMUS/networks"
+# Two methods, two dirs: same run names never collide.
+DIR=CAMUS
+[[ -n "$BIDIRECTIONAL" ]] && DIR=CAMUS_BIDIRECTIONAL
+mkdir -p "$TREEOUTPUT/$DIR/logs"
+mkdir -p "$TREEOUTPUT/$DIR/networks"
 
 SCRATCH_QUARTET_PATH="$PCH_SCRATCH/tmp_quartet_$RUNID.txt"
 SCRATCH_GUIDE_PATH="$PCH_SCRATCH/tmp_guide_$RUNID.tree"
@@ -69,8 +78,8 @@ python3 -m scripts.py.guide_tree --guide "$GUIDE" --input "$INPUT" --output "$TR
 echo "✅ guide tree ($GUIDE), rooted on $OUTGROUP"
 
 # No -t: CAMUS's default quartet filter applies.
-bin/camus -n "${PCH_CAMUS_PROCS:-1}" \
-    -o "$TREEOUTPUT/CAMUS/networks/$NAME" \
+bin/camus -n "${PCH_CAMUS_PROCS:-1}" $BIDIRECTIONAL \
+    -o "$TREEOUTPUT/$DIR/networks/$NAME" \
     "$SCRATCH_GUIDE_PATH" \
     "$SCRATCH_QUARTET_PATH" || exit 1
 echo "✅ CAMUS network inference"
