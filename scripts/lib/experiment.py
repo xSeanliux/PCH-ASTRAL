@@ -216,8 +216,11 @@ class ExperimentConfig(BaseModel):
     @model_validator(mode="after")
     def _match_camus_outgroup(self) -> "ExperimentConfig":
         """:raises ValueError: if CAMUS roots on a taxon the simulation doesn't graft."""
-        for field in ("camus", "camus_bidirectional"):
-            camus: CamusConfig | None = getattr(self.methods, field)
+        m = self.methods
+        for field, camus in (
+            ("camus", m.camus),
+            ("camus_bidirectional", m.camus_bidirectional),
+        ):
             if (
                 camus is not None
                 and camus.outgroup_label != self.simulation.outgroup_label
