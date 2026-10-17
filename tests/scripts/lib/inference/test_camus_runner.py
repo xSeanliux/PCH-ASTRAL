@@ -21,8 +21,6 @@ from scripts.lib.inference.runners.camus import (
     CamusRunner,
     camus_to_family,
 )
-from scripts.lib.inference.scoring import ScoreResult, score_network
-from tests.scripts.lib.inference.test_scoring import needs_phylonet
 
 ASTRAL3 = TreeInferenceMethod.PCH_ASTRAL3
 WASTRAL = TreeInferenceMethod.PCH_WASTRAL
@@ -178,14 +176,11 @@ GENE_TREES = (
     + ["((B,C),(A,D));"] * 4
     + ["((B,C),(A,E));"] * 4
 )
-# ADR 0001: the event as two contact edges, donor above hybrid on both branches.
-REFERENCE = "((((A,((B)#H2,#H1)),((C)#H1,#H2)),(D,E)),OUT);"
 
 
 @pytest.mark.skipif(not CAMUS_BIN.exists(), reason="needs bin/camus")
-@needs_phylonet
 def test_bin_camus_bidirectional_writes_two_hybrids_per_event(tmp_path: Path):
-    """The pinned fork's `-B` emits each event as two hybrids, scoring 0/0.
+    """The pinned fork's `-B` emits each event as two hybrids (ADR 0001 form).
 
     Fails on a pre-fork `bin/camus`: rerun `install_camus.sh`.
     """
@@ -202,7 +197,6 @@ def test_bin_camus_bidirectional_writes_two_hybrids_per_event(tmp_path: Path):
         (newick,) = family.filter(pl.col("edges_added") == 1)["network_newick"]
         return newick
 
-    uni, bi = run(), run("-B")
-    assert uni.count("#H") == 2  # one hybrid: node + reference
-    assert bi.count("#H") == 4  # two hybrids for one event
-    assert score_network(bi, REFERENCE) == ScoreResult(0.0, 0.0)
+    assert run() == "((((A,(B)#H1),(#H1,C)),(D,E)),OUT);"
+    # Two contact edges, donor above hybrid on both branches: acyclic.
+    assert run("-B") == "((((A,(#H2,(B)#H1)),(#H1,(C)#H2)),(D,E)),OUT);"
