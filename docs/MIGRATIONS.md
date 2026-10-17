@@ -2,20 +2,6 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
-## `network_scores` has `bidirectional`
-
-**Affects:** `network_scores.csv`. New column after `guide_tree`: CAMUS's `-B` flag, null for other methods. Uni CAMUS `config_hash` is unchanged. Add it (old CAMUS rows were all unidirectional):
-
-```python
-import polars as pl
-
-p = "experiments/my_run/inference_data/network_scores.csv"
-df = pl.read_csv(p, infer_schema=False)
-bi = pl.when(pl.col("method") == "camus").then(pl.lit("false")).alias("bidirectional")
-cols = df.columns
-df.with_columns(bi).select(cols[: cols.index("guide_tree") + 1] + ["bidirectional"] + cols[cols.index("guide_tree") + 1 :]).write_csv(p)
-```
-
 ## TOB-QMC has `alpha` and `three_fix_one_alter`
 
 **Affects:** `tob_qmc` rows, and the BROOQS/NetCS rows built on them. `method_config_json`

@@ -131,7 +131,6 @@ def test_writes_scores(tmp_path: Path, monkeypatch):
     assert df["fp_rate"].to_list() == [0.0, 0.0]
     assert df["method"].to_list() == ["camus", "camus"]
     assert df["guide_tree"].to_list() == ["true_tree", "true_tree"]
-    assert df["bidirectional"].to_list() == [False, False]
     assert df["fn_rate"].to_list() == [0.5, 0.5]
     assert df["status"].to_list() == ["ok", "ok"]
     assert all(t >= 0 for t in df["runtime_seconds"].to_list())
@@ -154,7 +153,6 @@ def test_unguided_network_method_has_no_guide(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(hns, "score_network", lambda est, ref: ScoreResult(0, 0))
     df = pl.read_csv(handle_network_score(cfg), schema=NETWORK_SCORES_SCHEMA)
     assert df["guide_tree"].to_list() == [None, None]
-    assert df["bidirectional"].to_list() == [None, None]
 
 
 @pytest.mark.parametrize(

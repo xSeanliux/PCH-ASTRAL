@@ -12,7 +12,7 @@ from scripts.lib.model.guide_tree import (
 from scripts.lib.inference.runners.astral3 import ASTRAL3Runner
 from scripts.lib.inference.runners.base import Runner
 from scripts.lib.inference.runners.brooqs import BrooqsRunner
-from scripts.lib.inference.runners.camus import CamusRunner
+from scripts.lib.inference.runners.camus import CamusBidirectionalRunner, CamusRunner
 from scripts.lib.inference.runners.ga import GARunner
 from scripts.lib.inference.runners.mp4 import MP4Runner
 from scripts.lib.inference.runners.netcs import NetcsRunner
@@ -159,21 +159,10 @@ class CamusConfig(GuidedNetworkConfig):
     runner_class: ClassVar[type[Runner[BaseModel]]] = CamusRunner
     supported_guides: ClassVar[frozenset[GuideTree]] = CAMUS_GUIDE_TREES
     guide_requirement: ClassVar[str] = "CAMUS requires a rooted binary guide tree."
-    # Fork's -B per run. Unidirectional-only is left out of the dump, so its
-    # config_hash predates this field: no reruns.
-    bidirectional: frozenset[bool] = Field(
-        frozenset({False}), min_length=1, exclude_if=lambda v: v == frozenset({False})
-    )
 
-    def get_runners(self) -> list[Runner[BaseModel]]:
-        """One run per (guide, bidirectional) pair, in sorted order."""
-        return [
-            self.runner_class(
-                config=r.config.model_copy(update={"bidirectional": frozenset({b})})
-            )
-            for r in super().get_runners()
-            for b in sorted(self.bidirectional)
-        ]
+
+class CamusBidirectionalConfig(CamusConfig):
+    runner_class: ClassVar[type[Runner[BaseModel]]] = CamusBidirectionalRunner
 
 
 class SnaqConfig(GuidedNetworkConfig):
@@ -197,6 +186,7 @@ class MethodConfig(BaseModel):
     brooqs: BrooqsConfig | None = Field(None)
     netcs: NetcsConfig | None = Field(None)
     camus: CamusConfig | None = Field(None)
+    camus_bidirectional: CamusBidirectionalConfig | None = Field(None)
     snaq: SnaqConfig | None = Field(None)
 
     def get_enabled_configs(self) -> list[RunnableConfig]:
@@ -211,6 +201,7 @@ class MethodConfig(BaseModel):
             self.brooqs,
             self.netcs,
             self.camus,
+            self.camus_bidirectional,
             self.snaq,
         ]
         return [f for f in fields if f is not None]
@@ -225,10 +216,14 @@ class ExperimentConfig(BaseModel):
     @model_validator(mode="after")
     def _match_camus_outgroup(self) -> "ExperimentConfig":
         """:raises ValueError: if CAMUS roots on a taxon the simulation doesn't graft."""
-        camus = self.methods.camus
-        if camus is not None and camus.outgroup_label != self.simulation.outgroup_label:
-            raise ValueError(
-                f"methods.camus.outgroup_label ({camus.outgroup_label!r}) must equal "
-                f"simulation.outgroup_label ({self.simulation.outgroup_label!r})."
-            )
+        for field in ("camus", "camus_bidirectional"):
+            camus: CamusConfig | None = getattr(self.methods, field)
+            if (
+                camus is not None
+                and camus.outgroup_label != self.simulation.outgroup_label
+            ):
+                raise ValueError(
+                    f"methods.{field}.outgroup_label ({camus.outgroup_label!r}) must "
+                    f"equal simulation.outgroup_label ({self.simulation.outgroup_label!r})."
+                )
         return self

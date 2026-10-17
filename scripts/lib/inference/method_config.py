@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from scripts.lib.experiment import (
     ASTRAL3Config,
     BrooqsConfig,
+    CamusBidirectionalConfig,
     CamusConfig,
     GAConfig,
     MP4Config,
@@ -33,6 +34,7 @@ METHOD_TO_CONFIG_CLASS: dict[InferenceMethod, type[RunnableConfig]] = {
     NetworkInferenceMethod.BROOQS: BrooqsConfig,
     NetworkInferenceMethod.NETCS: NetcsConfig,
     NetworkInferenceMethod.CAMUS: CamusConfig,
+    NetworkInferenceMethod.CAMUS_BIDIRECTIONAL: CamusBidirectionalConfig,
     NetworkInferenceMethod.SNAQ: SnaqConfig,
 }
 

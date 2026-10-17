@@ -71,7 +71,7 @@ Path getters are static so other code can look a method up without a runner, e.g
 
 ### Fan-out
 
-One config may yield several runners. `GuidedNetworkConfig.get_runners()` (CAMUS, SNaQ) returns one `GuidedNetworkRunner` (guide, suffix, dependency) per guide, each with a single-guide config, its own `hash_config`, and output name `<stem>.<guide>`. `experiment status` counts each as `<method>.<guide>`. CAMUS bidirectional runs append `.bi` to both (`<stem>.<guide>.bi`).
+One config may yield several runners. `GuidedNetworkConfig.get_runners()` (CAMUS, SNaQ) returns one `GuidedNetworkRunner` (guide, suffix, dependency) per guide, each with a single-guide config, its own `hash_config`, and output name `<stem>.<guide>`. `experiment status` counts each as `<method>.<guide>`.
 
 ### Guide trees
 

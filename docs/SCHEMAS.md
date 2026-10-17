@@ -103,7 +103,7 @@ A network method with no family (BROOQS, NetCS) is scored on its point estimate:
 
 | Column | Type | Meaning |
 |---|---|---|
-| `edges_added` | Int64 | Reticulation edges in the network. Bidirectional CAMUS: contact events (its k), two hybrids each; compare to h, not 2h (ADR 0001). |
+| `edges_added` | Int64 | Reticulation edges in the network. `camus_bidirectional`: contact events (its k), two hybrids each; compare to h, not 2h (ADR 0001). |
 | `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring, which also renumbers 0-indexed hybrids. |
 | `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: at most one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik` consistent with the outgroup, or none (see below). |
 
@@ -133,7 +133,6 @@ A network not rooted on its dataset's outgroup (the outgroup is not a leaf child
 | `dataset_id` | String | As in `inference_registry`. |
 | `method` | String | As in `inference_registry`. |
 | `guide_tree` | String | From `method_config_json` (`guide_trees`, one per run) for guided methods (SNaQ: its start tree); null otherwise. Not part of the key. |
-| `bidirectional` | Boolean | From `method_config_json` (`bidirectional`, one per run) for CAMUS: whether it ran with `-B`; null for other methods. Not part of the key. |
 | `config_hash` | String | As in `inference_registry`. |
 | `edges_added` | Int64 | From the family CSV. |
 | `fn_rate` | Float64 | False-negative rate; null unless `ok`, or if not rooted on the outgroup. |

@@ -17,6 +17,7 @@ class TreeInferenceMethod(InferenceMethod):
 
 class NetworkInferenceMethod(InferenceMethod):
     CAMUS = "camus"
+    CAMUS_BIDIRECTIONAL = "camus_bidirectional"
     SNAQ = "snaq"
     BROOQS = "brooqs"
     NETCS = "netcs"
