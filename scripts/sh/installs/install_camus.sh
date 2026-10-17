@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Pinned: the version changes results. Override with a fork ref or SHA (no tags).
-CAMUS_VERSION="${CAMUS_VERSION:-c59c9b22f7044188b1a10a00a0c94e0bd9919304}"
+CAMUS_VERSION="${CAMUS_VERSION:-e454cb3193d605f82ae96729b923520b7527fe61}"
 
 command -v go >/dev/null || { echo "go not found on PATH; install Go first"; exit 1; }
 
