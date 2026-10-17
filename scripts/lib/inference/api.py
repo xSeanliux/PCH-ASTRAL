@@ -47,7 +47,10 @@ def infer(
         else point_estimate_path or group_estimate_path
     )
     assert required_path is not None, f"{runner.method} declares no estimate"
-    is_ok = returncode == 0 and required_path.exists()
+    # Empty = truncated write (e.g. disk quota); a tool can still exit 0.
+    is_ok = (
+        returncode == 0 and required_path.exists() and required_path.stat().st_size > 0
+    )
     newick = (
         point_estimate_path.read_text().strip()
         if is_ok and point_estimate_path and point_estimate_path.exists()
