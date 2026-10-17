@@ -32,3 +32,6 @@ methods:
       - pch_astral3
       - pch_wastral
       - true_tree
+    # One run per guide x direction: CAMUS -B adds bidirectional edges (run name
+    # camus.<guide>.bi). Default [false]; uni hashes predate this field.
+    bidirectional: [false, true]

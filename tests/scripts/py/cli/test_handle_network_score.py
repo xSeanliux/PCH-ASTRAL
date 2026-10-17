@@ -40,6 +40,7 @@ REROOTED = (
         ("(t10,(t1,b));", "t1", False),
         ("(t10,(t1,b));", "t10", True),
         ("(#H0,((a,(OUT)#H0),c));", "OUT", False),  # hybrid leaf at the root
+        ("((((A,((B)#H2,#H1)),((C)#H1,#H2)),(D,E)),OUT);", "OUT", True),  # bi event
     ],
 )
 def test_is_rooted_on(newick: str, label: str, expected: bool):

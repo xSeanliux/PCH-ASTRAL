@@ -103,7 +103,7 @@ A network method with no family (BROOQS, NetCS) is scored on its point estimate:
 
 | Column | Type | Meaning |
 |---|---|---|
-| `edges_added` | Int64 | Reticulation edges in the network. |
+| `edges_added` | Int64 | Reticulation edges in the network. Bidirectional CAMUS: contact events (its k), two hybrids each; compare to h, not 2h (ADR 0001). |
 | `network_newick` | String | As the tool wrote it, lengths and γ kept; stripped only at scoring, which also renumbers 0-indexed hybrids. |
 | `is_best` | Boolean | The method's own pick by its own objective, not by accuracy: at most one per `edges_added` in a family (one run). CAMUS: every row (each k's optimum); SNaQ: lowest `-loglik` consistent with the outgroup, or none (see below). |
 

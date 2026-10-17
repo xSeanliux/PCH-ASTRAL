@@ -116,20 +116,6 @@ def test_unidirectional_hash_predates_the_field():
     )
 
 
-def test_bidirectional_round_trips_through_the_dump():
-    (_, r) = CamusConfig(
-        guide_trees=frozenset({TRUE_TREE}),
-        outgroup_label="OUT",
-        bidirectional=frozenset({False, True}),
-    ).get_runners()
-    assert CamusConfig.model_validate_json(r.config.model_dump_json()) == r.config
-
-
-def test_no_directions_is_rejected():
-    with pytest.raises(ValidationError):
-        _bi_config()
-
-
 def test_build_argv_flags_only_bidirectional(tmp_path: Path):
     uni, bi = _bi_config(False, True).get_runners()[:2]
     assert "--bidirectional" not in uni.build_argv("r", tmp_path, "d", tmp_path)

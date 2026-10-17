@@ -156,9 +156,8 @@ def handle_network_score(config: ExperimentConfig) -> Path:
                 "guide_tree": r["guide_tree"],
                 "bidirectional": r["bidirectional"],
             }
-            label = (
-                f"{r['dataset_id']} {r['guide_tree']} edges_added={r['edges_added']}"
-            )
+            guide = f"{r['guide_tree']}{'.bi' if r['bidirectional'] else ''}"
+            label = f"{r['dataset_id']} {guide} edges_added={r['edges_added']}"
             t0 = time.perf_counter()
             try:
                 dataset_id = r["dataset_id"]

@@ -169,14 +169,9 @@ class CamusConfig(GuidedNetworkConfig):
         """One run per (guide, bidirectional) pair, in sorted order."""
         return [
             self.runner_class(
-                config=self.model_copy(
-                    update={
-                        "guide_trees": frozenset({g}),
-                        "bidirectional": frozenset({b}),
-                    }
-                )
+                config=r.config.model_copy(update={"bidirectional": frozenset({b})})
             )
-            for g in sorted(self.guide_trees)
+            for r in super().get_runners()
             for b in sorted(self.bidirectional)
         ]
 

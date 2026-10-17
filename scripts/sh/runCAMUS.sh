@@ -9,7 +9,7 @@ TREEOUTPUT=""
 NAME=""
 GUIDE=""
 OUTGROUP=""
-BIDIRECTIONAL=()
+BIDIRECTIONAL=""
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -19,7 +19,7 @@ while [[ "$#" -gt 0 ]]; do
         -n|--name) NAME="$2"; shift ;;
         -g|--guide-tree) GUIDE="$2"; shift ;;
         -O|--outgroup) OUTGROUP="$2"; shift ;;
-        -B|--bidirectional) BIDIRECTIONAL=(-B) ;;
+        -B|--bidirectional) BIDIRECTIONAL="-B" ;;
         -h|--help)
             echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide> -O <outgroup> [-B]"
             echo ""
@@ -74,7 +74,7 @@ python3 -m scripts.py.guide_tree --guide "$GUIDE" --input "$INPUT" --output "$TR
 echo "✅ guide tree ($GUIDE), rooted on $OUTGROUP"
 
 # No -t: CAMUS's default quartet filter applies.
-bin/camus -n "${PCH_CAMUS_PROCS:-1}" "${BIDIRECTIONAL[@]}" \
+bin/camus -n "${PCH_CAMUS_PROCS:-1}" $BIDIRECTIONAL \
     -o "$TREEOUTPUT/CAMUS/networks/$NAME" \
     "$SCRATCH_GUIDE_PATH" \
     "$SCRATCH_QUARTET_PATH" || exit 1
