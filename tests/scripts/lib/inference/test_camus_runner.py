@@ -16,6 +16,8 @@ from scripts.lib.model.methods import (
 )
 from scripts.lib.inference.method_config import METHOD_TO_CONFIG_CLASS, hash_config
 from scripts.lib.inference.runners import METHOD_TO_RUNNER_CLASS
+from scripts.lib.inference.scoring import ScoreResult, score_network
+from tests.scripts.lib.inference.test_scoring import needs_phylonet
 from scripts.lib.inference.runners.camus import (
     CamusBidirectionalRunner,
     CamusRunner,
@@ -178,9 +180,14 @@ GENE_TREES = (
 )
 
 
+# The true network: one B–C event as two contact edges (ADR 0001).
+TRUE_NETWORK = "((((A,((B)#H2,#H1)),((C)#H1,#H2)),(D,E)),OUT);"
+
+
 @pytest.mark.skipif(not CAMUS_BIN.exists(), reason="needs bin/camus")
-def test_bin_camus_bidirectional_writes_two_hybrids_per_event(tmp_path: Path):
-    """The pinned fork's `-B` emits each event as two hybrids (ADR 0001 form).
+@needs_phylonet
+def test_bin_camus_bidirectional_recovers_bidirectional_event(tmp_path: Path):
+    """At k=1, only `-B` recovers a bidirectional event exactly.
 
     Fails on a pre-fork `bin/camus`: rerun `install_camus.sh`.
     """
@@ -188,15 +195,14 @@ def test_bin_camus_bidirectional_writes_two_hybrids_per_event(tmp_path: Path):
     guide.write_text("((((A,B),C),(D,E)),OUT);\n")
     genes.write_text("\n".join(GENE_TREES) + "\n")
 
-    def run(*flags: str) -> str:
-        """:returns: CAMUS's k=1 network; CAMUS writes `<prefix>.csv`."""
+    def run(*flags: str) -> ScoreResult:
+        """:returns: the k=1 network's score; CAMUS writes `<prefix>.csv`."""
         prefix = tmp_path / ("bi" if flags else "uni")
         cmd = [CAMUS_BIN, "-n", "1", *flags, "-o", prefix, guide, genes]
         subprocess.run(cmd, cwd=tmp_path, capture_output=True, check=True)
         family = camus_to_family(prefix.with_suffix(".csv"))
         (newick,) = family.filter(pl.col("edges_added") == 1)["network_newick"]
-        return newick
+        return score_network(newick, TRUE_NETWORK)
 
-    assert run() == "((((A,(B)#H1),(#H1,C)),(D,E)),OUT);"
-    # Two contact edges, donor above hybrid on both branches: acyclic.
-    assert run("-B") == "((((A,(#H2,(B)#H1)),(#H1,(C)#H2)),(D,E)),OUT);"
+    assert run("-B") == ScoreResult(0.0, 0.0)
+    assert run() != ScoreResult(0.0, 0.0)
