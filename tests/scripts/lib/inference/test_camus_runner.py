@@ -16,8 +16,19 @@ ASTRAL3 = TreeInferenceMethod.PCH_ASTRAL3
 WASTRAL = TreeInferenceMethod.PCH_WASTRAL
 
 
-def _config(*guides: GuideTree) -> CamusConfig:
-    return CamusConfig(guide_trees=frozenset(guides), outgroup_label="OUT")
+def _config(
+    *guides: GuideTree, bidirectional: frozenset[bool] = frozenset({False})
+) -> CamusConfig:
+    """Build a CAMUS config rooted on ``OUT``.
+
+    :param guides: guide trees.
+    :param bidirectional: directions to fan out over.
+    """
+    return CamusConfig(
+        guide_trees=frozenset(guides),
+        outgroup_label="OUT",
+        bidirectional=bidirectional,
+    )
 
 
 @pytest.mark.parametrize(
@@ -85,16 +96,10 @@ def test_build_argv_passes_one_guide_and_the_outgroup(tmp_path: Path):
     assert argv[-4:] == ["--guide-tree", "true_tree", "--outgroup", "OUT"]
 
 
-def _bi_config(*is_bidirectional: bool) -> CamusConfig:
-    return CamusConfig(
-        guide_trees=frozenset({TRUE_TREE, ASTRAL3}),
-        outgroup_label="OUT",
-        bidirectional=frozenset(is_bidirectional),
-    )
-
-
 def test_get_runners_fan_out_guide_by_direction():
-    runners = _bi_config(True, False).get_runners()
+    runners = _config(
+        TRUE_TREE, ASTRAL3, bidirectional=frozenset({True, False})
+    ).get_runners()
     assert [r.suffix for r in runners] == [
         "pch_astral3",
         "pch_astral3.bi",
@@ -117,7 +122,9 @@ def test_unidirectional_hash_predates_the_field():
 
 
 def test_build_argv_flags_only_bidirectional(tmp_path: Path):
-    uni, bi = _bi_config(False, True).get_runners()[:2]
+    uni, bi = _config(
+        TRUE_TREE, ASTRAL3, bidirectional=frozenset({False, True})
+    ).get_runners()[:2]
     assert "--bidirectional" not in uni.build_argv("r", tmp_path, "d", tmp_path)
     assert bi.build_argv("r", tmp_path, "d", tmp_path)[-1] == "--bidirectional"
 
