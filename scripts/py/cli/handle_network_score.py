@@ -8,7 +8,8 @@ inference_data/network_scores.csv. A key
 already in the file is kept, failed and timed-out rows included: a slow network
 stays visible and is not retried every run. Never touches inference rows.
 
-A network not rooted on its dataset's outgroup is not scored: null rates, status ok.
+A semi-directed network (all but CAMUS) not rooted on its dataset's outgroup is not
+scored: null rates, status ok. CAMUS output is rooted: always scored.
 """
 
 import subprocess
@@ -38,6 +39,9 @@ from scripts.py.cli.schemata import (
     NETWORK_SCORES_SCHEMA,
     SIMULATED_DATA_REGISTRY_SCHEMA,
 )
+
+# Output rooted by the method; the outgroup check would misread a hybrid outgroup.
+ROOTED_OUTPUT_METHODS = {NetworkInferenceMethod.CAMUS.value}
 
 KEY_COLUMNS = ["dataset_id", "method", "config_hash", "edges_added"]
 
@@ -110,7 +114,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
 def handle_network_score(config: ExperimentConfig) -> Path:
     """Score every unscored network family row and write network_scores.csv.
 
-    A network not rooted on its dataset's outgroup gets null rates, status ok.
+    A semi-directed network not rooted on its dataset's outgroup gets null rates.
     """
     experiment_folder = config.experiment_folder
     sim_csv = experiment_folder / "simulation_data" / "simulated_data_registry.csv"
@@ -163,8 +167,10 @@ def handle_network_score(config: ExperimentConfig) -> Path:
                     ).outgroup_label
                 outgroup = dataset_to_outgroup[dataset_id]
                 # Cluster scoring is root-dependent: no score off the outgroup.
-                if outgroup is not None and not is_rooted_on(
-                    r["network_newick"], outgroup
+                if (
+                    outgroup is not None
+                    and r["method"] not in ROOTED_OUTPUT_METHODS
+                    and not is_rooted_on(r["network_newick"], outgroup)
                 ):
                     print(f"[yellow]Not rooted on {outgroup}: {label}[/yellow]")
                 else:

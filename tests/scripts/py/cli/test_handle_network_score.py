@@ -204,6 +204,19 @@ def test_network_off_the_outgroup_gets_null_rates(tmp_path: Path, monkeypatch):
     assert (row["fn_rate"], row["fp_rate"], row["status"]) == (None, None, "ok")
 
 
+def test_camus_off_the_outgroup_is_scored(tmp_path: Path, monkeypatch):
+    """CAMUS output is rooted; a hybrid outgroup is not a rooting failure."""
+    cfg = _setup(tmp_path, monkeypatch)
+    reg = tmp_path / "inference_data" / "inference_registry.csv"
+    family = pl.read_csv(reg, schema=INFERENCE_REGISTRY_SCHEMA)["group_estimate_path"][
+        0
+    ]
+    pl.read_csv(family).with_columns(network_newick=pl.lit(REROOTED)).write_csv(family)
+    monkeypatch.setattr(hns, "score_network", lambda est, ref: ScoreResult(0.5, 0.25))
+    df = pl.read_csv(handle_network_score(cfg), schema=NETWORK_SCORES_SCHEMA)
+    assert df["fn_rate"].to_list() == [0.5, 0.5]
+
+
 def test_network_is_scored_without_an_outgroup(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path, monkeypatch)
     _register_point_estimate(tmp_path, REROOTED)
