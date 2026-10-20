@@ -66,12 +66,19 @@ class SimulationConfigFactory:
         assert base_config_path is None or base_config_path.is_dir(), (
             f"Expected base_configs to be a directory. Found {base_config_path=}"
         )
-        self.base_configs = base_config_path or self.base_configs
-        self.poly_level = poly_level or self.poly_level
-        self.character_count = character_count or self.character_count
-        self.min_tree_height = min_tree_height or self.min_tree_height
-        self.homoplasy_factor = homoplasy_factor or self.homoplasy_factor
-        self.do_borrowing = do_borrowing or self.do_borrowing
+        # `is not None`, not `or`: 0.0 and False are real values.
+        if base_config_path is not None:
+            self.base_configs = base_config_path
+        if poly_level is not None:
+            self.poly_level = poly_level
+        if character_count is not None:
+            self.character_count = character_count
+        if min_tree_height is not None:
+            self.min_tree_height = min_tree_height
+        if homoplasy_factor is not None:
+            self.homoplasy_factor = homoplasy_factor
+        if do_borrowing is not None:
+            self.do_borrowing = do_borrowing
 
     def _to_polars_df(self) -> pl.DataFrame:
         borrowing_str = "borrowing" if self.do_borrowing else "noborrowing"

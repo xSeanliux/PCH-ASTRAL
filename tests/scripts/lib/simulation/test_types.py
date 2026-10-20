@@ -29,6 +29,19 @@ def test_out_file_name(tmp_path: Path):
     assert scf._get_out_file_name() == "veryhigh_123_44_320.csv"
 
 
+def test_update_params_keeps_falsy_values(tmp_path: Path):
+    scf = SimulationConfigFactory(base_config_path=tmp_path, do_borrowing=True)
+    scf.update_params(homoplasy_factor=0.0, do_borrowing=False)
+    assert scf.homoplasy_factor == 0.0
+    assert scf.do_borrowing is False
+
+
+def test_update_params_none_keeps_current(tmp_path: Path):
+    scf = SimulationConfigFactory(base_config_path=tmp_path, homoplasy_factor=0.3)
+    scf.update_params()
+    assert scf.homoplasy_factor == 0.3
+
+
 def test_base_config_does_not_exist():
     scf = SimulationConfigFactory(base_config_path=SIMULATION / "sample_base_config")
     with pytest.raises(AssertionError) as e:
