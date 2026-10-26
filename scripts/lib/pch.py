@@ -12,6 +12,7 @@ from scripts.lib.types import (
     QuartetGenerationScheme,
     Dataset,
 )
+from scripts.lib.model.strategies import QuartetGenerationStrategy
 
 
 class PCH_W(QuartetGenerationScheme):
@@ -85,6 +86,12 @@ class PCH_O(QuartetGenerationScheme):
                 q, n = most_common[0]
                 quartets[q] += n
         return quartets
+
+
+STRATEGY_TO_SCHEME: dict[QuartetGenerationStrategy, type[QuartetGenerationScheme]] = {
+    QuartetGenerationStrategy.PCH_W: PCH_W,
+    QuartetGenerationStrategy.PCH_W_N: PCH_W_N,
+}
 
 
 def print_quartets_for_astral3(quartets: Counter[Quartet], file: TextIO = sys.stdout):

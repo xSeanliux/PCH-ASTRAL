@@ -15,6 +15,8 @@ from scripts.lib.model.methods import (
 )
 
 BROOQS = NetworkInferenceMethod.BROOQS
+# Quartet-based runners read `d.csv` in `execute`.
+pytestmark = pytest.mark.usefixtures("quartet_input")
 NETWORK = "(OUT,(((A,(B)#H0),#H0),((C)#H1,(D,(E,#H1)))));"
 
 
@@ -56,7 +58,7 @@ def test_build_argv(tmp_path: Path):
         "r1", tmp_path / "d.csv", "d", tmp_path
     )
     assert argv[:2] == ["bash", "scripts/sh/runBROOQS.sh"]
-    assert argv[-2:] == ["--output", str(tmp_path)]
+    assert argv[argv.index("--output") + 1] == str(tmp_path)
 
 
 def test_infer_records_network_without_family(

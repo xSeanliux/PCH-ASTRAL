@@ -17,6 +17,8 @@ from scripts.lib.model.model_graph import ModelGraph
 from scripts.py.cli.handle_network_score import is_rooted_on
 
 NETCS = NetworkInferenceMethod.NETCS
+# Quartet-based runners read `d.csv` in `execute`.
+pytestmark = pytest.mark.usefixtures("quartet_input")
 
 ROOTED = "(OUT,((a,(b)#H0),(c,(d,#H0))));"
 # Real NetCS output: rerooted off the outgroup, leaving a unary `(OUT)`.
@@ -67,7 +69,7 @@ def test_build_argv(tmp_path: Path):
         "r1", tmp_path / "d.csv", "d", tmp_path
     )
     assert argv[:2] == ["bash", "scripts/sh/runNETCS.sh"]
-    assert argv[-2:] == ["--output", str(tmp_path)]
+    assert argv[argv.index("--output") + 1] == str(tmp_path)
 
 
 def _infer(
@@ -106,4 +108,6 @@ def test_infer_records_network_rerooted_if_possible(
 
 
 def test_infer_records_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    assert _infer(tmp_path, monkeypatch, ROOTED, returncode=1).status is RunStatus.FAILED
+    assert (
+        _infer(tmp_path, monkeypatch, ROOTED, returncode=1).status is RunStatus.FAILED
+    )

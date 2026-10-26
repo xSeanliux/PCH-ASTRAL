@@ -1,12 +1,16 @@
+import os
 import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Generic, TextIO, TypeVar
+from typing import TYPE_CHECKING, ClassVar, Generic, Protocol, TextIO, TypeVar
 
 from pydantic import BaseModel
 
 from scripts.lib.model.guide_tree import GuideTree
+from scripts.lib.model.strategies import QuartetGenerationStrategy
+from scripts.lib.pch import STRATEGY_TO_SCHEME, print_quartets_for_astral3
+from scripts.lib.types import Dataset
 from scripts.lib.model.methods import (
     ConsensusMethod,
     InferenceMethod,
@@ -91,6 +95,41 @@ class Runner(ABC, Generic[ConfigT]):
     def get_consensus_method() -> ConsensusMethod | None:
         """How the point estimate summarises the group; None if it doesn't."""
         return None
+
+
+class QuartetBasedConfig(Protocol):
+    """A config of a method that reads quartets; `get_runners` splits the set."""
+
+    @property
+    def quartet_generation(self) -> frozenset[QuartetGenerationStrategy]: ...
+
+
+def get_quartet_generation(config: QuartetBasedConfig) -> QuartetGenerationStrategy:
+    """The one quartet generation strategy of a split config."""
+    (strategy,) = config.quartet_generation
+    return strategy
+
+
+def get_quartet_suffix(config: QuartetBasedConfig) -> str | None:
+    """The run-name suffix for the strategy; None for PCH_W, so old runs keep their names."""
+    strategy = get_quartet_generation(config)
+    return None if strategy is QuartetGenerationStrategy.PCH_W else str(strategy)
+
+
+def get_quartets_path(runid: str) -> Path:
+    """Scratch quartet file of run `runid`; `write_quartets` writes it."""
+    scratch = Path(os.environ.get("PCH_SCRATCH", Path.home() / "scratch"))
+    return scratch / f"tmp_quartet_{runid}.txt"
+
+
+def write_quartets(config: QuartetBasedConfig, input_csv: Path, runid: str) -> None:
+    """Write `input_csv`'s quartets under the config's strategy, once per unit of
+    weight, to `get_quartets_path(runid)`; the run script reads them via --quartets."""
+    scheme = STRATEGY_TO_SCHEME[get_quartet_generation(config)]
+    path = get_quartets_path(runid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as f:
+        print_quartets_for_astral3(scheme.get_quartets(Dataset.from_path(input_csv)), f)
 
 
 GuidedConfigT = TypeVar("GuidedConfigT", bound="GuidedNetworkConfig", covariant=True)

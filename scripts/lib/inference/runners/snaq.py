@@ -6,7 +6,12 @@ from typing import TYPE_CHECKING, ClassVar, TextIO
 import polars as pl
 
 from scripts.lib.inference.network_format import HYBRID
-from scripts.lib.inference.runners.base import GuidedNetworkRunner
+from scripts.lib.inference.runners.base import (
+    GuidedNetworkRunner,
+    get_quartet_suffix,
+    get_quartets_path,
+    write_quartets,
+)
 from scripts.lib.model.methods import NetworkInferenceMethod
 
 if TYPE_CHECKING:
@@ -65,6 +70,13 @@ class SnaqRunner(GuidedNetworkRunner["SnaqConfig"]):
     def method(self) -> NetworkInferenceMethod:
         return NetworkInferenceMethod.SNAQ
 
+    @property
+    def suffix(self) -> str:
+        """The guide, then the quartet strategy unless PCH_W."""
+        return ".".join(
+            s for s in (str(self.guide), get_quartet_suffix(self.config)) if s
+        )
+
     def build_argv(
         self, runid: str, input_csv: Path, name: str, output_dir: Path
     ) -> list[str]:
@@ -79,6 +91,8 @@ class SnaqRunner(GuidedNetworkRunner["SnaqConfig"]):
             name,
             "--output",
             str(output_dir),
+            "--quartets",
+            str(get_quartets_path(runid)),
             "--guide-tree",
             str(self.guide),
             "--procs",
@@ -92,6 +106,7 @@ class SnaqRunner(GuidedNetworkRunner["SnaqConfig"]):
 
         :returns: the exit code; the family is written only on 0.
         """
+        write_quartets(self.config, input_csv, runid)
         returncode = super().execute(runid, input_csv, name, output_dir, log_file)
         if returncode == 0:
             family = self.get_group_estimate_path(output_dir, name)
