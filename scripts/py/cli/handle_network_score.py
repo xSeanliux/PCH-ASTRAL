@@ -23,7 +23,7 @@ from rich import print
 from scripts.lib.experiment import ExperimentConfig, GuidedNetworkConfig
 from scripts.lib.inference.runners.base import (
     QuartetBasedConfig,
-    get_quartet_generation,
+    get_split_quartet_generation_strategy,
 )
 from scripts.lib.inference import registry
 from scripts.lib.inference.method_config import METHOD_TO_CONFIG_CLASS
@@ -81,7 +81,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
         if isinstance(config, GuidedNetworkConfig):
             (guide,) = config.guide_trees
         quartet_generation = (
-            str(get_quartet_generation(config))
+            str(get_split_quartet_generation_strategy(config))
             if isinstance(config, QuartetBasedConfig)
             else None
         )

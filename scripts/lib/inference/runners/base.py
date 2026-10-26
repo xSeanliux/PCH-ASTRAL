@@ -115,15 +115,23 @@ class QuartetBasedConfig(Protocol):
     def quartet_generation(self) -> frozenset[QuartetGenerationStrategy]: ...
 
 
-def get_quartet_generation(config: QuartetBasedConfig) -> QuartetGenerationStrategy:
-    """The one quartet generation strategy of a split config."""
+def get_split_quartet_generation_strategy(
+    config: QuartetBasedConfig,
+) -> QuartetGenerationStrategy:
+    """The strategy of a config split by `get_runners`, which holds exactly one.
+
+    :raises AssertionError: if `config` is unsplit (holds several).
+    """
+    assert len(config.quartet_generation) == 1, (
+        f"unsplit config: {sorted(config.quartet_generation)}"
+    )
     (strategy,) = config.quartet_generation
     return strategy
 
 
 def get_quartet_suffix(config: QuartetBasedConfig) -> str | None:
     """The run-name suffix for the strategy; None for PCH_W, so old runs keep their names."""
-    strategy = get_quartet_generation(config)
+    strategy = get_split_quartet_generation_strategy(config)
     return None if strategy is QuartetGenerationStrategy.PCH_W else str(strategy)
 
 
@@ -144,7 +152,7 @@ def write_quartets(
 
     :param print_quartets: Writes the quartets in the format the method reads.
     """
-    scheme = STRATEGY_TO_SCHEME[get_quartet_generation(config)]
+    scheme = STRATEGY_TO_SCHEME[get_split_quartet_generation_strategy(config)]
     path = get_quartets_path(runid)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
