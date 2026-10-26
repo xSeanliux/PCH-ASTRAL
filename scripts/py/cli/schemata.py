@@ -79,7 +79,7 @@ NETWORK_SCORES_SCHEMA = pl.Schema(
         "dataset_id": String,
         "method": String,
         "guide_tree": String,
-        "quartet_generation": String,
+        "quartet_generation_strategy": String,
         "config_hash": String,
         "edges_added": Int64,
         "fn_rate": Float64,

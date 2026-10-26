@@ -4,7 +4,7 @@ For agents fixing experiment folders made by older code. One entry per breaking 
 
 ## Network methods have `quartet_generation`
 
-**Affects:** `camus`, `camus_bidirectional`, `snaq`, `brooqs`, `netcs` rows. `method_config_json` gains `"quartet_generation":["PCH_W"]`, so `config_hash` changed and resume reruns them. Output names are unchanged for `PCH_W`, and `network_scores.csv` gains a `quartet_generation` column. To keep old runs, rewrite their rows (from the repo root):
+**Affects:** `camus`, `camus_bidirectional`, `snaq`, `brooqs`, `netcs` rows. `method_config_json` gains `"quartet_generation":["PCH_W"]`, so `config_hash` changed and resume reruns them. Output names are unchanged for `PCH_W`, and `network_scores.csv` gains a `quartet_generation_strategy` column. To keep old runs, rewrite their rows (from the repo root):
 
 ```python
 import sys
@@ -39,11 +39,11 @@ pl.DataFrame(rows, schema=df.schema).write_csv(p)
 s = inf / "network_scores.csv"
 if s.exists():
     sc = pl.read_csv(s, infer_schema=False)
-    if "quartet_generation" not in sc.columns:
+    if "quartet_generation_strategy" not in sc.columns:
         sc = sc.with_columns(
             config_hash=pl.col("config_hash").replace(old_to_new),
-            quartet_generation=pl.lit("PCH_W"),
-        ).select("dataset_id", "method", "guide_tree", "quartet_generation", pl.exclude("dataset_id", "method", "guide_tree", "quartet_generation"))
+            quartet_generation_strategy=pl.lit("PCH_W"),
+        ).select("dataset_id", "method", "guide_tree", "quartet_generation_strategy", pl.exclude("dataset_id", "method", "guide_tree", "quartet_generation_strategy"))
         sc.write_csv(s)
 ```
 

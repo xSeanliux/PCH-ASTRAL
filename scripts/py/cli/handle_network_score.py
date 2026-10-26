@@ -115,7 +115,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
                 method=pl.lit(r["method"]),
                 config_hash=pl.lit(r["config_hash"]),
                 guide_tree=pl.lit(None if guide is None else str(guide), pl.String),
-                quartet_generation=pl.lit(quartet_generation, pl.String),
+                quartet_generation_strategy=pl.lit(quartet_generation, pl.String),
             )
         )
     return pl.concat(families)
@@ -164,7 +164,7 @@ def handle_network_score(config: ExperimentConfig) -> Path:
             already.add(key)  # a duplicate sim `path` row fans the join out
             row: dict[str, Cell] = {c: r[c] for c in KEY_COLUMNS} | {
                 "guide_tree": r["guide_tree"],
-                "quartet_generation": r["quartet_generation"],
+                "quartet_generation_strategy": r["quartet_generation_strategy"],
             }
             label = (
                 f"{r['dataset_id']} {r['guide_tree']} edges_added={r['edges_added']}"
