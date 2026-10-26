@@ -1,6 +1,8 @@
 import os
 import subprocess
 from abc import ABC, abstractmethod
+from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Generic, Protocol, TextIO, TypeVar
@@ -9,8 +11,8 @@ from pydantic import BaseModel
 
 from scripts.lib.model.guide_tree import GuideTree
 from scripts.lib.model.strategies import QuartetGenerationStrategy
-from scripts.lib.pch import STRATEGY_TO_SCHEME, print_quartets_for_astral3
-from scripts.lib.types import Dataset
+from scripts.lib.pch import STRATEGY_TO_SCHEME
+from scripts.lib.types import Dataset, Quartet
 from scripts.lib.model.methods import (
     ConsensusMethod,
     InferenceMethod,
@@ -122,14 +124,22 @@ def get_quartets_path(runid: str) -> Path:
     return scratch / f"tmp_quartet_{runid}.txt"
 
 
-def write_quartets(config: QuartetBasedConfig, input_csv: Path, runid: str) -> None:
-    """Write `input_csv`'s quartets under the config's strategy, once per unit of
-    weight, to `get_quartets_path(runid)`; the run script reads them via --quartets."""
+def write_quartets(
+    config: QuartetBasedConfig,
+    input_csv: Path,
+    runid: str,
+    print_quartets: Callable[[Counter[Quartet], TextIO], None],
+) -> None:
+    """Write `input_csv`'s quartets under the config's strategy to
+    `get_quartets_path(runid)`; the run script reads them via --quartets.
+
+    :param print_quartets: Writes the quartets in the format the method reads.
+    """
     scheme = STRATEGY_TO_SCHEME[get_quartet_generation(config)]
     path = get_quartets_path(runid)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
-        print_quartets_for_astral3(scheme.get_quartets(Dataset.from_path(input_csv)), f)
+        print_quartets(scheme.get_quartets(Dataset.from_path(input_csv)), f)
 
 
 GuidedConfigT = TypeVar("GuidedConfigT", bound="GuidedNetworkConfig", covariant=True)

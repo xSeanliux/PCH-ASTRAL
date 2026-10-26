@@ -11,6 +11,7 @@ from scripts.lib.inference.runners.base import (
     get_quartets_path,
     write_quartets,
 )
+from scripts.lib.pch import print_quartets_for_astral3
 from scripts.lib.model.methods import (
     InferenceMethod,
     NetworkInferenceMethod,
@@ -83,7 +84,7 @@ class NetcsRunner(Runner["NetcsConfig"]):
 
         :returns: the exit code.
         """
-        write_quartets(self.config, input_csv, runid)
+        write_quartets(self.config, input_csv, runid, print_quartets_for_astral3)
         returncode = super().execute(runid, input_csv, name, output_dir, log_file)
         if returncode == 0:
             outgroup_label = ModelGraph.from_dataset(input_csv).outgroup_label
