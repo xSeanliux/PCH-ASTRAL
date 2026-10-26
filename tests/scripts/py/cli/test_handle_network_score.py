@@ -218,6 +218,15 @@ def test_camus_off_the_outgroup_is_scored(tmp_path: Path, monkeypatch):
     assert df["fn_rate"].to_list() == [0.5, 0.5]
 
 
+def test_matched_k_only_scores_min_of_h_and_max_k(tmp_path: Path, monkeypatch):
+    """Family k in {0, 1}; with h = 1 only k = 1 is scored."""
+    cfg = _setup(tmp_path, monkeypatch)
+    monkeypatch.setattr(hns, "score_network", lambda est, ref: ScoreResult(0.5, 0.25))
+    out = handle_network_score(cfg, is_matched_k_only=True)
+    df = pl.read_csv(out, schema=NETWORK_SCORES_SCHEMA)
+    assert df["edges_added"].to_list() == [1]
+
+
 def test_network_is_scored_without_an_outgroup(tmp_path: Path, monkeypatch):
     cfg = _setup(tmp_path, monkeypatch)
     _register_point_estimate(tmp_path, REROOTED)

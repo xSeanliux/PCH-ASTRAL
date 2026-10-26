@@ -191,9 +191,18 @@ def score_experiment(config_path: Path):
 
 
 @experiment.command(name="network-score")
-def score_networks_experiment(config_path: Path):
+def score_networks_experiment(
+    config_path: Path,
+    matched_k_only: bool = typer.Option(
+        False,
+        "--matched-k-only",
+        help="Per multi-network family, score only k = min(true events, max k).",
+    ),
+):
     """CmpNets every network family row against its reference network."""
-    out = handle_network_score(_get_experiment_config(config_path))
+    out = handle_network_score(
+        _get_experiment_config(config_path), is_matched_k_only=matched_k_only
+    )
     print(f"Network scores in [green]{out}[/green].")
 
 

@@ -8,7 +8,8 @@ inference_data/network_scores.csv. A key
 already in the file is kept, failed and timed-out rows included: a slow network
 stays visible and is not retried every run. Never touches inference rows.
 
-A semi-directed network (all but CAMUS) not rooted on its dataset's outgroup is not
+A semi-directed network (all but CAMUS and
+CAMUS bidirectional) not rooted on its dataset's outgroup is not
 scored: null rates, status ok. CAMUS output is rooted: always scored.
 """
 
@@ -41,7 +42,10 @@ from scripts.py.cli.schemata import (
 )
 
 # Output rooted by the method; the outgroup check would misread a hybrid outgroup.
-ROOTED_OUTPUT_METHODS = {NetworkInferenceMethod.CAMUS.value}
+ROOTED_OUTPUT_METHODS = {
+    NetworkInferenceMethod.CAMUS.value,
+    NetworkInferenceMethod.CAMUS_BIDIRECTIONAL.value,
+}
 
 KEY_COLUMNS = ["dataset_id", "method", "config_hash", "edges_added"]
 
@@ -111,10 +115,16 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     return pl.concat(families)
 
 
-def handle_network_score(config: ExperimentConfig) -> Path:
+def handle_network_score(
+    config: ExperimentConfig, *, is_matched_k_only: bool = False
+) -> Path:
     """Score every unscored network family row and write network_scores.csv.
 
     A semi-directed network not rooted on its dataset's outgroup gets null rates.
+
+    :param is_matched_k_only: in a multi-network family (one per k, e.g. CAMUS),
+        score only k = min(h, N): h true events, N the family's largest k. The rest
+        stay unscored, so a later full pass scores them.
     """
     experiment_folder = config.experiment_folder
     sim_csv = experiment_folder / "simulation_data" / "simulated_data_registry.csv"
@@ -137,6 +147,17 @@ def handle_network_score(config: ExperimentConfig) -> Path:
         "model_tree",
     )
     joined = fam.join(sim, left_on="dataset_id", right_on="path")
+    if is_matched_k_only:
+        run = ["dataset_id", "method", "config_hash"]
+        joined = joined.filter(
+            (pl.len().over(run) == 1)
+            | (
+                pl.col("edges_added")
+                == pl.min_horizontal(
+                    "horizontal_edges", pl.col("edges_added").max().over(run)
+                )
+            )
+        )
 
     new: list[dict[str, Cell]] = []
     dataset_to_outgroup: dict[str, str | None] = {}
