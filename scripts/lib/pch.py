@@ -64,6 +64,7 @@ class PCH_W_N(QuartetGenerationScheme):
                         Quartet((a, b, c, d))
                         for a, b in combinations(t1s, 2)
                         for c, d in combinations(t2s, 2)
+                        if not {a, b} & {c, d}  # a quartet needs four taxa
                     ]
                 )
         return quartets

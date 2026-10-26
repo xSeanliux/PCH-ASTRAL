@@ -8,6 +8,7 @@ from scripts.lib.pch import (
     Quartet,
     Dataset,
     PCH_W,
+    PCH_W_N,
     print_quartets_for_astral3,
     print_quartets_for_qfm,
     print_quartets_for_wastral,
@@ -225,3 +226,28 @@ def test_pch_wastral_pairs_quartets_with_counts(tmp_path: Path):
     assert len(set(counts.values())) > 1
     assert len(quartets) == len(weights) == len(counts)
     assert dict(zip(quartets, weights)) == {f"{q};": str(n) for q, n in counts.items()}
+
+
+def test_pch_w_n_keeps_shared_state_splits_with_four_taxa():
+    # c has both states: PCH_W drops it, PCH_W_N keeps it, but never on both sides.
+    dataset = Dataset(
+        names=["a", "b", "c", "d", "e"],
+        chrs=[
+            Character(
+                id="t0",
+                feature="test",
+                features={
+                    "a": ["1"],
+                    "b": ["1"],
+                    "c": ["1", "2"],
+                    "d": ["2"],
+                    "e": ["2"],
+                },
+                weight=1,
+            )
+        ],
+    )
+    quartets = PCH_W_N.get_quartets(dataset)
+    assert all(len(q.taxon_set) == 4 for q in quartets)
+    assert set(PCH_W.get_quartets(dataset)) < set(quartets)
+    assert Quartet(("a", "c", "d", "e")) in quartets
