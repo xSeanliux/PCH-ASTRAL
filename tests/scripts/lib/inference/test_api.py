@@ -40,6 +40,25 @@ def test_infer_ok(tmp_path: Path, monkeypatch) -> None:
     assert "poly_level" not in row and "fn_rate" not in row
 
 
+def test_infer_fails_on_an_empty_estimate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exit 0 with an empty estimate (disk quota truncation) is a failure."""
+    (runner,) = MP4Config().get_runners()
+    csv = tmp_path / "d.csv"
+
+    def fake_run(
+        argv: list[str], **_: int | TextIO
+    ) -> subprocess.CompletedProcess[bytes]:
+        est = runner.get_point_estimate_path(tmp_path, "d")
+        est.parent.mkdir(parents=True, exist_ok=True)
+        est.touch()
+        return subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert api.infer(csv, tmp_path, runner).status == "failed"
+
+
 def test_infer_logs_an_execute_exception_as_failed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -46,7 +46,7 @@ status` counts each guide on its own line, `camus.<guide>`.
 `true_tree`. `SUPPORTED_GUIDE_TREES` (`scripts/lib/model/guide_tree.py`) is the
 **allow-list**; a field validator rejects anything else at config load. A method guide
 gates on that method (`CamusRunner.get_dependencies`), `true_tree` on nothing.
-`mp`/`ga`/`pch_w_tree_qmc` fail with an explanation; why, and the rooting plan, are in
+`mp`/`ga` fail with an explanation; why, and the rooting plan, are in
 `inference.md` and `outgroup.md`.
 
 CAMUS is a `NetworkInferenceMethod`, not a `TreeInferenceMethod`. Its runner is a

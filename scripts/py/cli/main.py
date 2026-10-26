@@ -128,6 +128,7 @@ def inference(
     method: str | None = typer.Option(None, "--method"),
     resubmits: int = typer.Option(3, "--resubmits"),
     astral_mem_gb: int | None = typer.Option(None, "--astral-mem-gb"),
+    chunk_size: int | None = typer.Option(None, "--chunk-size", min=1),
     dry_run: bool = typer.Option(False, "--dry-run/--no-dry-run"),
 ):
     """Run enabled methods over the sim registry. `--executor slurm` fans out one
@@ -169,6 +170,7 @@ def inference(
         datasets=datasets,
         resubmits=resubmits,
         astral_mem_gb=astral_mem_gb,
+        chunk_size=chunk_size,
         dry_run=dry_run,
     )
     if not dry_run:
@@ -189,9 +191,18 @@ def score_experiment(config_path: Path):
 
 
 @experiment.command(name="network-score")
-def score_networks_experiment(config_path: Path):
+def score_networks_experiment(
+    config_path: Path,
+    matched_k_only: bool = typer.Option(
+        False,
+        "--matched-k-only",
+        help="Per multi-network family, score only k = min(true events, max k).",
+    ),
+):
     """CmpNets every network family row against its reference network."""
-    out = handle_network_score(_get_experiment_config(config_path))
+    out = handle_network_score(
+        _get_experiment_config(config_path), is_matched_k_only=matched_k_only
+    )
     print(f"Network scores in [green]{out}[/green].")
 
 
