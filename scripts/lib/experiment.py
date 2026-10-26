@@ -126,35 +126,44 @@ class TobQmcConfig(RunnableConfig):
         ]
 
 
-class BrooqsConfig(RunnableConfig):
+class TreeOfBlobsConsumerConfig(RunnableConfig):
+    """A network method expanding the `tob_qmc` tree of blobs of its own strategy."""
+
+    quartet_generation: frozenset[QuartetGenerationStrategy] = (
+        quartet_generation_field()
+    )
+    # The `tob_qmc` strategy read; None = PCH_W. Set by `get_runners`. Hashed unless
+    # None, so PCH_W runs keep their hash and PCH_W_N runs differ from those that
+    # read the PCH_W tree.
+    tree_of_blobs: QuartetGenerationStrategy | None = Field(
+        None, exclude_if=lambda v: v is None
+    )
+    runner_class: ClassVar[type[Runner[BaseModel]]]
+
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run per quartet generation strategy, in sorted order."""
+        return [
+            self.runner_class(
+                config=self.model_copy(
+                    update={
+                        "quartet_generation": frozenset({q}),
+                        "tree_of_blobs": None
+                        if q is QuartetGenerationStrategy.PCH_W
+                        else q,
+                    }
+                )
+            )
+            for q in sorted(self.quartet_generation)
+        ]
+
+
+class BrooqsConfig(TreeOfBlobsConsumerConfig):
     # BROOQS's defaults plus `--rooted`.
-    quartet_generation: frozenset[QuartetGenerationStrategy] = (
-        quartet_generation_field()
-    )
-
-    def get_runners(self) -> list[Runner[BaseModel]]:
-        """One run per quartet generation strategy, in sorted order."""
-        return [
-            BrooqsRunner(
-                config=self.model_copy(update={"quartet_generation": frozenset({q})})
-            )
-            for q in sorted(self.quartet_generation)
-        ]
+    runner_class: ClassVar[type[Runner[BaseModel]]] = BrooqsRunner
 
 
-class NetcsConfig(RunnableConfig):
-    quartet_generation: frozenset[QuartetGenerationStrategy] = (
-        quartet_generation_field()
-    )
-
-    def get_runners(self) -> list[Runner[BaseModel]]:
-        """One run per quartet generation strategy, in sorted order."""
-        return [
-            NetcsRunner(
-                config=self.model_copy(update={"quartet_generation": frozenset({q})})
-            )
-            for q in sorted(self.quartet_generation)
-        ]
+class NetcsConfig(TreeOfBlobsConsumerConfig):
+    runner_class: ClassVar[type[Runner[BaseModel]]] = NetcsRunner
 
 
 class GuidedNetworkConfig(RunnableConfig):

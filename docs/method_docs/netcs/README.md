@@ -23,7 +23,7 @@ Facts below were checked by running TREE-QMC `53b15e5` (`spec/netcs/PLAN.md`).
 NetcsRunner                                      scripts/lib/inference/runners/netcs.py
 └── runNETCS.sh                                  scripts/sh/runNETCS.sh
     ├── model_graph --input        → OUT         the dataset's outgroup; none: exit 1
-    ├── TOB_QMC/trees/N.tree                     dependency; missing: exit 1
+    ├── TOB_QMC/trees/N[.PCH_W_N].tree           `--tree-of-blobs`, same strategy; missing: exit 1
     ├── printQuartets              → quartets    PCH-W; each quartet once per unit of weight
     └── tree-qmc --network -i quartets --at N.tree -o N.net --override
                                                  TREE-QMC 53b15e5
@@ -49,7 +49,7 @@ Fixed choices, not configurable:
 
 | Choice | Value | Why |
 |---|---|---|
-| tree of blobs | `tob_qmc`'s output (`get_dependencies`) | the only source |
+| tree of blobs | `tob_qmc`'s run of the same `quartet_generation` (`N.tree`, `N.PCH_W_N.tree`); blocked until it succeeds | the only source. PCH_W_N runs: `N.PCH_W_N.tob_PCH_W_N` |
 | reticulation count | blobs of degree ≥ 5 | NetCS has no flag |
 | `--alpha`, `--beta`, `--iter_limit_blob` | 1e-7, 0.95, 2n² | TREE-QMC defaults |
 | `--root` | never passed | segfaults in network mode (`spec/netcs/upstream-root-issue.md`) |

@@ -14,6 +14,7 @@ from scripts.lib.experiment import (
     TobQmcConfig,
 )
 from scripts.lib.inference.method_config import hash_config
+from scripts.lib.model.methods import TreeInferenceMethod
 from scripts.lib.pch import STRATEGY_TO_SCHEME
 from scripts.lib.model.strategies import QuartetGenerationStrategy
 from scripts.lib.types import Dataset
@@ -44,10 +45,34 @@ def test_guided_runs_every_guide_and_strategy(
     assert len({hash_config(r.config) for r in runners}) == 4
 
 
-@pytest.mark.parametrize("config_class", [BrooqsConfig, NetcsConfig, TobQmcConfig])
-def test_unguided_runs_one_per_strategy(config_class: type[RunnableConfig]):
-    config = config_class.model_validate({"quartet_generation": BOTH})
+def test_tob_qmc_runs_one_per_strategy():
+    config = TobQmcConfig.model_validate({"quartet_generation": BOTH})
     assert [r.get_run_name("d") for r in config.get_runners()] == ["d", "d.PCH_W_N"]
+
+
+@pytest.mark.parametrize("config_class", [BrooqsConfig, NetcsConfig])
+def test_consumer_reads_matching_tree_of_blobs(
+    config_class: type[RunnableConfig], tmp_path: Path
+):
+    pch_w, pch_w_n = config_class.model_validate(
+        {"quartet_generation": BOTH}
+    ).get_runners()
+    # PCH_W keeps its name and hash (#73's dump); PCH_W_N differs from #73's.
+    assert pch_w.config.model_dump_json() == '{"quartet_generation":["PCH_W"]}'
+    assert pch_w_n.config.model_dump_json() == (
+        '{"quartet_generation":["PCH_W_N"],"tree_of_blobs":"PCH_W_N"}'
+    )
+    assert [pch_w.get_run_name("d"), pch_w_n.get_run_name("d")] == [
+        "d",
+        "d.PCH_W_N.tob_PCH_W_N",
+    ]
+    tob = TreeInferenceMethod.TOB_QMC
+    assert pch_w.get_dependency_suffixes() == {tob: None}
+    assert pch_w_n.get_dependency_suffixes() == {tob: "PCH_W_N"}
+    trees = tmp_path / "TOB_QMC" / "trees"
+    for runner, tree in [(pch_w, "d.tree"), (pch_w_n, "d.PCH_W_N.tree")]:
+        argv = runner.build_argv("r", tmp_path / "d.csv", "d", tmp_path)
+        assert argv[argv.index("--tree-of-blobs") + 1] == str(trees / tree)
 
 
 def test_tob_qmc_default_keeps_its_hash():

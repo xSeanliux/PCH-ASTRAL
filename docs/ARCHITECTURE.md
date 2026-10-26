@@ -36,7 +36,7 @@ main.py: inference
    │  └─ scheduler.sort_topologically(...)       # METHOD_TO_RUNNER_CLASS order breaks ties
    ├─ per dataset, per runner:
    │  ├─ resume: (method, hash_config) done?     -> skip
-   │  ├─ gate: a dependency has no success?      -> block
+   │  ├─ gate: a dependency (or its required variant) has no success? -> block
    │  ├─ api.infer(input_csv, out_dir, runner)   -> InferenceResult
    │  └─ OK -> registry.write_result             -> shards/{job}.jsonl
    └─ registry.compact                           -> inference_registry.csv
@@ -53,7 +53,8 @@ One abstract `Runner[ConfigT]` for tree and network methods (`runners/base.py`).
 | `get_run_name(stem)` | `stem`, or `stem.suffix`. |
 | `build_argv(...)` | The command `execute` runs. |
 | `execute(..., log_file)` | What `api.infer` calls; returns the exit code. Default runs `build_argv`; override to post-process (CAMUS and SNaQ write their family CSVs). An exception fails the run, traceback in the log. |
-| `get_dependencies()` | Methods whose output it consumes. Methods, not runners: the gate is on method names. |
+| `get_dependencies()` | Methods whose output it consumes. Methods, not runners: ordering and the gate are on method names. |
+| `get_dependency_suffixes()` | The run suffix a dependency must have succeeded with (BROOQS/NetCS: their `tob_qmc` variant); default none. |
 | `get_log_path` | Static. |
 | `get_point_estimate_path` | Static. One tree or network, or `None` if the method has no single estimate. |
 | `get_group_estimate_path` | Static. The set the estimate summarises (trees) or the family (networks); default `None`. |
@@ -84,7 +85,7 @@ A guide is a tree *method* or `true_tree`; there is no separate guide enum (`mod
 
 SNaQ takes `SNAQ_GUIDE_TREES`, every guide but `tob_qmc`: `snaq!` resolves polytomies and unroots its start tree, but a tree of blobs' polytomies are blobs. CAMUS takes `CAMUS_GUIDE_TREES`; `mp`, `ga` and `pch_w_tree_qmc` are rejected at config load: it needs a rooted binary tree (`spec/camus/inference.md`). Each config's `supported_guides` is checked at load. A guide names a method, not a config: `MethodConfig` holds one config per method.
 
-Not a guide: BROOQS's tree of blobs is a fixed dependency on `tob_qmc` (`BrooqsRunner.get_dependencies`), no config field.
+Not a guide: BROOQS/NetCS's tree of blobs is a fixed dependency on the `tob_qmc` run of their quartet strategy (`TreeOfBlobsConsumerRunner`), recorded in the hashed `tree_of_blobs` field (omitted for PCH_W).
 
 ## Scheduling (`scheduler.py`)
 
@@ -97,7 +98,7 @@ The registry holds **only successes**, so a row `(dataset_id, method, config_has
 | State | Action |
 |---|---|
 | `(method, config_hash)` recorded | **skip** (resume) |
-| a dependency has no success | **block**: log, no row |
+| a dependency, or the variant `get_dependency_suffixes` asks for, has no success (`get_completed_variants`) | **block**: log, no row |
 | else | **run**; OK writes a row, failure logs only |
 
 Blocked (never ran) differs from failed (ran, errored); neither is a row. With `--executor slurm`, `get_dependencies()` become `afterok` edges between per-(condition, method) jobs.

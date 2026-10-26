@@ -89,6 +89,8 @@ def handle_inference(
     wanted = _read_dataset_filter(datasets)  # None = all rows
     # {dataset → {(method, config_hash)}}
     done = scheduler.get_completed_runs(experiment_folder)
+    # {dataset → {(method, run suffix)}}: the per-variant dependency gate
+    done_variants = scheduler.get_completed_variants(experiment_folder)
     tally = {"ok": 0, "skipped": 0, "blocked": 0, "failed": 0}
     rows = pl.read_csv(sim_registry, schema=SIMULATED_DATA_REGISTRY_SCHEMA).iter_rows(
         named=True
@@ -101,6 +103,7 @@ def handle_inference(
         dkey = (dataset_id,)
         prior = done.get(dkey, set())
         ok_methods = {m for m, _ in prior}  # this dataset's OK methods; grows below
+        ok_variants = set(done_variants.get(dkey, set()))  # grows below
         out_dir = inference_dir / input_path.parent.name
 
         for r in runners:
@@ -111,9 +114,14 @@ def handle_inference(
                 tally["skipped"] += 1
                 continue
 
-            unmet = [d for d in r.get_dependencies() if d.value not in ok_methods]
+            unmet = [d.value for d in r.get_dependencies() if d.value not in ok_methods]
+            unmet += [
+                f"{d.value}.{s}" if s else d.value
+                for d, s in r.get_dependency_suffixes().items()
+                if (d.value, s) not in ok_variants and d.value not in unmet
+            ]
             if unmet:
-                need = ", ".join(d.value for d in unmet)
+                need = ", ".join(unmet)
                 print(
                     f"[yellow]{r.method.value} blocked on {input_path.name}: "
                     f"missing {need}[/yellow]"
@@ -133,6 +141,7 @@ def handle_inference(
 
             registry.write_result(result, experiment_folder)
             ok_methods.add(r.method.value)
+            ok_variants.add((r.method.value, r.suffix))
             tally["ok"] += 1
 
     if no_compact:  # SLURM batch: shards only; the compact job owns the manifest

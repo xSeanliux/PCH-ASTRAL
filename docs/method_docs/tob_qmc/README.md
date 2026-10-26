@@ -69,8 +69,8 @@ Fixed choices, not configurable:
 | `--root` | the experiment's `outgroup_label`, if any | BROOQS and NetCS need a rooted tree |
 
 One `tob_qmc` config per experiment: every PCH_W config writes the same
-`TOB_QMC/trees/N.tree`, which BROOQS and NetCS read, whatever their own `quartet_generation`.
-`N.PCH_W_N.tree` is standalone; no consumer reads it.
+`TOB_QMC/trees/N.tree`. BROOQS and NetCS read the tree of their own `quartet_generation`
+(`N.tree` or `N.PCH_W_N.tree`).
 
 ## Normalising to the tree contract
 

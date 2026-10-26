@@ -6,7 +6,11 @@ from scripts.lib.inference.inference import InferenceResult
 from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 from scripts.lib.model.methods import TreeInferenceMethod as T
 from scripts.lib.inference.registry import compact, write_result
-from scripts.lib.inference.scheduler import get_completed_runs, sort_topologically
+from scripts.lib.inference.scheduler import (
+    get_completed_runs,
+    get_completed_variants,
+    sort_topologically,
+)
 
 
 def _result(
@@ -40,6 +44,27 @@ def test_completed_runs_unions_and_dedups_registry_and_shard(tmp_path: Path):
     done = get_completed_runs(tmp_path)
     assert done[("ds1",)] == {("mp", "abc")}  # dedups across the two sources
     assert done[("ds2",)] == {("mp", "abc")}
+
+
+def test_completed_variants_carry_run_suffixes(tmp_path: Path):
+    def tob(config_json: str) -> InferenceResult:
+        return InferenceResult(
+            dataset_id="ds1",
+            method=TreeInferenceMethod.TOB_QMC,
+            config_hash=config_json,
+            method_config_json=config_json,
+            point_estimate_newick="(a,b);",
+            runtime_seconds=1.0,
+            status=RunStatus.OK,
+            ran_at="2026-01-01T00:00:00+00:00",
+        )
+
+    write_result(tob("{}"), tmp_path)
+    write_result(tob('{"quartet_generation":["PCH_W_N"]}'), tmp_path)
+    write_result(tob('{"alpha":2}'), tmp_path)  # no longer parses: left out
+    assert get_completed_variants(tmp_path) == {
+        ("ds1",): {("tob_qmc", None), ("tob_qmc", "PCH_W_N")}
+    }
 
 
 def test_topo_orders_deps_before_dependents():
