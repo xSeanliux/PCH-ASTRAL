@@ -14,6 +14,5 @@ class NormalisationStrategy(IntEnum):
 
 
 class QuartetGenerationStrategy(StrEnum):
-    # Values are `scripts.lib.pch` class names.
     PCH_W = "PCH_W"
     PCH_W_N = "PCH_W_N"
