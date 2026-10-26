@@ -11,6 +11,8 @@ from scripts.lib.inference.runners.tob_qmc import TobQmcRunner
 from scripts.lib.model.methods import TreeInferenceMethod, RunStatus
 
 TOB_QMC = TreeInferenceMethod.TOB_QMC
+# Quartet-based runners read `d.csv` in `execute`.
+pytestmark = pytest.mark.usefixtures("quartet_input")
 
 
 def test_empty_yaml_block_yields_one_runner():

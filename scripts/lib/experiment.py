@@ -109,10 +109,21 @@ class TobQmcConfig(RunnableConfig):
     # Min p-value search per edge: 3-fix-1-alter (the TOB-QMC paper's), or TREE-QMC's
     # default bipartition search, capped at 2n^2 4-taxon sets. beta stays 0.95.
     three_fix_one_alter: bool = True
+    # Dropped from the dump when default, so PCH_W runs keep their config_hash.
+    quartet_generation: frozenset[QuartetGenerationStrategy] = Field(
+        frozenset({QuartetGenerationStrategy.PCH_W}),
+        min_length=1,
+        exclude_if=lambda v: v == {QuartetGenerationStrategy.PCH_W},
+    )
 
     def get_runners(self) -> list[Runner[BaseModel]]:
-        """One run."""
-        return [TobQmcRunner(config=self)]
+        """One run per quartet generation strategy, in sorted order."""
+        return [
+            TobQmcRunner(
+                config=self.model_copy(update={"quartet_generation": frozenset({q})})
+            )
+            for q in sorted(self.quartet_generation)
+        ]
 
 
 class BrooqsConfig(RunnableConfig):

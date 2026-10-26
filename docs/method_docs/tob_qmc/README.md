@@ -10,7 +10,7 @@ method accepts it as a guide tree. It is only meaningful as input to BROOQS/NetC
 
 ## What it computes
 
-- **Input:** gene trees; here, PCH-W quartets as 4-taxon gene trees.
+- **Input:** gene trees; here, PCH-W (or PCH-W-N) quartets as 4-taxon gene trees.
 - **Model:** the network multispecies coalescent. Quartet concordance factors are tested
   with TINNiK's tree test (QTT) and star test (QST) (Allman et al. 2024).
 - **Objective:** none optimised. Builds a TREE-QMC base tree, finds each edge's minimum
@@ -22,9 +22,9 @@ method accepts it as a guide tree. It is only meaningful as input to BROOQS/NetC
 ## How we run it
 
 ```text
-TobQmcRunner (default execute)                  scripts/lib/inference/runners/tob_qmc.py
-└── runTOBQMC.sh                                scripts/sh/runTOBQMC.sh
-    ├── printQuartets               → quartets  PCH-W; each quartet once per unit of weight
+TobQmcRunner.execute                            scripts/lib/inference/runners/tob_qmc.py
+├── write_quartets                  → quartets  per quartet_generation; once per unit of weight
+└── runTOBQMC.sh --quartets                     scripts/sh/runTOBQMC.sh
     ├── model_graph                 → outgroup
     └── tree-qmc --blob [--root <outgroup>] --alpha A [--3f1a] -w f --override
                                     → N.tree    TREE-QMC 53b15e5, R-embedded build
@@ -44,12 +44,14 @@ methods:
   tob_qmc:
     alpha: 0.01               # default 1e-7
     three_fix_one_alter: true # default true
+    quartet_generation: [PCH_W, PCH_W_N]  # default [PCH_W]; one run each
 ```
 
 | Field | Default | Flag | Meaning |
 |---|---|---|---|
 | `alpha` | 1e-7 (TREE-QMC's) | `--alpha` | QTT level: an edge with min p below it becomes a blob. |
 | `three_fix_one_alter` | `true` | `--3f1a` | 3-fix-1-alter min p-value search, the paper's. `false`: TREE-QMC's bipartition search. |
+| `quartet_generation` | `[PCH_W]` | `--quartets` | Strategies, one run each (`docs/KEYS.md`). Non-`PCH_W` runs write `N.<strategy>.tree`. `PCH_W` is left out of the config JSON, so old hashes hold. |
 
 **Lower alpha for PCH-W input.** A test sees only the quartets of one 4-taxon set:
 ~20 at 320 characters (a character informs a set only when it splits it 2|2). No p-value
@@ -66,8 +68,9 @@ Fixed choices, not configurable:
 | `--iter_limit_blob` | 2n² | TREE-QMC default; bipartition search only |
 | `--root` | the experiment's `outgroup_label`, if any | BROOQS and NetCS need a rooted tree |
 
-One `tob_qmc` config per experiment: every config writes the same `TOB_QMC/trees/N.tree`,
-which BROOQS and NetCS read.
+One `tob_qmc` config per experiment: every PCH_W config writes the same
+`TOB_QMC/trees/N.tree`, which BROOQS and NetCS read, whatever their own `quartet_generation`.
+`N.PCH_W_N.tree` is standalone; no consumer reads it.
 
 ## Normalising to the tree contract
 
@@ -87,7 +90,7 @@ network's tree of blobs; not implemented.
 
 | File | Writer | Content |
 |---|---|---|
-| `trees/N.tree` | `tree-qmc` | point estimate (Newick) |
+| `trees/N.tree` | `tree-qmc` | point estimate (Newick); `N.PCH_W_N.tree` for PCH_W_N |
 
 The run log is at `<cond>/TOB_QMC/logs/N.log`.
 
