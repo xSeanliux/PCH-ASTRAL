@@ -515,3 +515,61 @@ def test_handle_inference_runs_camus_once_per_guide(tmp_path: Path, monkeypatch)
     calls.clear()
     handle_inference(cfg)
     assert calls == []  # resume: the true_tree unit is already recorded
+
+
+def _named_infer(calls: list[str], fail: frozenset[str] = frozenset()):
+    """`_ok_infer` recording run names; runs named in `fail` fail."""
+
+    def fake(input_csv, output_dir, runner):
+        name = f"{runner.method.value}:{runner.get_run_name(input_csv.stem)}"
+        calls.append(name)
+        return InferenceResult(
+            dataset_id=registry.canonical_path(input_csv),
+            method=runner.method,
+            config_hash=hash_config(runner.config),
+            method_config_json=runner.config.model_dump_json(),
+            point_estimate_newick="(A,B);",
+            runtime_seconds=1.0,
+            status=RunStatus.FAILED if name in fail else RunStatus.OK,
+            ran_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    return fake
+
+
+BOTH = ["PCH_W", "PCH_W_N"]
+
+
+def test_handle_inference_blocks_consumer_without_matching_tob(tmp_path, monkeypatch):
+    # PCH_W_N tob_qmc fails: only the PCH_W consumers run.
+    cfg = _setup(
+        tmp_path,
+        {
+            "tob_qmc": {"quartet_generation": BOTH},
+            "brooqs": {"quartet_generation": BOTH},
+            "netcs": {"quartet_generation": BOTH},
+        },
+    )
+    calls: list[str] = []
+    fail = frozenset({"tob_qmc:sim_0_1_1.PCH_W_N"})
+    monkeypatch.setattr(api, "infer", _named_infer(calls, fail))
+    handle_inference(cfg)
+    assert calls == [
+        "tob_qmc:sim_0_1_1",
+        "tob_qmc:sim_0_1_1.PCH_W_N",
+        "brooqs:sim_0_1_1",
+        "netcs:sim_0_1_1",
+    ]
+
+
+def test_handle_inference_consumer_reads_prior_matching_tob(tmp_path, monkeypatch):
+    # Run 1: PCH_W_N tob_qmc only. Run 2: its consumer runs; the PCH_W one is blocked.
+    calls: list[str] = []
+    monkeypatch.setattr(api, "infer", _named_infer(calls))
+    handle_inference(_setup(tmp_path, {"tob_qmc": {"quartet_generation": ["PCH_W_N"]}}))
+    calls.clear()
+    cfg = ExperimentConfig.model_validate(
+        _config(tmp_path, methods={"brooqs": {"quartet_generation": BOTH}})
+    )
+    handle_inference(cfg)
+    assert calls == ["brooqs:sim_0_1_1.PCH_W_N.tob_PCH_W_N"]

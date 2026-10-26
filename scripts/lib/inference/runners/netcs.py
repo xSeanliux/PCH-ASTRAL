@@ -5,18 +5,10 @@ from typing import TYPE_CHECKING, TextIO
 
 from Bio import Phylo
 
-from scripts.lib.inference.runners.base import (
-    Runner,
-    get_quartet_suffix,
-    get_quartets_path,
-    write_quartets,
-)
+from scripts.lib.inference.runners.base import get_quartets_path, write_quartets
+from scripts.lib.inference.runners.tob_qmc import TreeOfBlobsConsumerRunner
 from scripts.lib.pch import print_quartets_for_astral3
-from scripts.lib.model.methods import (
-    InferenceMethod,
-    NetworkInferenceMethod,
-    TreeInferenceMethod,
-)
+from scripts.lib.model.methods import NetworkInferenceMethod
 from scripts.lib.model.model_graph import ModelGraph
 
 if TYPE_CHECKING:
@@ -41,22 +33,13 @@ def reroot_on(newick: str, leaf_label: str) -> str | None:
 
 
 @dataclass(frozen=True)
-class NetcsRunner(Runner["NetcsConfig"]):
-    """NetCS: PCH-W quartets and TOB-QMC's tree of blobs in, one level-1 network out."""
+class NetcsRunner(TreeOfBlobsConsumerRunner["NetcsConfig"]):
+    """NetCS: quartets and TOB-QMC's tree of blobs in, one level-1 network out."""
 
     @property
     def method(self) -> NetworkInferenceMethod:
         """`netcs`."""
         return NetworkInferenceMethod.NETCS
-
-    def get_dependencies(self) -> list[InferenceMethod]:
-        """The tree of blobs NetCS resolves."""
-        return [TreeInferenceMethod.TOB_QMC]
-
-    @property
-    def suffix(self) -> str | None:
-        """The quartet strategy unless PCH_W."""
-        return get_quartet_suffix(self.config)
 
     def build_argv(
         self, runid: str, input_csv: Path, name: str, output_dir: Path
@@ -75,6 +58,8 @@ class NetcsRunner(Runner["NetcsConfig"]):
             str(output_dir),
             "--quartets",
             str(get_quartets_path(runid)),
+            "--tree-of-blobs",
+            str(self.get_tree_of_blobs_path(input_csv, output_dir)),
         ]
 
     def execute(

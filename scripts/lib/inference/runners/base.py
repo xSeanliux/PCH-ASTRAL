@@ -86,6 +86,10 @@ class Runner(ABC, Generic[ConfigT]):
         on their names, which is why these are methods and not runners."""
         return []
 
+    def get_dependency_suffixes(self) -> dict[InferenceMethod, str | None]:
+        """The run suffix a dependency must have succeeded with; unlisted: any run."""
+        return {}
+
     # Path getters are static: `guide_tree.py` looks a point estimate up by method alone.
     @staticmethod
     @abstractmethod

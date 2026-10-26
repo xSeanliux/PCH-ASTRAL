@@ -1,6 +1,6 @@
 #!/bin/bash
-# NetCS network inference: --quartets and the tob_qmc tree of blobs
-# (<output>/TOB_QMC/trees/<input stem>.tree) in. Writes <output>/NETCS/networks/<name>.net:
+# NetCS network inference: --quartets and --tree-of-blobs in. Writes
+# <output>/NETCS/networks/<name>.net:
 # one eNewick line, rooted wherever NetCS left it; NetcsRunner.execute then reroots it
 # on the outgroup if it can be.
 RUNID=""
@@ -8,6 +8,7 @@ INPUT=""
 TREEOUTPUT=""
 NAME=""
 QUARTETS=""
+TOB_PATH=""
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -16,8 +17,9 @@ while [[ "$#" -gt 0 ]]; do
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
         -Q|--quartets) QUARTETS="$2"; shift ;;
+        -T|--tree-of-blobs) TOB_PATH="$2"; shift ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -Q <quartets>"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -Q <quartets> -T <tree of blobs>"
             echo ""
             echo "Required:"
             echo "  -H, --runid        Run ID"
@@ -25,6 +27,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -o, --output       Output dir"
             echo "  -n, --name         Run name; names the output files"
             echo "  -Q, --quartets     Quartet file, one per line per unit of weight"
+            echo "  -T, --tree-of-blobs  tob_qmc tree of blobs"
             exit 0
             ;;
         *)
@@ -36,8 +39,8 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$QUARTETS" || -z "$TREEOUTPUT" ]]; then
-    echo "Error: --runid, --input, --name, --quartets and --output must be provided."
+if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$QUARTETS" || -z "$TOB_PATH" || -z "$TREEOUTPUT" ]]; then
+    echo "Error: --runid, --input, --name, --quartets, --tree-of-blobs and --output must be provided."
     echo "Use -h or --help for usage."
     exit 1
 fi
@@ -45,9 +48,6 @@ fi
 PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
 mkdir -p "$PCH_SCRATCH" "$TREEOUTPUT/NETCS/logs" "$TREEOUTPUT/NETCS/networks"
 
-# Per dataset: named by the input stem; $NAME may carry a run suffix.
-STEM="${INPUT##*/}"
-TOB_PATH="$TREEOUTPUT/TOB_QMC/trees/${STEM%.*}.tree"
 NET_PATH="$TREEOUTPUT/NETCS/networks/$NAME.net"
 rm -f "$NET_PATH"  # a failed run must not leave a stale network
 

@@ -1,12 +1,13 @@
 #!/bin/bash
-# BROOQS network inference: --quartets as gene trees plus the TOB-QMC tree of blobs
-# (<output>/TOB_QMC/trees/<input stem>.tree, rooted on the outgroup); each polytomy becomes a
-# cycle. Writes <output>/BROOQS/networks/<name>.net (eNewick, rooted on the outgroup).
+# BROOQS network inference: --quartets as gene trees plus the --tree-of-blobs
+# (rooted on the outgroup); each polytomy becomes a cycle. Writes
+# <output>/BROOQS/networks/<name>.net (eNewick, rooted on the outgroup).
 RUNID=""
 INPUT=""
 TREEOUTPUT=""
 NAME=""
 QUARTETS=""
+TOB=""
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -15,8 +16,9 @@ while [[ "$#" -gt 0 ]]; do
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
         -Q|--quartets) QUARTETS="$2"; shift ;;
+        -T|--tree-of-blobs) TOB="$2"; shift ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -Q <quartets>"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -Q <quartets> -T <tree of blobs>"
             echo ""
             echo "Required:"
             echo "  -H, --runid        Run ID"
@@ -24,6 +26,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -o, --output       Output dir"
             echo "  -n, --name         Run name; names the output files"
             echo "  -Q, --quartets     Quartet file, one per line per unit of weight"
+            echo "  -T, --tree-of-blobs  tob_qmc tree of blobs"
             exit 0
             ;;
         *)
@@ -35,8 +38,8 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$QUARTETS" || -z "$TREEOUTPUT" ]]; then
-    echo "Error: --runid, --input, --name, --quartets and --output must be provided."
+if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$QUARTETS" || -z "$TOB" || -z "$TREEOUTPUT" ]]; then
+    echo "Error: --runid, --input, --name, --quartets, --tree-of-blobs and --output must be provided."
     echo "Use -h or --help for usage."
     exit 1
 fi
@@ -44,9 +47,6 @@ fi
 PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
 mkdir -p "$PCH_SCRATCH" "$TREEOUTPUT/BROOQS/logs" "$TREEOUTPUT/BROOQS/networks"
 
-# Per dataset: named by the input stem; $NAME may carry a run suffix.
-STEM="${INPUT##*/}"
-TOB="$TREEOUTPUT/TOB_QMC/trees/${STEM%.*}.tree"
 NET="$TREEOUTPUT/BROOQS/networks/$NAME.net"
 rm -f "$NET"  # a failed run must not leave a stale network
 

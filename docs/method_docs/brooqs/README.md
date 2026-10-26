@@ -23,8 +23,8 @@ Deterministic and single-threaded at our flags: identical across runs.
 BrooqsRunner                                    scripts/lib/inference/runners/brooqs.py
 └── runBROOQS.sh                                scripts/sh/runBROOQS.sh
     ├── model_graph --input         → outgroup  the dataset's model graph
-    ├── <cond>/TOB_QMC/trees/N.tree             tree of blobs from `tob_qmc`, rooted on the outgroup
-    ├── printQuartets               → quartets  PCH-W; each quartet once per unit of weight
+    ├── <cond>/TOB_QMC/trees/N[.PCH_W_N].tree   `--tree-of-blobs`: `tob_qmc`'s, same strategy, rooted on the outgroup
+    ├── --quartets (runner-written) → quartets  per `quartet_generation`; once per unit of weight
     └── brooqs -i quartets -t tree -o N.net --rooted
                                                 BROOQS 17b25b2, pinned in `pyproject.toml`/`uv.lock`; `make setup` installs it
 ```
@@ -56,9 +56,9 @@ Fixed choices, not configurable:
 
 | Choice | Value | Why |
 |---|---|---|
-| tree of blobs | `tob_qmc`'s (`BrooqsRunner.get_dependencies`) | the only source; a fixed dependency, not a guide tree |
+| tree of blobs | `tob_qmc`'s run of the same `quartet_generation` (`N.tree`, `N.PCH_W_N.tree`); blocked until it succeeds | the only source; a fixed dependency, not a guide tree. PCH_W_N runs: `N.PCH_W_N.tob_PCH_W_N` |
 | outgroup | from the model graph | one source of truth, as SNaQ |
-| quartets | PCH-W, once per unit of weight | same data as the tree of blobs |
+| quartets | `quartet_generation` (default PCH-W), once per unit of weight | same data as the tree of blobs |
 | rooting | `--rooted`, tree of blobs rooted on the outgroup | the paper roots it on the outgroup (§2.3.3); best of three modes, below |
 | k | number of blobs | BROOQS has no flag for it |
 
