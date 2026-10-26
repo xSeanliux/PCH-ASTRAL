@@ -20,15 +20,11 @@ import polars as pl
 from Bio import Phylo
 from rich import print
 
-from scripts.lib.experiment import (
-    BrooqsConfig,
-    CamusConfig,
-    ExperimentConfig,
-    GuidedNetworkConfig,
-    NetcsConfig,
-    SnaqConfig,
+from scripts.lib.experiment import ExperimentConfig, GuidedNetworkConfig
+from scripts.lib.inference.runners.base import (
+    QuartetBasedConfig,
+    get_quartet_generation,
 )
-from scripts.lib.inference.runners.base import get_quartet_generation
 from scripts.lib.inference import registry
 from scripts.lib.inference.method_config import METHOD_TO_CONFIG_CLASS
 from scripts.lib.inference.registry import Cell
@@ -86,7 +82,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
             (guide,) = config.guide_trees
         quartet_generation = (
             str(get_quartet_generation(config))
-            if isinstance(config, (BrooqsConfig, CamusConfig, NetcsConfig, SnaqConfig))
+            if isinstance(config, QuartetBasedConfig)
             else None
         )
         if r["group_estimate_path"] is None:

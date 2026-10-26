@@ -5,7 +5,15 @@ from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Generic, Protocol, TextIO, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Generic,
+    Protocol,
+    TextIO,
+    TypeVar,
+    runtime_checkable,
+)
 
 from pydantic import BaseModel
 
@@ -99,6 +107,7 @@ class Runner(ABC, Generic[ConfigT]):
         return None
 
 
+@runtime_checkable
 class QuartetBasedConfig(Protocol):
     """A config of a method that reads quartets; `get_runners` splits the set."""
 
