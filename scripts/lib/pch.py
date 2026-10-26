@@ -40,6 +40,12 @@ class PCH_W(QuartetGenerationScheme):
 
 
 class PCH_W_N(QuartetGenerationScheme):
+    """
+    This is PCH-W-N. The N stands for Network, and reflects the fact that this method is meant to be an input to Networks.
+    PCH-W-N only differs in one place from PCH-W: ab|cd is still a split if ab and cd share a state. This is done so that we are able to capture
+    phylogenetic _network_ signal, as opposed to attempting to capture purely tree signal as is with PCH-W.
+    """
+
     @classmethod
     def get_quartets(cls, dataset: Dataset) -> Counter[Quartet]:
         quartets: Counter[Quartet] = Counter()
