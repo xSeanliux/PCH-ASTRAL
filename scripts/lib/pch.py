@@ -39,6 +39,29 @@ class PCH_W(QuartetGenerationScheme):
         return quartets
 
 
+class PCH_W_N(QuartetGenerationScheme):
+    @classmethod
+    def get_quartets(cls, dataset: Dataset) -> Counter[Quartet]:
+        quartets: Counter[Quartet] = Counter()
+        for chr in dataset.chrs:
+            state_to_taxa: dict[State, set[Taxon]] = defaultdict(set)
+            for t, ss in chr.features.items():
+                for s in ss:
+                    state_to_taxa[s].add(t)
+            informative_states = [s for s, ts in state_to_taxa.items() if len(ts) > 1]
+            for s1, s2 in combinations(informative_states, 2):
+                t1s, t2s = state_to_taxa[s1], state_to_taxa[s2]
+                # l: the set of taxa with state s1/s2 but not s2/s1
+                quartets.update(
+                    [
+                        Quartet((a, b, c, d))
+                        for a, b in combinations(t1s, 2)
+                        for c, d in combinations(t2s, 2)
+                    ]
+                )
+        return quartets
+
+
 class PCH_O(QuartetGenerationScheme):
     def get_quartets(cls, dataset: Dataset) -> Counter[Quartet]:
         quartets_w = PCH_W.get_quartets(dataset)
