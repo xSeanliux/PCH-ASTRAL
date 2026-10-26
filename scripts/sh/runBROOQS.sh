@@ -1,11 +1,12 @@
 #!/bin/bash
-# BROOQS network inference: PCH-W quartets as gene trees plus the TOB-QMC tree of blobs
-# (<output>/TOB_QMC/trees/<name>.tree, rooted on the outgroup); each polytomy becomes a
+# BROOQS network inference: --quartets as gene trees plus the TOB-QMC tree of blobs
+# (<output>/TOB_QMC/trees/<input stem>.tree, rooted on the outgroup); each polytomy becomes a
 # cycle. Writes <output>/BROOQS/networks/<name>.net (eNewick, rooted on the outgroup).
 RUNID=""
 INPUT=""
 TREEOUTPUT=""
 NAME=""
+QUARTETS=""
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -13,14 +14,16 @@ while [[ "$#" -gt 0 ]]; do
         -i|--input) INPUT="$2"; shift ;;
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
+        -Q|--quartets) QUARTETS="$2"; shift ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name>"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -Q <quartets>"
             echo ""
             echo "Required:"
             echo "  -H, --runid        Run ID"
             echo "  -i, --input        Input characters CSV"
             echo "  -o, --output       Output dir"
             echo "  -n, --name         Run name; names the output files"
+            echo "  -Q, --quartets     Quartet file, one per line per unit of weight"
             exit 0
             ;;
         *)
@@ -32,8 +35,8 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$TREEOUTPUT" ]]; then
-    echo "Error: --runid, --input, --name and --output must be provided."
+if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$QUARTETS" || -z "$TREEOUTPUT" ]]; then
+    echo "Error: --runid, --input, --name, --quartets and --output must be provided."
     echo "Use -h or --help for usage."
     exit 1
 fi
@@ -41,8 +44,9 @@ fi
 PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
 mkdir -p "$PCH_SCRATCH" "$TREEOUTPUT/BROOQS/logs" "$TREEOUTPUT/BROOQS/networks"
 
-SCRATCH_QUARTET_PATH="$PCH_SCRATCH/tmp_quartet_$RUNID.txt"
-TOB="$TREEOUTPUT/TOB_QMC/trees/$NAME.tree"
+# Per dataset: named by the input stem; $NAME may carry a run suffix.
+STEM="${INPUT##*/}"
+TOB="$TREEOUTPUT/TOB_QMC/trees/${STEM%.*}.tree"
 NET="$TREEOUTPUT/BROOQS/networks/$NAME.net"
 rm -f "$NET"  # a failed run must not leave a stale network
 
@@ -52,13 +56,9 @@ echo "✅ outgroup $OUTGROUP"
 
 [[ -f "$TOB" ]] || { echo "Error: no tree of blobs at $TOB (run tob_qmc first)"; exit 1; }
 
-# PCH-W writes each quartet once per unit of weight; BROOQS reads repeats as counts.
-python3 -m scripts.py.printQuartets -i "$INPUT" > "$SCRATCH_QUARTET_PATH" || exit 1
-echo "✅ PCH-W quartet generation, $(wc -l < "$SCRATCH_QUARTET_PATH" | tr -d ' ') quartets"
-
 # --rooted: never reroot (the default may reroot at an arbitrary leaf).
 brooqs \
-    -i "$SCRATCH_QUARTET_PATH" \
+    -i "$QUARTETS" \
     -t "$TOB" \
     -o "$NET" \
     --rooted || exit

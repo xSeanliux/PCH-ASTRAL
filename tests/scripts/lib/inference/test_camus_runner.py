@@ -24,6 +24,9 @@ from scripts.lib.inference.runners.camus import (
     camus_to_family,
 )
 
+# Quartet-based runners read `d.csv` in `execute`.
+pytestmark = pytest.mark.usefixtures("quartet_input")
+
 ASTRAL3 = TreeInferenceMethod.PCH_ASTRAL3
 WASTRAL = TreeInferenceMethod.PCH_WASTRAL
 

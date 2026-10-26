@@ -1,12 +1,13 @@
 #!/bin/bash
-# NetCS network inference: PCH-W quartets and the tob_qmc tree of blobs
-# (<output>/TOB_QMC/trees/<name>.tree) in. Writes <output>/NETCS/networks/<name>.net:
+# NetCS network inference: --quartets and the tob_qmc tree of blobs
+# (<output>/TOB_QMC/trees/<input stem>.tree) in. Writes <output>/NETCS/networks/<name>.net:
 # one eNewick line, rooted wherever NetCS left it; NetcsRunner.execute then reroots it
 # on the outgroup if it can be.
 RUNID=""
 INPUT=""
 TREEOUTPUT=""
 NAME=""
+QUARTETS=""
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -14,14 +15,16 @@ while [[ "$#" -gt 0 ]]; do
         -i|--input) INPUT="$2"; shift ;;
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
+        -Q|--quartets) QUARTETS="$2"; shift ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name>"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -Q <quartets>"
             echo ""
             echo "Required:"
             echo "  -H, --runid        Run ID"
             echo "  -i, --input        Input characters CSV"
             echo "  -o, --output       Output dir"
             echo "  -n, --name         Run name; names the output files"
+            echo "  -Q, --quartets     Quartet file, one per line per unit of weight"
             exit 0
             ;;
         *)
@@ -33,8 +36,8 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$TREEOUTPUT" ]]; then
-    echo "Error: --runid, --input, --name and --output must be provided."
+if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$QUARTETS" || -z "$TREEOUTPUT" ]]; then
+    echo "Error: --runid, --input, --name, --quartets and --output must be provided."
     echo "Use -h or --help for usage."
     exit 1
 fi
@@ -42,8 +45,9 @@ fi
 PCH_SCRATCH="${PCH_SCRATCH:-$HOME/scratch}"
 mkdir -p "$PCH_SCRATCH" "$TREEOUTPUT/NETCS/logs" "$TREEOUTPUT/NETCS/networks"
 
-SCRATCH_QUARTET_PATH="$PCH_SCRATCH/tmp_quartet_$RUNID.txt"
-TOB_PATH="$TREEOUTPUT/TOB_QMC/trees/$NAME.tree"
+# Per dataset: named by the input stem; $NAME may carry a run suffix.
+STEM="${INPUT##*/}"
+TOB_PATH="$TREEOUTPUT/TOB_QMC/trees/${STEM%.*}.tree"
 NET_PATH="$TREEOUTPUT/NETCS/networks/$NAME.net"
 rm -f "$NET_PATH"  # a failed run must not leave a stale network
 
@@ -53,14 +57,10 @@ read -r _ OUTGROUP < <(python3 -m scripts.py.model_graph --input "$INPUT") || ex
 [[ -f "$TOB_PATH" ]] || { echo "Error: no tree of blobs $TOB_PATH (run tob_qmc first)"; exit 1; }
 echo "✅ outgroup $OUTGROUP"
 
-# PCH-W quartets, each once per unit of weight.
-python3 -m scripts.py.printQuartets -i "$INPUT" > "$SCRATCH_QUARTET_PATH" || exit 1
-echo "✅ PCH-W quartet generation, $(wc -l < "$SCRATCH_QUARTET_PATH" | tr -d ' ') quartets"
-
 # Never --root (segfault) or --quartets (aborts on these lines). NetCS keeps the
 # tree of blobs' root when valid, else reroots and still exits 0.
 bin/tree-qmc --network \
-    -i "$SCRATCH_QUARTET_PATH" \
+    -i "$QUARTETS" \
     --at "$TOB_PATH" \
     -o "$NET_PATH" \
     --override || exit

@@ -2,6 +2,51 @@
 
 For agents fixing experiment folders made by older code. One entry per breaking change to an on-disk table or `config_hash`; newest first. Table layouts: `SCHEMAS.md`.
 
+## Network methods have `quartet_generation`
+
+**Affects:** `camus`, `camus_bidirectional`, `snaq`, `brooqs`, `netcs` rows. `method_config_json` gains `"quartet_generation":["PCH_W"]`, so `config_hash` changed and resume reruns them. Output names are unchanged for `PCH_W`, and `network_scores.csv` gains a `quartet_generation_strategy` column. To keep old runs, rewrite their rows (from the repo root):
+
+```python
+import sys
+from pathlib import Path
+
+import polars as pl
+
+from scripts.lib.inference.method_config import METHOD_TO_CONFIG_CLASS, hash_config
+from scripts.lib.model.methods import NetworkInferenceMethod
+
+inf = Path(sys.argv[1])  # experiments/my_run/inference_data
+NETWORK = [m.value for m in NetworkInferenceMethod]
+
+
+def upgrade(method: str, config_json: str) -> tuple[str, str]:
+    """:returns: the new (config_hash, method_config_json); old JSON gets the default."""
+    config = METHOD_TO_CONFIG_CLASS[NetworkInferenceMethod(method)].model_validate_json(config_json)
+    return hash_config(config), config.model_dump_json()
+
+
+p = inf / "inference_registry.csv"
+df = pl.read_csv(p, infer_schema=False)
+old_to_new = {}
+rows = []
+for r in df.iter_rows(named=True):
+    if r["method"] in NETWORK and "quartet_generation" not in r["method_config_json"]:
+        new_hash, r["method_config_json"] = upgrade(r["method"], r["method_config_json"])
+        old_to_new[r["config_hash"]] = new_hash
+        r["config_hash"] = new_hash
+    rows.append(r)
+pl.DataFrame(rows, schema=df.schema).write_csv(p)
+s = inf / "network_scores.csv"
+if s.exists():
+    sc = pl.read_csv(s, infer_schema=False)
+    if "quartet_generation_strategy" not in sc.columns:
+        sc = sc.with_columns(
+            config_hash=pl.col("config_hash").replace(old_to_new),
+            quartet_generation_strategy=pl.lit("PCH_W"),
+        ).select("dataset_id", "method", "guide_tree", "quartet_generation_strategy", pl.exclude("dataset_id", "method", "guide_tree", "quartet_generation_strategy"))
+        sc.write_csv(s)
+```
+
 ## TOB-QMC has `alpha` and `three_fix_one_alter`
 
 **Affects:** `tob_qmc` rows, and the BROOQS/NetCS rows built on them. `method_config_json`

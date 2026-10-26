@@ -11,3 +11,8 @@ class NormalisationStrategy(IntEnum):
     # Values are TREE-QMC --norm_atax args; only 0 and 2 valid for quartet input.
     N0 = 0
     N2 = 2
+
+
+class QuartetGenerationStrategy(StrEnum):
+    PCH_W = "PCH_W"
+    PCH_W_N = "PCH_W_N"

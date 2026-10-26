@@ -21,6 +21,10 @@ from Bio import Phylo
 from rich import print
 
 from scripts.lib.experiment import ExperimentConfig, GuidedNetworkConfig
+from scripts.lib.inference.runners.base import (
+    QuartetBasedConfig,
+    get_split_quartet_generation_strategy,
+)
 from scripts.lib.inference import registry
 from scripts.lib.inference.method_config import METHOD_TO_CONFIG_CLASS
 from scripts.lib.inference.registry import Cell
@@ -72,10 +76,15 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
     for r in runs.iter_rows(named=True):
         # Only guided methods have a guide tree; others score with guide_tree null.
         config_class = METHOD_TO_CONFIG_CLASS[NetworkInferenceMethod(r["method"])]
+        config = config_class.model_validate_json(r["method_config_json"])
         guide = None
-        if issubclass(config_class, GuidedNetworkConfig):
-            config = config_class.model_validate_json(r["method_config_json"])
+        if isinstance(config, GuidedNetworkConfig):
             (guide,) = config.guide_trees
+        quartet_generation = (
+            str(get_split_quartet_generation_strategy(config))
+            if isinstance(config, QuartetBasedConfig)
+            else None
+        )
         if r["group_estimate_path"] is None:
             newick = r["point_estimate_newick"]
             family = pl.DataFrame(
@@ -102,6 +111,7 @@ def read_families(experiment_folder: Path) -> pl.DataFrame:
                 method=pl.lit(r["method"]),
                 config_hash=pl.lit(r["config_hash"]),
                 guide_tree=pl.lit(None if guide is None else str(guide), pl.String),
+                quartet_generation_strategy=pl.lit(quartet_generation, pl.String),
             )
         )
     return pl.concat(families)
@@ -149,7 +159,8 @@ def handle_network_score(config: ExperimentConfig) -> Path:
                 continue
             already.add(key)  # a duplicate sim `path` row fans the join out
             row: dict[str, Cell] = {c: r[c] for c in KEY_COLUMNS} | {
-                "guide_tree": r["guide_tree"]
+                "guide_tree": r["guide_tree"],
+                "quartet_generation_strategy": r["quartet_generation_strategy"],
             }
             label = (
                 f"{r['dataset_id']} {r['guide_tree']} edges_added={r['edges_added']}"

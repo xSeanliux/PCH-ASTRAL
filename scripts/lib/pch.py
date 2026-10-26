@@ -12,6 +12,7 @@ from scripts.lib.types import (
     QuartetGenerationScheme,
     Dataset,
 )
+from scripts.lib.model.strategies import QuartetGenerationStrategy
 
 
 class PCH_W(QuartetGenerationScheme):
@@ -39,6 +40,36 @@ class PCH_W(QuartetGenerationScheme):
         return quartets
 
 
+class PCH_W_N(QuartetGenerationScheme):
+    """
+    This is PCH-W-N. The N stands for Network, and reflects the fact that this method is meant to be an input to Networks.
+    PCH-W-N only differs in one place from PCH-W: ab|cd is still a split if ab and cd share a state. This is done so that we are able to capture
+    phylogenetic _network_ signal, as opposed to attempting to capture purely tree signal as is with PCH-W.
+    """
+
+    @classmethod
+    def get_quartets(cls, dataset: Dataset) -> Counter[Quartet]:
+        quartets: Counter[Quartet] = Counter()
+        for chr in dataset.chrs:
+            state_to_taxa: dict[State, set[Taxon]] = defaultdict(set)
+            for t, ss in chr.features.items():
+                for s in ss:
+                    state_to_taxa[s].add(t)
+            informative_states = [s for s, ts in state_to_taxa.items() if len(ts) > 1]
+            for s1, s2 in combinations(informative_states, 2):
+                t1s, t2s = state_to_taxa[s1], state_to_taxa[s2]
+                # l: the set of taxa with state s1/s2 but not s2/s1
+                quartets.update(
+                    [
+                        Quartet((a, b, c, d))
+                        for a, b in combinations(t1s, 2)
+                        for c, d in combinations(t2s, 2)
+                        if not {a, b} & {c, d}  # a quartet needs four taxa
+                    ]
+                )
+        return quartets
+
+
 class PCH_O(QuartetGenerationScheme):
     def get_quartets(cls, dataset: Dataset) -> Counter[Quartet]:
         quartets_w = PCH_W.get_quartets(dataset)
@@ -56,6 +87,12 @@ class PCH_O(QuartetGenerationScheme):
                 q, n = most_common[0]
                 quartets[q] += n
         return quartets
+
+
+STRATEGY_TO_SCHEME: dict[QuartetGenerationStrategy, type[QuartetGenerationScheme]] = {
+    QuartetGenerationStrategy.PCH_W: PCH_W,
+    QuartetGenerationStrategy.PCH_W_N: PCH_W_N,
+}
 
 
 def print_quartets_for_astral3(quartets: Counter[Quartet], file: TextIO = sys.stdout):

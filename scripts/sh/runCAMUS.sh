@@ -1,5 +1,5 @@
 #!/bin/bash
-# CAMUS network inference: PCH-W quartets plus one rooted guide tree in, one
+# CAMUS network inference: --quartets plus one rooted guide tree in, one
 # network per k out. Writes CAMUS's raw <output>/<DIR>/networks/<name>.csv (also
 # .log, .png); DIR is CAMUS, or CAMUS_BIDIRECTIONAL with -B. CamusRunner.execute
 # converts it to <name>.family.csv.
@@ -8,6 +8,7 @@ RUNID=""
 INPUT=""
 TREEOUTPUT=""
 NAME=""
+QUARTETS=""
 GUIDE=""
 OUTGROUP=""
 BIDIRECTIONAL=""
@@ -18,17 +19,19 @@ while [[ "$#" -gt 0 ]]; do
         -i|--input) INPUT="$2"; shift ;;
         -o|--output) TREEOUTPUT="$2"; shift ;;
         -n|--name) NAME="$2"; shift ;;
+        -Q|--quartets) QUARTETS="$2"; shift ;;
         -g|--guide-tree) GUIDE="$2"; shift ;;
         -O|--outgroup) OUTGROUP="$2"; shift ;;
         -B|--bidirectional) BIDIRECTIONAL="-B" ;;
         -h|--help)
-            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -g <guide> -O <outgroup> [-B]"
+            echo "Usage: $0 -H <runid> -i <input> -o <output> -n <name> -Q <quartets> -g <guide> -O <outgroup> [-B]"
             echo ""
             echo "Required:"
             echo "  -H, --runid        Run ID"
             echo "  -i, --input        Input characters CSV"
             echo "  -o, --output       Output dir"
             echo "  -n, --name         Run name; names the output files"
+            echo "  -Q, --quartets     Quartet file, one per line per unit of weight"
             echo "  -g, --guide-tree   Guide tree, e.g. pch_astral3 or true_tree"
             echo "                     (all: CAMUS_GUIDE_TREES in scripts/lib/model/guide_tree.py)"
             echo "  -O, --outgroup     Outgroup taxon; the guide tree is rooted on it"
@@ -50,8 +53,8 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Check required arguments
-if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$TREEOUTPUT" || -z "$GUIDE" || -z "$OUTGROUP" ]]; then
-    echo "Error: --runid, --input, --name, --output, --guide-tree and --outgroup must be provided."
+if [[ -z "$RUNID" || -z "$INPUT" || -z "$NAME" || -z "$QUARTETS" || -z "$TREEOUTPUT" || -z "$GUIDE" || -z "$OUTGROUP" ]]; then
+    echo "Error: --runid, --input, --name, --quartets, --output, --guide-tree and --outgroup must be provided."
     echo "Use -h or --help for usage."
     exit 1
 fi
@@ -65,12 +68,7 @@ DIR=CAMUS
 mkdir -p "$TREEOUTPUT/$DIR/logs"
 mkdir -p "$TREEOUTPUT/$DIR/networks"
 
-SCRATCH_QUARTET_PATH="$PCH_SCRATCH/tmp_quartet_$RUNID.txt"
 SCRATCH_GUIDE_PATH="$PCH_SCRATCH/tmp_guide_$RUNID.tree"
-
-# PCH-W writes each quartet once per unit of weight; CAMUS counts repeats.
-python3 -m scripts.py.printQuartets -i "$INPUT" > "$SCRATCH_QUARTET_PATH" || exit 1
-echo "✅ PCH-W quartet generation, $(wc -l "$SCRATCH_QUARTET_PATH" | awk '{ print $1 }') quartets"
 
 python3 -m scripts.py.guide_tree --guide "$GUIDE" --input "$INPUT" --output "$TREEOUTPUT" \
     --outgroup "$OUTGROUP" \
@@ -81,5 +79,5 @@ echo "✅ guide tree ($GUIDE), rooted on $OUTGROUP"
 bin/camus -n "${PCH_CAMUS_PROCS:-1}" $BIDIRECTIONAL \
     -o "$TREEOUTPUT/$DIR/networks/$NAME" \
     "$SCRATCH_GUIDE_PATH" \
-    "$SCRATCH_QUARTET_PATH" || exit 1
+    "$QUARTETS" || exit 1
 echo "✅ CAMUS network inference"

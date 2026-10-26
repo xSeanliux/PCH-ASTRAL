@@ -2,7 +2,11 @@ from abc import abstractmethod
 from typing import ClassVar
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from scripts.lib.types import Polymorphism
-from scripts.lib.model.strategies import BipartitionStrategy, NormalisationStrategy
+from scripts.lib.model.strategies import (
+    BipartitionStrategy,
+    NormalisationStrategy,
+    QuartetGenerationStrategy,
+)
 from scripts.lib.model.guide_tree import (
     GuideTree,
     GUIDE_TREES,
@@ -45,6 +49,11 @@ class ExperimentSimulationConfig(BaseModel):
     base_trees_file: Path  # expect one file with each line a newick string.
     base_networks_dir: Path  # expect one folder, underneath each file is a network named `netX-Y.txt`, where X is the number of reticulation edges & Y is the model tree number.
     simulation_params: list[SimulationParamSetting]
+
+
+def quartet_generation_field() -> frozenset[QuartetGenerationStrategy]:
+    """A quartet-based network config's strategies: one run each, default PCH_W."""
+    return Field(frozenset({QuartetGenerationStrategy.PCH_W}), min_length=1)
 
 
 class RunnableConfig(BaseModel):
@@ -107,16 +116,34 @@ class TobQmcConfig(RunnableConfig):
 
 
 class BrooqsConfig(RunnableConfig):
-    # No knobs: BROOQS's defaults plus `--rooted`.
+    # BROOQS's defaults plus `--rooted`.
+    quartet_generation: frozenset[QuartetGenerationStrategy] = (
+        quartet_generation_field()
+    )
+
     def get_runners(self) -> list[Runner[BaseModel]]:
-        """One run."""
-        return [BrooqsRunner(config=self)]
+        """One run per quartet generation strategy, in sorted order."""
+        return [
+            BrooqsRunner(
+                config=self.model_copy(update={"quartet_generation": frozenset({q})})
+            )
+            for q in sorted(self.quartet_generation)
+        ]
 
 
 class NetcsConfig(RunnableConfig):
+    quartet_generation: frozenset[QuartetGenerationStrategy] = (
+        quartet_generation_field()
+    )
+
     def get_runners(self) -> list[Runner[BaseModel]]:
-        """One run."""
-        return [NetcsRunner(config=self)]
+        """One run per quartet generation strategy, in sorted order."""
+        return [
+            NetcsRunner(
+                config=self.model_copy(update={"quartet_generation": frozenset({q})})
+            )
+            for q in sorted(self.quartet_generation)
+        ]
 
 
 class GuidedNetworkConfig(RunnableConfig):
@@ -156,9 +183,22 @@ class GuidedNetworkConfig(RunnableConfig):
 
 class CamusConfig(GuidedNetworkConfig):
     outgroup_label: str  # every guide is rooted on it
+    quartet_generation: frozenset[QuartetGenerationStrategy] = (
+        quartet_generation_field()
+    )
     runner_class: ClassVar[type[Runner[BaseModel]]] = CamusRunner
     supported_guides: ClassVar[frozenset[GuideTree]] = CAMUS_GUIDE_TREES
     guide_requirement: ClassVar[str] = "CAMUS requires a rooted binary guide tree."
+
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run per guide x quartet generation strategy."""
+        return [
+            r
+            for q in sorted(self.quartet_generation)
+            for r in GuidedNetworkConfig.get_runners(
+                self.model_copy(update={"quartet_generation": frozenset({q})})
+            )
+        ]
 
 
 class CamusBidirectionalConfig(CamusConfig):
@@ -173,6 +213,19 @@ class SnaqConfig(GuidedNetworkConfig):
     # Julia workers, one SNaQ run each (10 runs). Excluded from the dump, so it changes
     # neither config_hash nor the recorded config: a resource knob, not a result.
     procs: int = Field(1, ge=1, exclude=True)
+    quartet_generation: frozenset[QuartetGenerationStrategy] = (
+        quartet_generation_field()
+    )
+
+    def get_runners(self) -> list[Runner[BaseModel]]:
+        """One run per guide x quartet generation strategy."""
+        return [
+            r
+            for q in sorted(self.quartet_generation)
+            for r in GuidedNetworkConfig.get_runners(
+                self.model_copy(update={"quartet_generation": frozenset({q})})
+            )
+        ]
 
 
 class MethodConfig(BaseModel):

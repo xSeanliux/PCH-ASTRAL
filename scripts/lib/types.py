@@ -87,6 +87,7 @@ class Dataset:
 
 
 class QuartetGenerationScheme(ABC):
+    @classmethod
     @abstractmethod
     def get_quartets(cls, dataset: Dataset) -> Counter[Quartet]: ...
 

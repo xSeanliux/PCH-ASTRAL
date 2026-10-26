@@ -14,6 +14,9 @@ from scripts.lib.inference.runners.snaq import SnaqRunner
 from scripts.lib.model.guide_tree import SNAQ_GUIDE_TREES, TRUE_TREE, GuideTree
 from scripts.lib.model.methods import RunStatus, TreeInferenceMethod
 
+# Quartet-based runners read `d.csv` in `execute`.
+pytestmark = pytest.mark.usefixtures("quartet_input")
+
 MP = TreeInferenceMethod.MP
 WASTRAL = TreeInferenceMethod.PCH_WASTRAL
 
